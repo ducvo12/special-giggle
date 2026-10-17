@@ -1,5 +1,7 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'node:path'
+import { chat, listModels, safely } from '../backend/model-api'
+import type { Connection, Message } from '../shared/chat'
 
 function createWindow(): void {
   const window = new BrowserWindow({
@@ -32,6 +34,14 @@ void app.whenReady().then(() => {
   if (!app.isPackaged) {
     app.setPath('userData', join(app.getPath('appData'), 'Granite Development'))
   }
+  ipcMain.handle('model:list', (event, connection: Connection) => {
+    if (event.senderFrame !== event.sender.mainFrame) throw new Error('Invalid sender')
+    return safely(() => listModels(connection))
+  })
+  ipcMain.handle('model:chat', (event, connection: Connection, messages: Message[]) => {
+    if (event.senderFrame !== event.sender.mainFrame) throw new Error('Invalid sender')
+    return safely(() => chat(connection, messages))
+  })
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
