@@ -1,7 +1,8 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, safeStorage } from 'electron'
 import { join } from 'node:path'
-import { chat, listModels, safely } from '../backend/model-api'
-import type { Connection, Message } from '../shared/chat'
+import { streamChat, listModels, safely } from '../backend/model-api'
+import { ConnectionStore } from '../backend/connections'
+import type { ConnectionDraft, Message } from '../shared/chat'
 
 function createWindow(): void {
   const window = new BrowserWindow({
@@ -31,16 +32,52 @@ function createWindow(): void {
 
 void app.whenReady().then(() => {
   // Development gets its own storage directory before we add persistent agents.
-  if (!app.isPackaged) {
+  if (!app.isPackaged && !app.commandLine.hasSwitch('user-data-dir')) {
     app.setPath('userData', join(app.getPath('appData'), 'Granite Development'))
   }
-  ipcMain.handle('model:list', (event, connection: Connection) => {
-    if (event.senderFrame !== event.sender.mainFrame) throw new Error('Invalid sender')
-    return safely(() => listModels(connection))
+  const store = new ConnectionStore(app.getPath('userData'), {
+    available: () => safeStorage.isEncryptionAvailable() && (process.platform !== 'linux' || safeStorage.getSelectedStorageBackend() !== 'basic_text'),
+    encrypt: text => safeStorage.encryptString(text),
+    decrypt: data => safeStorage.decryptString(data)
   })
-  ipcMain.handle('model:chat', (event, connection: Connection, messages: Message[]) => {
-    if (event.senderFrame !== event.sender.mainFrame) throw new Error('Invalid sender')
-    return safely(() => chat(connection, messages))
+  const active = new Map<number, { requestId: string; controller: AbortController }>()
+  function trusted(event: Electron.IpcMainInvokeEvent) {
+    if (event.senderFrame !== event.sender.mainFrame || !BrowserWindow.fromWebContents(event.sender)) throw new Error('Invalid sender')
+  }
+  ipcMain.handle('connections:list', event => { trusted(event); return safely(() => store.list()) })
+  ipcMain.handle('connections:save', (event, draft: ConnectionDraft) => { trusted(event); return safely(() => store.save(draft)) })
+  ipcMain.handle('connections:delete', (event, id: string) => { trusted(event); return safely(() => store.delete(id)) })
+  ipcMain.handle('model:list', (event, draft: ConnectionDraft) => {
+    trusted(event)
+    return safely(async () => listModels(await store.resolveDraft(draft)))
+  })
+  ipcMain.handle('model:stream', (event, requestId: string, connectionId: string, messages: Message[]) => {
+    trusted(event)
+    return safely(async () => {
+      if (typeof requestId !== 'string' || requestId.length > 100 || active.has(event.sender.id)) throw new Error('A reply is already running or the request is invalid.')
+      const controller = new AbortController()
+      active.set(event.sender.id, { requestId, controller })
+      const destroyed = () => controller.abort()
+      event.sender.once('destroyed', destroyed)
+      try {
+        const connection = await store.resolve(connectionId)
+        await streamChat(connection, messages, controller.signal, text => {
+          if (!event.sender.isDestroyed()) event.sender.send('model:delta', { requestId, text })
+        })
+        return { stopped: controller.signal.aborted }
+      } catch (error) {
+        if (controller.signal.aborted) return { stopped: true }
+        throw error
+      } finally {
+        event.sender.removeListener('destroyed', destroyed)
+        active.delete(event.sender.id)
+      }
+    })
+  })
+  ipcMain.handle('model:stop', (event, requestId: string) => {
+    trusted(event)
+    const run = active.get(event.sender.id)
+    if (run?.requestId === requestId) run.controller.abort()
   })
   createWindow()
   app.on('activate', () => {

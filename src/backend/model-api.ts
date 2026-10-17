@@ -1,6 +1,6 @@
 import type { Connection, Message, Result } from '../shared/chat'
 
-function validate(connection: Connection): URL {
+export function validateConnection(connection: Connection): URL {
   if (!connection || typeof connection.baseUrl !== 'string' || typeof connection.apiKey !== 'string' || typeof connection.model !== 'string') {
     throw new Error('Invalid connection settings.')
   }
@@ -12,8 +12,8 @@ function validate(connection: Connection): URL {
   return url
 }
 
-async function request(connection: Connection, path: string, body?: unknown): Promise<any> {
-  const base = validate(connection)
+async function responseFor(connection: Connection, path: string, body?: unknown, signal?: AbortSignal): Promise<Response> {
+  const base = validateConnection(connection)
   const response = await fetch(new URL(path, base), {
     method: body ? 'POST' : 'GET',
     redirect: 'error',
@@ -22,12 +22,17 @@ async function request(connection: Connection, path: string, body?: unknown): Pr
       ...(connection.apiKey.trim() ? { Authorization: `Bearer ${connection.apiKey.trim()}` } : {})
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
-    signal: AbortSignal.timeout(120_000)
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(600_000)]) : AbortSignal.timeout(30_000)
   })
   if (!response.ok) {
     // Don't echo provider responses: they may contain credentials or request content.
     throw new Error(`Server returned HTTP ${response.status}. Check the API URL, key, and model access.`)
   }
+  return response
+}
+
+async function request(connection: Connection, path: string, body?: unknown): Promise<any> {
+  const response = await responseFor(connection, path, body)
   try { return await response.json() } catch { throw new Error('The server did not return JSON. Check that the URL ends at the API prefix, usually /v1.') }
 }
 
@@ -35,7 +40,7 @@ export async function safely<T>(action: () => Promise<T>): Promise<Result<T>> {
   try { return { ok: true, value: await action() } } catch (error) {
     let message = error instanceof Error ? error.message : 'Connection failed.'
     if (message === 'fetch failed') message = 'Could not reach the server. Check its address, network access, and whether the model server is running.'
-    if (error instanceof Error && error.name === 'TimeoutError') message = 'The server took longer than two minutes to respond.'
+    if (error instanceof Error && error.name === 'TimeoutError') message = 'The server timed out. Check that the model is loaded and try again.'
     return { ok: false, error: message }
   }
 }
@@ -47,7 +52,7 @@ export async function listModels(connection: Connection): Promise<string[]> {
 }
 
 export async function chat(connection: Connection, messages: Message[]): Promise<string> {
-  validate(connection)
+  validateConnection(connection)
   if (!connection.model.trim()) throw new Error('Choose or enter a model ID first.')
   if (!Array.isArray(messages) || messages.length === 0 || messages.length > 200 || messages.some(message =>
     !message || !['user', 'assistant'].includes(message.role) || typeof message.content !== 'string' || message.content.length > 100_000
@@ -56,4 +61,76 @@ export async function chat(connection: Connection, messages: Message[]): Promise
   const content = data.choices?.[0]?.message?.content
   if (typeof content !== 'string' || !content.trim()) throw new Error('The model returned no text. Check that it supports Chat Completions.')
   return content
+}
+
+
+export async function streamChat(connection: Connection, messages: Message[], signal: AbortSignal, onText: (text: string) => void): Promise<void> {
+  validateConnection(connection)
+  if (!connection.model.trim()) throw new Error('Choose a model first.')
+  if (!Array.isArray(messages) || !messages.length || messages.length > 200 || messages.some(message => !message || !['user', 'assistant'].includes(message.role) || typeof message.content !== 'string' || message.content.length > 100_000)) {
+    throw new Error('Invalid or oversized conversation. Start a new chat.')
+  }
+  const response = await responseFor(connection, 'chat/completions', {
+    model: connection.model.trim(),
+    messages: messages.map(({ role, content }) => ({ role, content })),
+    stream: true
+  }, signal)
+  if (!response.body) throw new Error('The server returned no response stream.')
+  if (!response.headers.get('content-type')?.includes('text/event-stream')) {
+    await response.body.cancel()
+    throw new Error('This endpoint did not return a streaming response. Use a server that supports streaming Chat Completions.')
+  }
+  await readEventStream(response.body, onText)
+}
+
+export async function readEventStream(body: ReadableStream<Uint8Array>, onText: (text: string) => void): Promise<void> {
+  const reader = body.getReader()
+  const decoder = new TextDecoder()
+  let pending = ''
+  let data: string[] = []
+  let finished = false
+  let hasText = false
+  function dispatch() {
+    if (!data.length) return
+    const value = data.join('\n')
+    data = []
+    if (value.trim() === '[DONE]') { finished = true; return }
+    let event: any
+    try { event = JSON.parse(value) } catch { throw new Error('The server sent an invalid streaming event.') }
+    if (event.error) throw new Error('The model server reported an error while generating the reply.')
+    const choice = event.choices?.[0]
+    if (typeof choice?.delta?.content === 'string' && choice.delta.content) {
+      hasText = true
+      onText(choice.delta.content)
+    }
+    if (choice?.finish_reason != null) finished = true
+  }
+  function line(value: string) {
+    if (value === '') dispatch()
+    else if (value.startsWith('data:')) data.push(value.slice(5).replace(/^ /, ''))
+  }
+  try {
+    while (!finished) {
+      const { value, done } = await reader.read()
+      pending += done ? decoder.decode() : decoder.decode(value, { stream: true })
+      let match: RegExpExecArray | null
+      while ((match = /\r\n|\n|\r(?!$)/.exec(pending))) {
+        const current = pending.slice(0, match.index)
+        pending = pending.slice(match.index + match[0].length)
+        line(current)
+        if (finished) break
+      }
+      if (pending.length > 1_000_000) throw new Error('The server sent an oversized streaming event.')
+      if (done) {
+        if (pending) line(pending.replace(/\r$/, ''))
+        dispatch()
+        if (!finished) throw new Error('The connection ended before the reply finished. The partial reply has been kept.')
+        break
+      }
+    }
+    if (!hasText) throw new Error('The model returned no text.')
+  } finally {
+    await reader.cancel().catch(() => {})
+    reader.releaseLock()
+  }
 }
