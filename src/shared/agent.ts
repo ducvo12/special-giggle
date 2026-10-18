@@ -15,6 +15,7 @@ export interface AgentMessage extends Message {
   error?: string
   notice?: string
 }
-export interface Conversation { id: string; title: string; updatedAt: number }
+export interface Agent { id: string; name: string }
+export interface Conversation { id: string; agentId: string; title: string; updatedAt: number }
 export interface ConversationDetail extends Conversation { messages: AgentMessage[] }
 export interface WorkspaceEntry { path: string; directory: boolean }

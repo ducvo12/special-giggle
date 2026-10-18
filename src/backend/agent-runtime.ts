@@ -3,40 +3,49 @@ import { ChatOpenAI } from '@langchain/openai'
 import { AIMessage, HumanMessage } from '@langchain/core/messages'
 import { createDeepAgent, registerHarnessProfile } from 'deepagents'
 import { todoListMiddleware } from 'langchain'
-import { AtlasStore } from './atlas-store.ts'
-import { createWorkspace, workspaceEntries, workspaceText, type AtlasFilesystem } from './atlas-workspace.ts'
+import { AgentStore } from './agent-store.ts'
+import { workspaceEntries, workspaceText } from './agent-workspace.ts'
+import { AgentRegistry } from './agent-registry.ts'
 import type { Connection, StreamDelta } from '../shared/chat.ts'
 
 registerHarnessProfile('openai', { excludedTools: ['task', 'execute', 'delete_file'], generalPurposeSubagent: { enabled: false } })
 
-const instructions = `You are Atlas, a personal agent with a persistent workspace. Be concise.
+const instructions = `You are a personal agent with a persistent workspace. Your name and personality come from the agent profile and identity below. Follow the identity’s communication style.
 Your only filesystem is the workspace root /. Use /notes/ for notes and /projects/ for projects.
 Use /memory.md to remember explicit user preferences across conversations. Read existing content before editing it. Update it when the user asks you to remember something. Do not store secrets or speculative facts.
-Your identity and user memory are loaded below. Identity is read-only. Notes and other files can be written with the file tools.
+Your identity and user memory are loaded below. Identity and /agent.json are read-only to the agent; the user can edit identity in the application. Notes and other files can be written with the file tools.
 For a simple question or a quote, answer directly. Do not make a plan or use a tool unless needed.
 For requested file changes, actually call the tools and report their outcome. Do not invent tool results.
 There is no terminal or delegation in this version. A stopped run may leave completed file changes in place.`
 
-class AtlasRunError extends Error { }
+class AgentRunError extends Error { }
 
-export class AtlasRuntime {
-  store: AtlasStore
-  workspace: AtlasFilesystem
+export class AgentRuntime {
+  store: AgentStore
+  registry: AgentRegistry
   active: { id: string; controller: AbortController } | null = null
-  private constructor(store: AtlasStore, workspace: AtlasFilesystem) { this.store = store; this.workspace = workspace }
+  private editingIdentity = false
+  private constructor(store: AgentStore, registry: AgentRegistry) { this.store = store; this.registry = registry }
   static async open(directory: string) {
-    const workspace = await createWorkspace(directory)
-    return new AtlasRuntime(new AtlasStore(join(directory, 'atlas.sqlite')), workspace)
+    const registry = await AgentRegistry.open(directory)
+    // Retain the original database filename, including existing WAL/checkpoints.
+    return new AgentRuntime(new AgentStore(join(directory, 'atlas.sqlite')), registry)
   }
-  entries(path: string) { return workspaceEntries(this.workspace, path) }
-  read(path: string) { return workspaceText(this.workspace, path) }
+  async entries(agentId: string, path: string) { return workspaceEntries(await this.registry.workspace(agentId), path) }
+  async read(agentId: string, path: string) { return workspaceText(await this.registry.workspace(agentId), path) }
+  async saveIdentity(agentId: string, identity: string, expected: string) {
+    if (this.active || this.editingIdentity) throw new Error('Finish the current operation before editing an identity.')
+    this.editingIdentity = true
+    try { return await this.registry.saveIdentity(agentId, identity, expected) }
+    finally { this.editingIdentity = false }
+  }
   stop(id: string) { if (this.active?.id === id) this.active.controller.abort() }
-  async run(requestId: string, conversationId: string, connection: Connection, text: string, emit: (delta: StreamDelta) => void) {
-    if (this.active) throw new Error('Atlas is already working. Stop the current reply first.')
+  async run(requestId: string, agentId: string, conversationId: string, connection: Connection, text: string, emit: (delta: StreamDelta) => void) {
+    if (this.active || this.editingIdentity) throw new Error('An agent is already working or its identity is being saved. Finish the current operation first.')
     if (typeof text !== 'string' || !text.trim() || text.length > 32_000 || typeof requestId !== 'string' || requestId.length > 100) throw new Error('Invalid or oversized message.')
     const controller = new AbortController()
     this.active = { id: requestId, controller }
-    let turn: ReturnType<AtlasStore['begin']> | undefined
+    let turn: ReturnType<AgentStore['begin']> | undefined
     let lastSave = 0
     const activity = { reasoningCharacters: 0, answerCharacters: 0 }
     let budgetExceeded = false
@@ -69,8 +78,10 @@ export class AtlasRuntime {
       })), { status: response.status, headers: response.headers })
     }
     try {
-      const [identity, memory] = await Promise.all([this.read('/identity.md'), this.read('/memory.md')])
-      turn = this.store.begin(conversationId, text.trim(), connection.model)
+      const profile = await this.registry.get(agentId)
+      const workspace = await this.registry.workspace(agentId)
+      const [identity, memory] = await Promise.all([workspaceText(workspace, '/identity.md'), workspaceText(workspace, '/memory.md')])
+      turn = this.store.begin(agentId, conversationId, text.trim(), connection.model)
       const persist = () => { if (turn) this.store.saveMessage(conversationId, turn.message) }
       const model = new ChatOpenAI({
         model: connection.model, apiKey: connection.apiKey || 'local-no-key',
@@ -79,10 +90,10 @@ export class AtlasRuntime {
         maxTokens: 4096
       })
       const agent = createDeepAgent({
-        name: 'Atlas', model, backend: this.workspace, checkpointer: this.store.saver,
+        name: profile.id, model, backend: workspace, checkpointer: this.store.saver,
         middleware: [todoListMiddleware()],
-        systemPrompt: `${instructions}\n\n<identity>\n${identity}\n</identity>\n<user_memory>\n${memory}\n</user_memory>`,
-        permissions: [{ operations: ['write'], paths: ['/identity.md'], mode: 'deny' }]
+        systemPrompt: `${instructions}\n\n<agent_profile>\n${JSON.stringify(profile)}\n</agent_profile>\n<identity>\n${identity}\n</identity>\n<user_memory>\n${memory}\n</user_memory>`,
+        permissions: [{ operations: ['write'], paths: ['/identity.md', '/agent.json'], mode: 'deny' }]
       })
       const history = turn.recovered ? turn.history.filter(m => m.content).map(m => m.role === 'user' ? new HumanMessage(m.content) : new AIMessage(m.content)) : []
       if (turn.recovered) history.push(new HumanMessage('The previous run was interrupted. Completed file changes remain. Inspect the current files before continuing unfinished work; do not assume unfinished actions succeeded.'))
@@ -113,7 +124,7 @@ export class AtlasRuntime {
         }
         if (Date.now() - lastSave > 150) { persist(); lastSave = Date.now() }
       }
-      if (!controller.signal.aborted && budgetExceeded) throw new AtlasRunError('The model reached its output limit. Try a shorter request or another model.')
+      if (!controller.signal.aborted && budgetExceeded) throw new AgentRunError('The model reached its output limit. Try a shorter request or another model.')
       if (!controller.signal.aborted && !turn.message.content.trim()) {
         const tools = turn.message.tools ?? []
         if (tools.length && tools.every(tool => tool.status === 'complete')) {
@@ -121,19 +132,19 @@ export class AtlasRuntime {
           // Preserve verified outcomes without inventing an assistant reply or
           // retrying side effects merely to obtain a verbal confirmation.
           turn.message.notice = 'The model ended without a final message. Completed tool results are shown above.'
-        } else throw new AtlasRunError(tools.length ? 'The model ended after a tool error. Review tool activity; completed changes are kept.' : 'The model returned no answer. Try another model or a shorter request.')
+        } else throw new AgentRunError(tools.length ? 'The model ended after a tool error. Review tool activity; completed changes are kept.' : 'The model returned no answer. Try another model or a shorter request.')
       }
       this.store.finish(conversationId, turn.message, controller.signal.aborted ? 'stopped' : 'complete')
       return { stopped: controller.signal.aborted }
     } catch (error) {
       // Provider errors can echo request bodies or credentials. Keep them out of
       // renderer events and persistent conversations.
-      const safe = error instanceof AtlasRunError ? error.message : 'Atlas could not finish this reply. Check the connection and model, then try again.'
+      const safe = error instanceof AgentRunError ? error.message : 'The agent could not finish this reply. Check the connection and model, then try again.'
       if (turn) { if (!controller.signal.aborted) turn.message.error = safe; this.store.finish(conversationId, turn.message, controller.signal.aborted ? 'stopped' : 'error') }
       if (controller.signal.aborted) return { stopped: true }
       throw new Error(safe)
     } finally { this.active = null }
   }
-  close() { if (this.active) throw new Error('Stop Atlas before closing the runtime.'); this.store.close() }
+  close() { if (this.active) throw new Error('Stop the agent before closing the runtime.'); this.store.close() }
 }
 function preview(value: unknown): string { return (typeof value === 'string' ? value : JSON.stringify(value) ?? '').slice(0, 4000) }

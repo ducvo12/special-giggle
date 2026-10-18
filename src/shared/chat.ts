@@ -26,6 +26,11 @@ export interface StreamActivity { reasoningCharacters: number; answerCharacters:
 export interface StreamDelta { requestId: string; text: string; activity?: StreamActivity; tool?: ToolActivity }
 export interface GraniteBridge {
   platform: string
+  agents: {
+    list: () => Promise<Result<Agent[]>>
+    create: (name: string) => Promise<Result<Agent>>
+    saveIdentity: (agentId: string, identity: string, expected: string) => Promise<Result<string>>
+  }
   connections: {
     list: () => Promise<Result<SavedConnection[]>>
     save: (draft: ConnectionDraft) => Promise<Result<SavedConnection>>
@@ -33,16 +38,16 @@ export interface GraniteBridge {
   }
   models: (draft: ConnectionDraft) => Promise<Result<string[]>>
   conversations: {
-    list: () => Promise<Result<Conversation[]>>
-    create: () => Promise<Result<ConversationDetail>>
-    get: (id: string) => Promise<Result<ConversationDetail>>
+    list: (agentId: string) => Promise<Result<Conversation[]>>
+    create: (agentId: string) => Promise<Result<ConversationDetail>>
+    get: (agentId: string, id: string) => Promise<Result<ConversationDetail>>
   }
   workspace: {
-    entries: (path: string) => Promise<Result<WorkspaceEntry[]>>
-    read: (path: string) => Promise<Result<string>>
+    entries: (agentId: string, path: string) => Promise<Result<WorkspaceEntry[]>>
+    read: (agentId: string, path: string) => Promise<Result<string>>
   }
-  stream: (requestId: string, conversationId: string, connectionId: string, text: string) => Promise<Result<{ stopped: boolean }>>
+  stream: (requestId: string, agentId: string, conversationId: string, connectionId: string, text: string) => Promise<Result<{ stopped: boolean }>>
   stop: (requestId: string) => Promise<void>
   onDelta: (callback: (delta: StreamDelta) => void) => () => void
 }
-import type { Conversation, ConversationDetail, ToolActivity, WorkspaceEntry } from './agent'
+import type { Agent, Conversation, ConversationDetail, ToolActivity, WorkspaceEntry } from './agent'

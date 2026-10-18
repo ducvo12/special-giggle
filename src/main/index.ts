@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, safeStorage } from 'electron'
 import { join } from 'node:path'
 import { listModels, safely } from '../backend/model-api'
 import { ConnectionStore } from '../backend/connections'
-import { AtlasClient } from './atlas-client'
+import { AgentClient } from './agent-client'
 import type { ConnectionDraft } from '../shared/chat'
 
 function createWindow(): void {
@@ -42,7 +42,7 @@ void app.whenReady().then(() => {
     decrypt: data => safeStorage.decryptString(data)
   })
   const active = new Map<number, { id: string; stopped: boolean }>()
-  const atlas = new AtlasClient(app.getPath('userData'), delta => {
+  const agents = new AgentClient(app.getPath('userData'), delta => {
     for (const [senderId, request] of active) {
       if (delta.requestId !== request.id) continue
       const window = BrowserWindow.getAllWindows().find(window => window.webContents.id === senderId)
@@ -59,25 +59,35 @@ void app.whenReady().then(() => {
     trusted(event)
     return safely(async () => listModels(await store.resolveDraft(draft)))
   })
-  for (const action of ['list', 'create', 'get', 'entries', 'read']) {
-    ipcMain.handle(`atlas:${action}`, (event, arg?: string) => {
+  const routes: Record<string, { action: string; limits: number[] }> = {
+    'agents:list': { action: 'agents:list', limits: [] },
+    'agents:create': { action: 'agents:create', limits: [80] },
+    'agents:saveIdentity': { action: 'agents:saveIdentity', limits: [64, 32_000, 100_000] },
+    'conversations:list': { action: 'list', limits: [64] },
+    'conversations:create': { action: 'create', limits: [64] },
+    'conversations:get': { action: 'get', limits: [64, 100] },
+    'workspace:entries': { action: 'entries', limits: [64, 1024] },
+    'workspace:read': { action: 'read', limits: [64, 1024] }
+  }
+  for (const [channel, { action, limits }] of Object.entries(routes)) {
+    ipcMain.handle(channel, (event, ...args: unknown[]) => {
       trusted(event)
-      if (['get', 'entries', 'read'].includes(action) && (typeof arg !== 'string' || arg.length > 1024)) return { ok: false, error: 'Invalid request.' }
-      return atlas.call(action, ...(arg === undefined ? [] : [arg]))
+      if (args.length !== limits.length || args.some((arg, i) => typeof arg !== 'string' || arg.length > limits[i])) return { ok: false, error: 'Invalid request.' }
+      return agents.call(action, ...args)
     })
   }
-  ipcMain.handle('model:stream', (event, requestId: string, conversationId: string, connectionId: string, text: string) => {
+  ipcMain.handle('model:stream', (event, requestId: string, agentId: string, conversationId: string, connectionId: string, text: string) => {
     trusted(event)
     return (async () => {
-      if (typeof requestId !== 'string' || !requestId || requestId.length > 100 || active.size || typeof conversationId !== 'string') return { ok: false, error: 'Atlas is already working or the request is invalid.' }
+      if (typeof requestId !== 'string' || !requestId || requestId.length > 100 || active.size || typeof conversationId !== 'string' || typeof agentId !== 'string' || agentId.length > 64) return { ok: false, error: 'An agent is already working or the request is invalid.' }
       const request = { id: requestId, stopped: false }
       active.set(event.sender.id, request)
-      const destroyed = () => { request.stopped = true; void atlas.call('stop', requestId) }
+      const destroyed = () => { request.stopped = true; void agents.call('stop', requestId) }
       event.sender.once('destroyed', destroyed)
       try {
         const connection = await store.resolve(connectionId)
         if (request.stopped) return { ok: true, value: { stopped: true } }
-        return await atlas.call('run', requestId, conversationId, connection, text)
+        return await agents.call('run', requestId, agentId, conversationId, connection, text)
       } catch { return { ok: false, error: 'Could not load the selected connection.' } }
       finally { event.sender.removeListener('destroyed', destroyed); active.delete(event.sender.id) }
     })()
@@ -85,7 +95,7 @@ void app.whenReady().then(() => {
   ipcMain.handle('model:stop', async (event, requestId: string) => {
     trusted(event)
     const request = active.get(event.sender.id)
-    if (request?.id === requestId) { request.stopped = true; await atlas.call('stop', requestId) }
+    if (request?.id === requestId) { request.stopped = true; await agents.call('stop', requestId) }
   })
   createWindow()
   app.on('activate', () => {

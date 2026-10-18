@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import type { Result, StreamDelta } from '../shared/chat'
 
-export class AtlasClient {
+export class AgentClient {
   private child: UtilityProcess | null = null
   private boot: Promise<unknown> | null = null
   private directory: string
@@ -12,7 +12,7 @@ export class AtlasClient {
   constructor(directory: string, onDelta: (delta: StreamDelta) => void) { this.directory = directory; this.onDelta = onDelta }
   private async ready() {
     if (!this.child) {
-      const child = utilityProcess.fork(join(__dirname, 'agent-worker.js'), [], { serviceName: 'Granite Atlas' })
+      const child = utilityProcess.fork(join(__dirname, 'agent-worker.js'), [], { serviceName: 'Granite Agents' })
       this.child = child
       child.on('message', data => {
         if (data.delta) { this.onDelta(data.delta); return }
@@ -22,7 +22,7 @@ export class AtlasClient {
       child.on('exit', () => {
         if (this.child !== child) return
         this.child = null; this.boot = null
-        for (const resolve of this.pending.values()) resolve({ ok: false, error: 'Atlas stopped unexpectedly. Your saved conversation will recover on the next request.' })
+        for (const resolve of this.pending.values()) resolve({ ok: false, error: 'The agent worker stopped unexpectedly. Your saved conversation will recover on the next request.' })
         this.pending.clear()
       })
       this.boot = this.send('init', [this.directory]).then(result => { if (!result.ok) throw new Error(result.error) })
@@ -34,6 +34,6 @@ export class AtlasClient {
   }
   async call(action: string, ...args: unknown[]): Promise<Result<unknown>> {
     try { await this.ready(); return await this.send(action, args) }
-    catch { this.child?.kill(); return { ok: false, error: 'Atlas could not open its local workspace.' } }
+    catch { this.child?.kill(); return { ok: false, error: 'Could not open the local agent workspace.' } }
   }
 }

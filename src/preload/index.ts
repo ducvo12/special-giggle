@@ -3,6 +3,11 @@ import type { GraniteBridge, StreamDelta } from '../shared/chat'
 
 contextBridge.exposeInMainWorld('granite', {
   platform: process.platform,
+  agents: {
+    list: () => ipcRenderer.invoke('agents:list'),
+    create: name => ipcRenderer.invoke('agents:create', name),
+    saveIdentity: (id, identity, expected) => ipcRenderer.invoke('agents:saveIdentity', id, identity, expected)
+  },
   connections: {
     list: () => ipcRenderer.invoke('connections:list'),
     save: (draft) => ipcRenderer.invoke('connections:save', draft),
@@ -10,15 +15,15 @@ contextBridge.exposeInMainWorld('granite', {
   },
   models: (draft) => ipcRenderer.invoke('model:list', draft),
   conversations: {
-    list: () => ipcRenderer.invoke('atlas:list'),
-    create: () => ipcRenderer.invoke('atlas:create'),
-    get: id => ipcRenderer.invoke('atlas:get', id)
+    list: agentId => ipcRenderer.invoke('conversations:list', agentId),
+    create: agentId => ipcRenderer.invoke('conversations:create', agentId),
+    get: (agentId, id) => ipcRenderer.invoke('conversations:get', agentId, id)
   },
   workspace: {
-    entries: path => ipcRenderer.invoke('atlas:entries', path),
-    read: path => ipcRenderer.invoke('atlas:read', path)
+    entries: (agentId, path) => ipcRenderer.invoke('workspace:entries', agentId, path),
+    read: (agentId, path) => ipcRenderer.invoke('workspace:read', agentId, path)
   },
-  stream: (requestId, conversationId, connectionId, text) => ipcRenderer.invoke('model:stream', requestId, conversationId, connectionId, text),
+  stream: (requestId, agentId, conversationId, connectionId, text) => ipcRenderer.invoke('model:stream', requestId, agentId, conversationId, connectionId, text),
   stop: (requestId) => ipcRenderer.invoke('model:stop', requestId),
   onDelta: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, delta: StreamDelta) => callback(delta)
