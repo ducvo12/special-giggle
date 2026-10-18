@@ -9,7 +9,16 @@ contextBridge.exposeInMainWorld('granite', {
     delete: (id) => ipcRenderer.invoke('connections:delete', id)
   },
   models: (draft) => ipcRenderer.invoke('model:list', draft),
-  stream: (requestId, connectionId, messages) => ipcRenderer.invoke('model:stream', requestId, connectionId, messages),
+  conversations: {
+    list: () => ipcRenderer.invoke('atlas:list'),
+    create: () => ipcRenderer.invoke('atlas:create'),
+    get: id => ipcRenderer.invoke('atlas:get', id)
+  },
+  workspace: {
+    entries: path => ipcRenderer.invoke('atlas:entries', path),
+    read: path => ipcRenderer.invoke('atlas:read', path)
+  },
+  stream: (requestId, conversationId, connectionId, text) => ipcRenderer.invoke('model:stream', requestId, conversationId, connectionId, text),
   stop: (requestId) => ipcRenderer.invoke('model:stop', requestId),
   onDelta: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, delta: StreamDelta) => callback(delta)

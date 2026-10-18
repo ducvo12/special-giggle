@@ -96,3 +96,19 @@ small, .field-hint { color: #8b9981; font-size: 11px; line-height: 1.7; }
 @keyframes pulse { 50% { opacity: .35; } }
 @media (max-width: 900px) { .sidebar { width: 170px; padding-left: 12px; padding-right: 12px; } .settings-content { padding: 28px; } .header-title { gap: 10px; } .header-title select { max-width: 230px; } .connection-card { flex-wrap: wrap; } .connection-actions { margin-left: auto; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+.conversation-list { overflow-y: auto; margin: 20px 0; display: flex; flex-direction: column; gap: 5px; }
+.conversation-list button { text-align: left; overflow: hidden; text-overflow: ellipsis; background: transparent; border-color: transparent; color: #8f9c88; padding: 10px; }
+.conversation-list button.selected, .workspace-browser button.selected { background: #242d24; color: #d6e4ce; }
+.tool-activity { border: 1px solid #35402f; border-radius: 8px; margin: 10px 0 16px; white-space: normal !important; overflow: hidden; }
+.tool-activity details + details { border-top: 1px solid #35402f; }
+.tool-activity summary { cursor: pointer; padding: 8px 12px; display: flex; align-items: center; gap: 9px; font-size: 11px; }
+.tool-activity summary > span:last-child { margin-left: auto; color: #8f9c88; }
+.tool-state { width: 6px; height: 6px; border-radius: 50%; background: #a8c091; }
+.tool-state.running { animation: pulse 1s infinite; }.tool-state.error,.tool-state.interrupted { background: #d19c7d; }
+.tool-activity pre { font-size: 11px; line-height: 1.6; max-height: 220px; overflow: auto; margin: 0; padding: 12px; background: #111612; white-space: pre-wrap; }
+.workspace-intro { padding: 12px 28px; color: #9cae90; font-size: 12px; line-height: 1.7; }
+.workspace-browser { display: flex; flex: 1; min-height: 0; border-top: 1px solid #30382d; }
+.workspace-browser nav { width: 210px; flex-shrink: 0; padding: 15px; border-right: 1px solid #30382d; overflow: auto; }
+.workspace-browser nav button { display: block; width: 100%; background: transparent; border: 0; color: #bdcbb3; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.workspace-path { font-size: 11px; color: #89967f; margin: 5px 10px 15px; overflow-wrap: anywhere; }
+.file-preview { padding: 24px; min-width: 0; flex: 1; overflow: auto; }.file-preview h2 { color: #abc597; font-size: 13px; }.file-preview pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.9; color: #bdc7b7; }

@@ -1,8 +1,9 @@
 import { app, BrowserWindow, ipcMain, safeStorage } from 'electron'
 import { join } from 'node:path'
-import { streamChat, listModels, safely } from '../backend/model-api'
+import { listModels, safely } from '../backend/model-api'
 import { ConnectionStore } from '../backend/connections'
-import type { ConnectionDraft, Message } from '../shared/chat'
+import { AtlasClient } from './atlas-client'
+import type { ConnectionDraft } from '../shared/chat'
 
 function createWindow(): void {
   const window = new BrowserWindow({
@@ -31,7 +32,7 @@ function createWindow(): void {
 }
 
 void app.whenReady().then(() => {
-  // Development gets its own storage directory before we add persistent agents.
+  // Keep development conversations and workspaces separate from packaged builds.
   if (!app.isPackaged && !app.commandLine.hasSwitch('user-data-dir')) {
     app.setPath('userData', join(app.getPath('appData'), 'Granite Development'))
   }
@@ -40,7 +41,14 @@ void app.whenReady().then(() => {
     encrypt: text => safeStorage.encryptString(text),
     decrypt: data => safeStorage.decryptString(data)
   })
-  const active = new Map<number, { requestId: string; controller: AbortController }>()
+  const active = new Map<number, { id: string; stopped: boolean }>()
+  const atlas = new AtlasClient(app.getPath('userData'), delta => {
+    for (const [senderId, request] of active) {
+      if (delta.requestId !== request.id) continue
+      const window = BrowserWindow.getAllWindows().find(window => window.webContents.id === senderId)
+      window?.webContents.send('model:delta', delta)
+    }
+  })
   function trusted(event: Electron.IpcMainInvokeEvent) {
     if (event.senderFrame !== event.sender.mainFrame || !BrowserWindow.fromWebContents(event.sender)) throw new Error('Invalid sender')
   }
@@ -51,35 +59,33 @@ void app.whenReady().then(() => {
     trusted(event)
     return safely(async () => listModels(await store.resolveDraft(draft)))
   })
-  ipcMain.handle('model:stream', (event, requestId: string, connectionId: string, messages: Message[]) => {
+  for (const action of ['list', 'create', 'get', 'entries', 'read']) {
+    ipcMain.handle(`atlas:${action}`, (event, arg?: string) => {
+      trusted(event)
+      if (['get', 'entries', 'read'].includes(action) && (typeof arg !== 'string' || arg.length > 1024)) return { ok: false, error: 'Invalid request.' }
+      return atlas.call(action, ...(arg === undefined ? [] : [arg]))
+    })
+  }
+  ipcMain.handle('model:stream', (event, requestId: string, conversationId: string, connectionId: string, text: string) => {
     trusted(event)
-    return safely(async () => {
-      if (typeof requestId !== 'string' || requestId.length > 100 || active.has(event.sender.id)) throw new Error('A reply is already running or the request is invalid.')
-      const controller = new AbortController()
-      active.set(event.sender.id, { requestId, controller })
-      const destroyed = () => controller.abort()
+    return (async () => {
+      if (typeof requestId !== 'string' || !requestId || requestId.length > 100 || active.size || typeof conversationId !== 'string') return { ok: false, error: 'Atlas is already working or the request is invalid.' }
+      const request = { id: requestId, stopped: false }
+      active.set(event.sender.id, request)
+      const destroyed = () => { request.stopped = true; void atlas.call('stop', requestId) }
       event.sender.once('destroyed', destroyed)
       try {
         const connection = await store.resolve(connectionId)
-        await streamChat(connection, messages, controller.signal, text => {
-          if (!event.sender.isDestroyed()) event.sender.send('model:delta', { requestId, text })
-        }, activity => {
-          if (!event.sender.isDestroyed()) event.sender.send('model:delta', { requestId, text: '', activity })
-        })
-        return { stopped: controller.signal.aborted }
-      } catch (error) {
-        if (controller.signal.aborted) return { stopped: true }
-        throw error
-      } finally {
-        event.sender.removeListener('destroyed', destroyed)
-        active.delete(event.sender.id)
-      }
-    })
+        if (request.stopped) return { ok: true, value: { stopped: true } }
+        return await atlas.call('run', requestId, conversationId, connection, text)
+      } catch { return { ok: false, error: 'Could not load the selected connection.' } }
+      finally { event.sender.removeListener('destroyed', destroyed); active.delete(event.sender.id) }
+    })()
   })
-  ipcMain.handle('model:stop', (event, requestId: string) => {
+  ipcMain.handle('model:stop', async (event, requestId: string) => {
     trusted(event)
-    const run = active.get(event.sender.id)
-    if (run?.requestId === requestId) run.controller.abort()
+    const request = active.get(event.sender.id)
+    if (request?.id === requestId) { request.stopped = true; await atlas.call('stop', requestId) }
   })
   createWindow()
   app.on('activate', () => {

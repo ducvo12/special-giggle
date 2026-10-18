@@ -23,7 +23,7 @@ export interface Message {
 }
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string }
 export interface StreamActivity { reasoningCharacters: number; answerCharacters: number; finishReason?: string }
-export interface StreamDelta { requestId: string; text: string; activity?: StreamActivity }
+export interface StreamDelta { requestId: string; text: string; activity?: StreamActivity; tool?: ToolActivity }
 export interface GraniteBridge {
   platform: string
   connections: {
@@ -32,7 +32,17 @@ export interface GraniteBridge {
     delete: (id: string) => Promise<Result<void>>
   }
   models: (draft: ConnectionDraft) => Promise<Result<string[]>>
-  stream: (requestId: string, connectionId: string, messages: Message[]) => Promise<Result<{ stopped: boolean }>>
+  conversations: {
+    list: () => Promise<Result<Conversation[]>>
+    create: () => Promise<Result<ConversationDetail>>
+    get: (id: string) => Promise<Result<ConversationDetail>>
+  }
+  workspace: {
+    entries: (path: string) => Promise<Result<WorkspaceEntry[]>>
+    read: (path: string) => Promise<Result<string>>
+  }
+  stream: (requestId: string, conversationId: string, connectionId: string, text: string) => Promise<Result<{ stopped: boolean }>>
   stop: (requestId: string) => Promise<void>
   onDelta: (callback: (delta: StreamDelta) => void) => () => void
 }
+import type { Conversation, ConversationDetail, ToolActivity, WorkspaceEntry } from './agent'
