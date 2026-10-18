@@ -1,4 +1,4 @@
-import type { Connection, Message, Result } from '../shared/chat'
+import type { Connection, Message, Result, StreamActivity } from '../shared/chat'
 
 export function validateConnection(connection: Connection): URL {
   if (!connection || typeof connection.baseUrl !== 'string' || typeof connection.apiKey !== 'string' || typeof connection.model !== 'string') {
@@ -64,7 +64,7 @@ export async function chat(connection: Connection, messages: Message[]): Promise
 }
 
 
-export async function streamChat(connection: Connection, messages: Message[], signal: AbortSignal, onText: (text: string) => void): Promise<void> {
+export async function streamChat(connection: Connection, messages: Message[], signal: AbortSignal, onText: (text: string) => void, onActivity: (activity: StreamActivity) => void = () => {}): Promise<void> {
   validateConnection(connection)
   if (!connection.model.trim()) throw new Error('Choose a model first.')
   if (!Array.isArray(messages) || !messages.length || messages.length > 200 || messages.some(message => !message || !['user', 'assistant'].includes(message.role) || typeof message.content !== 'string' || message.content.length > 100_000)) {
@@ -80,16 +80,17 @@ export async function streamChat(connection: Connection, messages: Message[], si
     await response.body.cancel()
     throw new Error('This endpoint did not return a streaming response. Use a server that supports streaming Chat Completions.')
   }
-  await readEventStream(response.body, onText)
+  await readEventStream(response.body, onText, onActivity)
 }
 
-export async function readEventStream(body: ReadableStream<Uint8Array>, onText: (text: string) => void): Promise<void> {
+export async function readEventStream(body: ReadableStream<Uint8Array>, onText: (text: string) => void, onActivity: (activity: StreamActivity) => void = () => {}): Promise<void> {
   const reader = body.getReader()
   const decoder = new TextDecoder()
   let pending = ''
   let data: string[] = []
   let finished = false
   let hasText = false
+  const activity: StreamActivity = { reasoningCharacters: 0, answerCharacters: 0 }
   function dispatch() {
     if (!data.length) return
     const value = data.join('\n')
@@ -99,11 +100,15 @@ export async function readEventStream(body: ReadableStream<Uint8Array>, onText: 
     try { event = JSON.parse(value) } catch { throw new Error('The server sent an invalid streaming event.') }
     if (event.error) throw new Error('The model server reported an error while generating the reply.')
     const choice = event.choices?.[0]
+    const reasoning = choice?.delta?.reasoning_content ?? choice?.delta?.reasoning ?? choice?.delta?.thinking
+    if (typeof reasoning === 'string') activity.reasoningCharacters += reasoning.length
     if (typeof choice?.delta?.content === 'string' && choice.delta.content) {
       hasText = true
+      activity.answerCharacters += choice.delta.content.length
       onText(choice.delta.content)
     }
-    if (choice?.finish_reason != null) finished = true
+    if (choice?.finish_reason != null) { finished = true; activity.finishReason = String(choice.finish_reason) }
+    onActivity({ ...activity })
   }
   function line(value: string) {
     if (value === '') dispatch()
@@ -128,7 +133,10 @@ export async function readEventStream(body: ReadableStream<Uint8Array>, onText: 
         break
       }
     }
-    if (!hasText) throw new Error('The model returned no text.')
+    if (activity.finishReason === 'length') throw new Error('The model reached its output limit before finishing. Any partial answer has been kept. Check generation settings in LM Studio and compare them with Open WebUI.')
+    if (!hasText) throw new Error(activity.reasoningCharacters
+      ? 'The model generated reasoning but no answer text. Check the model’s reasoning and generation settings in LM Studio.'
+      : 'The model returned no text.')
   } finally {
     await reader.cancel().catch(() => {})
     reader.releaseLock()

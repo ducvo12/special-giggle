@@ -1,0 +1,217 @@
+{
+  "date": "2026-10-18",
+  "model_id": "uncensored",
+  "prompt": "Write one original inspirational quote in one sentence.",
+  "settings": {
+    "max_tokens": 384,
+    "seeds": [
+      42,
+      43
+    ],
+    "stream": true,
+    "stream_options": {
+      "include_usage": true
+    }
+  },
+  "notes": [
+    "Tests used the saved LM Studio connection directly; no WebUI or Granite frontend was involved.",
+    "Tools were extracted from the supplied LM Studio request log. Some descriptions in that log contain LM Studio truncation markers, so the full tool set is an approximation of the original tool descriptions.",
+    "Memory-only and time-only contain eight and two function definitions respectively.",
+    "System-only adds: You are a helpful assistant. Answer the user\u2019s request directly. For a simple creative task, choose one suitable answer rather than repeatedly revising candidates.",
+    "length means the configured 384-token limit was reached. This does not establish that an uncapped request would never finish.",
+    "Timing includes networking, server prompt preparation, queueing if any, and generation. Cache differences are not controlled.",
+    "No saved credentials, network address, or raw reasoning text is included in this artifact."
+  ],
+  "results": [
+    {
+      "name": "no_tools",
+      "seed": 42,
+      "elapsedMs": 10970,
+      "firstEventMs": 193,
+      "firstReasoningMs": 193,
+      "firstAnswerMs": null,
+      "reasoningCharacters": 1467,
+      "answerCharacters": 0,
+      "finishReason": "length",
+      "usage": {
+        "prompt_tokens": 19,
+        "completion_tokens": 384,
+        "total_tokens": 403,
+        "completion_tokens_details": {
+          "reasoning_tokens": 384
+        }
+      }
+    },
+    {
+      "name": "memory_only",
+      "seed": 42,
+      "elapsedMs": 7100,
+      "firstEventMs": 1913,
+      "firstReasoningMs": 1913,
+      "firstAnswerMs": 5076,
+      "reasoningCharacters": 546,
+      "answerCharacters": 356,
+      "finishReason": "stop",
+      "usage": {
+        "prompt_tokens": 1218,
+        "completion_tokens": 183,
+        "total_tokens": 1401,
+        "completion_tokens_details": {
+          "reasoning_tokens": 109
+        }
+      }
+    },
+    {
+      "name": "time_only",
+      "seed": 42,
+      "elapsedMs": 4193,
+      "firstEventMs": 972,
+      "firstReasoningMs": 972,
+      "firstAnswerMs": 3740,
+      "reasoningCharacters": 461,
+      "answerCharacters": 101,
+      "finishReason": "stop",
+      "usage": {
+        "prompt_tokens": 478,
+        "completion_tokens": 115,
+        "total_tokens": 593,
+        "completion_tokens_details": {
+          "reasoning_tokens": 96
+        }
+      }
+    },
+    {
+      "name": "full_logged_tools",
+      "seed": 42,
+      "elapsedMs": 12711,
+      "firstEventMs": 9224,
+      "firstReasoningMs": 9224,
+      "firstAnswerMs": 11077,
+      "reasoningCharacters": 344,
+      "answerCharacters": 268,
+      "finishReason": "stop",
+      "usage": {
+        "prompt_tokens": 5791,
+        "completion_tokens": 120,
+        "total_tokens": 5911,
+        "completion_tokens_details": {
+          "reasoning_tokens": 62
+        }
+      }
+    },
+    {
+      "name": "system_only",
+      "seed": 42,
+      "elapsedMs": 11238,
+      "firstEventMs": 506,
+      "firstReasoningMs": 506,
+      "firstAnswerMs": null,
+      "reasoningCharacters": 1446,
+      "answerCharacters": 0,
+      "finishReason": "length",
+      "usage": {
+        "prompt_tokens": 54,
+        "completion_tokens": 384,
+        "total_tokens": 438,
+        "completion_tokens_details": {
+          "reasoning_tokens": 384
+        }
+      }
+    },
+    {
+      "name": "no_tools",
+      "seed": 43,
+      "elapsedMs": 11051,
+      "firstEventMs": 325,
+      "firstReasoningMs": 325,
+      "firstAnswerMs": null,
+      "reasoningCharacters": 1409,
+      "answerCharacters": 0,
+      "finishReason": "length",
+      "usage": {
+        "prompt_tokens": 19,
+        "completion_tokens": 384,
+        "total_tokens": 403,
+        "completion_tokens_details": {
+          "reasoning_tokens": 384
+        }
+      }
+    },
+    {
+      "name": "memory_only",
+      "seed": 43,
+      "elapsedMs": 5279,
+      "firstEventMs": 145,
+      "firstReasoningMs": 145,
+      "firstAnswerMs": 4622,
+      "reasoningCharacters": 801,
+      "answerCharacters": 115,
+      "finishReason": "stop",
+      "usage": {
+        "prompt_tokens": 1218,
+        "completion_tokens": 181,
+        "total_tokens": 1399,
+        "completion_tokens_details": {
+          "reasoning_tokens": 155
+        }
+      }
+    },
+    {
+      "name": "time_only",
+      "seed": 43,
+      "elapsedMs": 3604,
+      "firstEventMs": 164,
+      "firstReasoningMs": 164,
+      "firstAnswerMs": 2884,
+      "reasoningCharacters": 437,
+      "answerCharacters": 125,
+      "finishReason": "stop",
+      "usage": {
+        "prompt_tokens": 478,
+        "completion_tokens": 121,
+        "total_tokens": 599,
+        "completion_tokens_details": {
+          "reasoning_tokens": 93
+        }
+      }
+    },
+    {
+      "name": "full_logged_tools",
+      "seed": 43,
+      "elapsedMs": 4835,
+      "firstEventMs": 864,
+      "firstReasoningMs": 864,
+      "firstAnswerMs": 4237,
+      "reasoningCharacters": 554,
+      "answerCharacters": 98,
+      "finishReason": "stop",
+      "usage": {
+        "prompt_tokens": 5791,
+        "completion_tokens": 134,
+        "total_tokens": 5925,
+        "completion_tokens_details": {
+          "reasoning_tokens": 111
+        }
+      }
+    },
+    {
+      "name": "system_only",
+      "seed": 43,
+      "elapsedMs": 11229,
+      "firstEventMs": 541,
+      "firstReasoningMs": 541,
+      "firstAnswerMs": null,
+      "reasoningCharacters": 1432,
+      "answerCharacters": 0,
+      "finishReason": "length",
+      "usage": {
+        "prompt_tokens": 54,
+        "completion_tokens": 384,
+        "total_tokens": 438,
+        "completion_tokens_details": {
+          "reasoning_tokens": 384
+        }
+      }
+    }
+  ]
+}

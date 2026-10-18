@@ -22,7 +22,8 @@ export interface Message {
   interrupted?: boolean
 }
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string }
-export interface StreamDelta { requestId: string; text: string }
+export interface StreamActivity { reasoningCharacters: number; answerCharacters: number; finishReason?: string }
+export interface StreamDelta { requestId: string; text: string; activity?: StreamActivity }
 export interface GraniteBridge {
   platform: string
   connections: {

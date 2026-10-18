@@ -63,6 +63,8 @@ void app.whenReady().then(() => {
         const connection = await store.resolve(connectionId)
         await streamChat(connection, messages, controller.signal, text => {
           if (!event.sender.isDestroyed()) event.sender.send('model:delta', { requestId, text })
+        }, activity => {
+          if (!event.sender.isDestroyed()) event.sender.send('model:delta', { requestId, text: '', activity })
         })
         return { stopped: controller.signal.aborted }
       } catch (error) {

@@ -50,3 +50,22 @@ test('streaming API sends clean history and abort disconnects the response', asy
     await closed
   } finally { server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())) }
 })
+
+test('separate reasoning reports activity without mixing it into answer text or history', async () => {
+  const events = [
+    { choices: [{ delta: { reasoning_content: 'considering' } }] },
+    { choices: [{ delta: { reasoning: ' options' } }] },
+    { choices: [{ delta: { content: 'A short quote.' } }] },
+    { choices: [{ delta: {}, finish_reason: 'stop' }] }
+  ].map(event => `data: ${JSON.stringify(event)}\n\n`).join('')
+  let output = ''
+  const activity: any[] = []
+  await readEventStream(chunks(events), text => { output += text }, progress => activity.push(progress))
+  assert.equal(output, 'A short quote.')
+  assert.deepEqual(activity.at(-1), { reasoningCharacters: 19, answerCharacters: 14, finishReason: 'stop' })
+})
+
+test('reasoning-only output and output-limit finishes explain why an answer is missing', async () => {
+  await assert.rejects(readEventStream(chunks('data: {"choices":[{"delta":{"reasoning_content":"thinking"}}]}\n\ndata: [DONE]\n\n'), () => {}), /reasoning but no answer/)
+  await assert.rejects(readEventStream(chunks('data: {"choices":[{"delta":{},"finish_reason":"length"}]}\n\n'), () => {}), /output limit/)
+})
