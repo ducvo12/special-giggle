@@ -1,0 +1,39 @@
+@media (max-width: 900px) {
+  .sidebar {
+    width: 170px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .settings-content {
+    padding: 28px;
+  }
+
+  .header-title {
+    gap: 10px;
+  }
+
+  .header-title select {
+    max-width: 230px;
+  }
+
+  .connection-card {
+    flex-wrap: wrap;
+  }
+
+  .connection-actions {
+    margin-left: auto;
+  }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+
+}

@@ -11,7 +11,10 @@ export default defineConfig({
       externalizeDeps: false,
       rollupOptions: {
         external: ['better-sqlite3'],
-        input: { index: resolve('src/main/index.ts'), 'agent-worker': resolve('src/backend/agent-worker.ts') }
+        input: {
+          index: resolve('src/main/index.ts'),
+          'agent-worker': resolve('src/backend/agents/worker.ts')
+        }
       }
     }
   },

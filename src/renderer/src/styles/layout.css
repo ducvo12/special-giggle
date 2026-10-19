@@ -1,0 +1,131 @@
+.sidebar {
+  width: 210px;
+  flex-shrink: 0;
+  padding: 30px 18px 22px;
+  background: #111412;
+  border-right: 1px solid #282e28;
+  display: flex;
+  flex-direction: column;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  font-weight: 600;
+  font-size: 20px;
+  letter-spacing: -0.6px;
+  margin-bottom: 54px;
+}
+
+.mark {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 32px;
+  background: #bed4ac;
+  color: #1d2a18;
+  border-radius: 7px;
+  font-size: 20px;
+}
+
+.section-label {
+  font-size: 10px;
+  letter-spacing: 1.6px;
+  color: #747f75;
+  margin: 0 10px 15px;
+}
+
+.nav-item {
+  background: transparent;
+  padding: 12px;
+  border: 1px solid transparent;
+  width: 100%;
+  border-radius: 7px;
+  font-size: 13px;
+  color: #929e8e;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+}
+
+.nav-item.active {
+  background: #242d24;
+  color: #d6e4ce;
+}
+
+.nav-item:hover:not(:disabled) {
+  background: #202720;
+}
+
+.sidebar-bottom {
+  margin-top: auto;
+}
+
+.sidebar-footer {
+  padding: 20px 12px 0;
+  color: #8e9a8e;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-dot,
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #b5cd9d;
+}
+
+.live-dot {
+  margin-left: auto;
+  animation: pulse 1.5s infinite;
+}
+
+.conversation-list {
+  overflow-y: auto;
+  margin: 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.conversation-list button {
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: transparent;
+  border-color: transparent;
+  color: #8f9c88;
+  padding: 10px;
+}
+
+.conversation-list button.selected,
+.workspace-browser button.selected {
+  background: #242d24;
+  color: #d6e4ce;
+}
+
+.agent-switcher {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 16px;
+}
+
+.agent-switcher select {
+  background: #1b211a;
+  border: 1px solid #35402f;
+  border-radius: 7px;
+  padding: 10px;
+  flex: 1;
+  width: 0;
+}
+
+.agent-switcher button {
+  font-size: 18px;
+  padding: 5px 10px;
+}

@@ -1,0 +1,59 @@
+.workspace-intro {
+  padding: 12px 28px;
+  color: #9cae90;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.workspace-browser {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  border-top: 1px solid #30382d;
+}
+
+.workspace-browser nav {
+  width: 210px;
+  flex-shrink: 0;
+  padding: 15px;
+  border-right: 1px solid #30382d;
+  overflow: auto;
+}
+
+.workspace-browser nav button {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  color: #bdcbb3;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.workspace-path {
+  font-size: 11px;
+  color: #89967f;
+  margin: 5px 10px 15px;
+  overflow-wrap: anywhere;
+}
+
+.file-preview {
+  padding: 24px;
+  min-width: 0;
+  flex: 1;
+  overflow: auto;
+}
+
+.file-preview h2 {
+  color: #abc597;
+  font-size: 13px;
+}
+
+.file-preview pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 1.9;
+  color: #bdc7b7;
+}

@@ -25,11 +25,48 @@ npm run dist
 
 ## Source layout
 
-- `src/main/`: Electron lifecycle and privileged desktop integration.
+- `src/main/`: Electron lifecycle (`index.ts`), window setup (`window.ts`), desktop request handlers (`ipc.ts`), and the utility-process client (`agent-client.ts`).
 - `src/preload/`: narrow bridge exposed to the renderer.
-- `src/renderer/`: React interface, HTML, and styles.
-- `src/backend/`: agent runtime, agent registry, persistent storage, protected workspace, and model connections.
+- `src/renderer/`: React interface, HTML, and styles. The renderer entry point only mounts the application.
+- `src/backend/`: backend code grouped by responsibility, as shown below.
 - `src/shared/`: typed messages shared across the desktop bridge.
+
+```text
+src/backend/
+  agents/                  # runtime lifecycle, agent registry, conversations, worker
+  connections/             # saved connections and encrypted credentials
+  models/                  # HTTP API, event-stream decoding, provider activity
+  workspace/               # protected filesystem, initialization, file viewing
+
+src/renderer/src/
+  app/                     # page composition, sidebar, navigation, session state
+  features/
+    agents/                # agent creation and identity editing
+    chat/                  # chat controls, message history, tool activity
+    connections/           # connection settings, editor, saved connection list
+    workspace/             # workspace file browser and preview
+  styles/                  # base controls, layout, feature styles, responsive rules
+```
+
+### Readability conventions
+
+Use two spaces for indentation, single quotes in TypeScript, and one statement per line. Separate distinct steps with blank lines: validation, state updates, requests, and cleanup should be easy to scan. Keep related state declarations together and separate effects and class methods with blank lines.
+
+In TSX, put each paired element's opening tag, content, and closing tag on separate lines, including elements containing only text or one expression. Leave a blank line between sibling elements. Empty elements remain self-closing. Preserve explicit spaces when separating text and inline elements.
+
+```tsx
+<section>
+  <h2>
+    Model connections
+  </h2>
+
+  <p>
+    Bring a local server or an OpenAI-compatible API.
+  </p>
+</section>
+```
+
+Organize files by feature or responsibility. Extract whole components or independent concerns when a file combines several ideas; keep short, cohesive functions intact. `App.tsx` composes the pages, `useAgentSession.ts` owns session state and actions, and feature components render their own views. The agent runtime keeps the run lifecycle together, while model transport observation and workspace protection live in their respective folders. Responsive styles load last so their overrides remain effective.
 
 The chat supports OpenAI-compatible model APIs through a validated preload bridge. Connections are saved in `connections.json` in the application-data directory. API keys are encrypted with Electron safeStorage and never returned to the renderer after saving. Conversations and agent files persist locally. Replies stream as they arrive; Stop aborts the request and retains partial text and completed tool changes. The renderer has Node integration disabled, context isolation enabled, and sandboxing enabled. New windows and renderer-initiated navigation are blocked.
 
