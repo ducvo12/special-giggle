@@ -322,6 +322,44 @@ export function useAgentSession() {
     }
   }
 
+  async function deleteConversation(id: string) {
+    if (run.current || agentOperation.current || !loaded) {
+      return false
+    }
+
+    agentOperation.current = true
+    setManagingAgents(true)
+    setError('')
+
+    try {
+      const result = await window.granite.conversations.delete(agentId, id)
+      if (!result.ok) {
+        setError(result.error)
+        return false
+      }
+
+      setConversations(current => current.filter(chat => chat.id !== id))
+      if (localStorage.getItem(`granite.conversation.${agentId}`) === id) {
+        localStorage.removeItem(`granite.conversation.${agentId}`)
+      }
+      if (agentId === 'atlas' && localStorage.getItem('granite.conversation') === id) {
+        localStorage.removeItem('granite.conversation')
+      }
+      if (conversationId === id) {
+        setConversationId('')
+        setMessages([])
+        setDraft('')
+      }
+      return true
+    } catch {
+      setError(bridgeError)
+      return false
+    } finally {
+      agentOperation.current = false
+      setManagingAgents(false)
+    }
+  }
+
   async function deleteAgent(id: string) {
     if (run.current || agentOperation.current) {
       return false
@@ -405,6 +443,7 @@ export function useAgentSession() {
     send,
     stop,
     deleteAgent,
+    deleteConversation,
     newChat() {
       setConversationId('')
       setMessages([])

@@ -237,6 +237,26 @@ export class AgentStore {
       .run(conversationId, modelKey, JSON.stringify(state))
   }
 
+  deleteConversation(agentId: string, id: string) {
+    this.saver.db.transaction(() => {
+      this.get(agentId, id)
+      const tables = this.saver.db
+        .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('checkpoints', 'writes')")
+        .all() as { name: string }[]
+
+      for (const { name } of tables) {
+        this.saver.db.prepare(`DELETE FROM ${name} WHERE thread_id IN (
+          SELECT graphId FROM conversation_threads WHERE conversationId = ?
+        )`).run(id)
+      }
+
+      this.saver.db.prepare('DELETE FROM harness_state WHERE conversationId = ?').run(id)
+      this.saver.db.prepare('DELETE FROM messages WHERE conversationId = ?').run(id)
+      this.saver.db.prepare('DELETE FROM conversation_threads WHERE conversationId = ?').run(id)
+      this.saver.db.prepare('DELETE FROM conversations WHERE id = ? AND agentId = ?').run(id, agentId)
+    })()
+  }
+
   deleteAgent(agentId: string) {
     this.saver.db.transaction(() => {
       this.saver.db

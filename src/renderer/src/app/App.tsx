@@ -46,6 +46,7 @@ export default function App() {
     send,
     stop,
     deleteAgent,
+    deleteConversation,
     newChat,
     addAgent
   } = useAgentSession()
@@ -110,6 +111,7 @@ export default function App() {
           identityDirty={identityDirty}
           conversations={conversations}
           conversationId={conversationId}
+          onDeleteConversation={deleteConversation}
           onSelectAgent={id => void selectAgent(id)}
           onNewChat={() => {
             newChat()

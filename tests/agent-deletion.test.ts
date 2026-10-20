@@ -163,3 +163,52 @@ test('database deletion failures roll back records and leave the agent folder in
     await rm(directory, { recursive: true, force: true })
   }
 })
+
+test('chat deletion removes all recovered history and preserves other chats and workspace', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'granite-chat-delete-'))
+  const runtime = await AgentRuntime.open(directory)
+  try {
+    const agent = await runtime.createAgent('Chat owner')
+    const other = await runtime.createAgent('Other owner')
+    const chat = await runtime.createConversation(agent.id)
+    const survivor = await runtime.createConversation(agent.id)
+    const turn = runtime.store.begin(agent.id, chat.id, 'Delete this', 'offline')
+    await saveCheckpoint(runtime, turn.graphId, 'original')
+    runtime.store.finish(chat.id, turn.message, 'stopped')
+    const recovered = runtime.store.begin(agent.id, chat.id, 'Retry', 'offline')
+    await saveCheckpoint(runtime, recovered.graphId, 'recovered')
+    runtime.store.finish(chat.id, recovered.message, 'complete')
+    runtime.store.saveModelState(chat.id, 'offline', [{ role: 'user', content: 'History' }])
+
+    await assert.rejects(runtime.deleteConversation(other.id, chat.id), /Conversation not found/)
+    runtime.active = { id: 'running', controller: new AbortController() }
+    await assert.rejects(runtime.deleteConversation(agent.id, chat.id), /Finish the current operation/)
+    runtime.active = null
+
+    const before = rowCounts(runtime)
+    runtime.store.saver.db.exec(`CREATE TEMP TRIGGER reject_chat_deletion BEFORE DELETE ON conversations
+      BEGIN SELECT RAISE(ABORT, 'Deletion failed'); END;`)
+    await assert.rejects(runtime.deleteConversation(agent.id, chat.id), /Deletion failed/)
+    assert.deepEqual(rowCounts(runtime), before)
+    runtime.store.saver.db.exec('DROP TRIGGER reject_chat_deletion')
+
+    await runtime.deleteConversation(agent.id, chat.id)
+    assert.deepEqual(runtime.store.list(agent.id), [{
+      id: survivor.id, agentId: agent.id, title: survivor.title, updatedAt: survivor.updatedAt
+    }])
+    assert.throws(() => runtime.store.get(agent.id, chat.id), /Conversation not found/)
+    assert.equal(runtime.store.modelState(chat.id, 'offline'), undefined)
+    for (const graphId of [turn.graphId, recovered.graphId]) {
+      assert.equal(await runtime.store.saver.getTuple({ configurable: { thread_id: graphId } }), undefined)
+    }
+    for (const table of ['messages', 'conversation_threads', 'writes']) {
+      const row = runtime.store.saver.db.prepare(`SELECT count(*) AS count FROM ${table}`).get() as { count: number }
+      assert.equal(row.count, table === 'conversation_threads' ? 1 : 0)
+    }
+    await access(join(directory, 'agents', agent.id, 'identity.md'))
+    assert.equal((await runtime.registry.list()).length, 2)
+  } finally {
+    runtime.close()
+    await rm(directory, { recursive: true, force: true })
+  }
+})

@@ -120,6 +120,21 @@ export class AgentRuntime {
     }
   }
 
+  async deleteConversation(agentId: string, id: string) {
+    if (this.active || this.editingIdentity || this.changingAgents) {
+      throw new Error('Finish the current operation before deleting a conversation.')
+    }
+
+    this.changingAgents = true
+
+    try {
+      await this.registry.get(agentId)
+      this.store.deleteConversation(agentId, id)
+    } finally {
+      this.changingAgents = false
+    }
+  }
+
   stop(id: string) {
     if (this.active?.id === id) {
       this.active.controller.abort()

@@ -88,6 +88,7 @@ export interface GraniteBridge {
   conversations: {
     list: (agentId: string) => Promise<Result<Conversation[]>>
     create: (agentId: string) => Promise<Result<ConversationDetail>>
+    delete: (agentId: string, id: string) => Promise<Result<void>>
     get: (agentId: string, id: string) => Promise<Result<ConversationDetail>>
   }
   workspace: {

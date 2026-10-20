@@ -64,6 +64,9 @@ port.on('message', async ({ data }: { data: Request }) => {
       case 'create':
         value = await agent.createConversation(args[0] as string)
         break
+      case 'delete':
+        value = await agent.deleteConversation(args[0] as string, args[1] as string)
+        break
       case 'get':
         value = agent.store.get(args[0] as string, args[1] as string)
         break

@@ -158,3 +158,32 @@
   font-size: 18px;
   line-height: 1;
 }
+
+.conversation-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.conversation-choice {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.conversation-delete {
+  flex-shrink: 0;
+  font-size: 18px;
+}
+
+.conversation-confirmation {
+  width: 100%;
+  padding: 0 4px 8px;
+  font-size: 12px;
+}
+
+.conversation-list .danger-button {
+  background: var(--surface-selected);
+  color: var(--text);
+  border-color: var(--border-strong);
+}
