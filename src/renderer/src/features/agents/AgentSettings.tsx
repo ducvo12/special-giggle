@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import type { Agent } from '../../../../shared/agent'
+import { defaultIdentity, type Agent } from '../../../../shared/agent'
 
 type Props = {
   agent: Agent | undefined
@@ -26,6 +26,7 @@ export default function AgentSettings({
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const dirty = !creating && identity !== original
+  const settingUp = !creating && !loading && !original.trim()
 
   useEffect(() => {
     onDirty(dirty)
@@ -47,7 +48,8 @@ export default function AgentSettings({
         }
 
         if (result.ok) {
-          setIdentity(result.value)
+          // The preset is a draft until the user explicitly saves it.
+          setIdentity(result.value.trim() ? result.value : defaultIdentity(agent.name))
           setOriginal(result.value)
         } else {
           setError(result.error)
@@ -94,7 +96,12 @@ export default function AgentSettings({
         }
 
         setOriginal(result.value)
-        setNotice('Identity saved. Your agent will use it on the next message.')
+
+        if (settingUp) {
+          onBack()
+        } else {
+          setNotice('Identity saved. Your agent will use it on the next message.')
+        }
       }
     } catch {
       setError('Could not save the agent. Try again.')
@@ -127,7 +134,9 @@ export default function AgentSettings({
         <p className="agent-description">
           {creating
             ? 'Give your agent a name. It will have its own identity, memory, notes, and conversations.'
-            : 'Shape how this agent speaks and behaves. The model reads this identity file before every turn.'}
+            : settingUp
+              ? 'Start with the suggested identity or make it your own, then save to continue.'
+              : 'Shape how this agent speaks and behaves. The model reads this identity file before every turn.'}
         </p>
 
         {error && (
@@ -206,7 +215,13 @@ export default function AgentSettings({
                   (creating ? !name.trim() : !dirty || !identity.trim())
                 }
               >
-                {saving ? 'Saving…' : creating ? 'Create agent' : 'Save identity'}
+                {saving
+                  ? 'Saving…'
+                  : creating
+                    ? 'Create agent'
+                    : settingUp
+                      ? 'Save and continue'
+                      : 'Save identity'}
               </button>
             </div>
           </div>

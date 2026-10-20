@@ -3,16 +3,7 @@ import { join } from 'node:path'
 import type { Agent, WorkspaceEntry } from '../../shared/agent.ts'
 import { AgentFilesystem } from './filesystem.ts'
 
-export function defaultIdentity(name: string) {
-  return `# ${name}
-You are ${name}, the user's practical, thoughtful personal assistant.
-Be clear, honest, curious, and concise. Respect the user's decisions and privacy.
-Never claim to have saved or changed anything unless a tool succeeded.
-Your identity is independent of the model selected by the user.
-`
-}
-
-export async function createWorkspace(directory: string, agent: Agent) {
+export async function createWorkspace(directory: string, agent: Agent, identity = '') {
   const root = join(directory, 'agents', agent.id)
   await mkdir(root, { recursive: true, mode: 0o700 })
 
@@ -21,7 +12,7 @@ export async function createWorkspace(directory: string, agent: Agent) {
   }
 
   for (const [name, content] of [
-    ['identity.md', defaultIdentity(agent.name)],
+    ['identity.md', identity],
     ['memory.md', '# User memory\n\nNo preferences saved yet.\n']
   ]) {
     try {

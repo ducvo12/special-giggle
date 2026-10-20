@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { lstat, mkdir, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { Agent } from '../../shared/agent.ts'
+import { defaultIdentity, type Agent } from '../../shared/agent.ts'
 import { AgentFilesystem } from '../workspace/filesystem.ts'
 import { createWorkspace, workspaceText } from '../workspace/workspace.ts'
 
@@ -65,7 +65,7 @@ export class AgentRegistry {
       }
     }
 
-    await createWorkspace(directory, await registry.get('atlas'))
+    await createWorkspace(directory, await registry.get('atlas'), defaultIdentity('Atlas'))
 
     return registry
   }

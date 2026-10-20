@@ -263,7 +263,8 @@ try {
     const atlasId = await evaluate(
       'document.querySelector(".agent-dropdown-trigger").dataset.agentId'
     )
-    await click('Back to chat')
+    await click('Save and continue')
+    await wait(() => evaluate('Boolean(document.querySelector(".chat-main"))'), 'Atlas setup saved')
     const saved = await evaluate(`window.granite.connections.save(${JSON.stringify(connection)})`)
     assert.ok(saved.ok)
     await rpc('Page.reload')
@@ -287,10 +288,9 @@ try {
       await evaluate('document.querySelector(".agent-dropdown-trigger").disabled'),
       'Unsaved identity edits are protected'
     )
-    await click('Save identity')
+    await click('Save and continue')
     await wait(
-      () =>
-        evaluate('document.querySelector("[role=status]")?.textContent.includes("Identity saved")'),
+      () => evaluate('Boolean(document.querySelector(".chat-main"))'),
       'identity saved'
     )
     const novaId = await evaluate(
@@ -301,7 +301,6 @@ try {
       await readFile(join(directory, 'agents', atlasId, 'identity.md'), 'utf8'),
       /three friendly emojis/
     )
-    await click('Back to chat')
     assert.equal(
       await evaluate('document.querySelectorAll(".assistant").length'),
       0,

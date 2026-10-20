@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { access, readdir, writeFile } from 'node:fs/promises'
+import { access, readFile, readdir, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
 
@@ -56,14 +56,33 @@ export async function verifyDeletion({
     'agent created offline'
   )
   const id = await evaluate('document.querySelector(".agent-dropdown-trigger").dataset.agentId')
-  await access(join(directory, 'agents', id, 'identity.md'))
+  const identityPath = join(directory, 'agents', id, 'identity.md')
+  assert.equal(await readFile(identityPath, 'utf8'), '', 'New identities start blank on disk')
+  const preset = await evaluate('document.querySelector(".identity-editor").value')
+  assert.ok(preset.includes('# Offline test'))
+  assert.equal(
+    await evaluate('document.querySelector(".connection-editor button[type=submit]").disabled'),
+    false,
+    'The unchanged preset can be saved immediately'
+  )
+  await click('Save and continue')
+  await wait(() => evaluate('Boolean(document.querySelector(".chat-main"))'), 'preset saved and continued to chat')
+  assert.equal(await readFile(identityPath, 'utf8'), preset)
+
+  await click('◇ Identity')
+  await wait(() => evaluate('document.querySelector(".identity-editor")?.disabled === false'), 'saved identity reopened')
+  assert.equal(await evaluate('document.querySelector(".identity-editor").value'), preset)
+  assert.equal(
+    await evaluate('document.querySelector(".connection-editor button[type=submit]").disabled'),
+    true,
+    'Existing unchanged identities remain clean'
+  )
+  await click('Back to chat')
 
   // A blank conversation exercises real database deletion without a model.
   const chat = await evaluate(`window.granite.conversations.create(${JSON.stringify(id)})`)
   assert.ok(chat.ok)
   assert.equal(databaseCounts(directory).conversations, 1)
-  await click('Back to chat')
-
   await evaluate('document.querySelector(".agent-dropdown-trigger").click()')
   await evaluate('document.querySelector(".agent-menu-delete").click()')
   await click('Cancel')
@@ -120,7 +139,8 @@ export async function verifyDeletion({
     'agent created from dropdown'
   )
   const menuId = await evaluate('document.querySelector(".agent-dropdown-trigger").dataset.agentId')
-  await click('Back to chat')
+  await click('Save and continue')
+  await wait(() => evaluate('Boolean(document.querySelector(".chat-main"))'), 'menu agent setup saved')
   await evaluate('document.querySelector(".agent-dropdown-trigger").click()')
   await evaluate('document.querySelector(".agent-menu-create").click()')
   await fill('input[aria-label="Agent name"]', 'Second agent')
@@ -129,7 +149,8 @@ export async function verifyDeletion({
     () => evaluate('document.querySelector(".identity-editor")?.value.includes("# Second agent")'),
     'second agent created'
   )
-  await click('Back to chat')
+  await click('Save and continue')
+  await wait(() => evaluate('Boolean(document.querySelector(".chat-main"))'), 'second agent setup saved')
   await evaluate('document.querySelector(".agent-dropdown-trigger").click()')
   await evaluate(
     `document.querySelector('[role="menuitemradio"][data-agent-id="${menuId}"]').click()`
@@ -174,7 +195,7 @@ export async function verifyDeletion({
     JSON.stringify(counts)
   )
   console.log(
-    'PASS offline: empty database → create agent → delete agent → 0 folders and 0 rows; cancel, keyboard, outside click, and restart verified.',
+    'PASS offline: save an unchanged identity preset and continue; existing identity stays clean; delete → 0 folders and 0 rows; cancel, keyboard, outside click, and restart verified.',
     counts
   )
 }
