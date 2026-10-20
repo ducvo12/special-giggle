@@ -175,7 +175,7 @@ async function launch() {
   })
   await wait(() => evaluate('Boolean(document.querySelector(".sidebar"))'), 'React mount')
   await wait(
-    () => evaluate('!document.querySelector("header .quiet-button")?.disabled'),
+    () => evaluate('document.querySelector(".agent-dropdown-trigger")?.disabled === false'),
     'Atlas load'
   )
   assert.equal(await evaluate('document.querySelector("[role=alert]")?.textContent??""'), '')
@@ -184,7 +184,7 @@ async function launch() {
 async function click(text) {
   assert.ok(
     await evaluate(
-      `(()=>{const b=Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()===${JSON.stringify(text)});if(!b||b.disabled)return false;b.click();return true})()`
+      `(()=>{const b=Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()===${JSON.stringify(text)}||b.getAttribute('aria-label')===${JSON.stringify(text)});if(!b||b.disabled)return false;b.click();return true})()`
     ),
     `button ${text}`
   )

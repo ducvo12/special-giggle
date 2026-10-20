@@ -72,7 +72,7 @@ The chat supports OpenAI-compatible model APIs through a validated preload bridg
 
 ## Connecting a model
 
-Run `npm run dev`. Open **Settings → Connections → Add connection**. Enter a name and API base URL (including `/v1` when required), optionally supply a key, and select **Load models**. Choose a model and save. Select the saved connection in the chat header. You can also type a model ID directly if the provider does not support model discovery. Send a message with Enter; Shift+Enter adds a newline.
+Run `npm run dev`. Open **Settings → Connections → Add connection**. Enter a name and API base URL (including `/v1` when required), optionally supply a key, and select **Load models**. Choose a model and save. Select the saved model beside **Send** in the chat composer. You can also type a model ID directly if the provider does not support model discovery. Send a message with Enter; Shift+Enter adds a newline. **New chat** is in the sidebar.
 
 For LM Studio on another computer, enable its local network serving option, run its server, and use that computer's reachable address, for example `http://192.168.1.50:1234/v1`. `localhost` refers to the computer running Granite. Both computers must be able to reach each other and the desktop firewall must allow the server port. HTTP connections are unencrypted; use a trusted network or an HTTPS endpoint.
 

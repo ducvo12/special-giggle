@@ -14,6 +14,7 @@ type Props = {
   conversationId: string
   onSelectAgent: (id: string) => void
   onDeleteAgent: (id: string) => Promise<boolean>
+  onNewChat: () => void
   onSelectConversation: (id: string) => void
   onPageChange: (page: Page) => void
 }
@@ -30,19 +31,12 @@ export default function Sidebar({
   conversationId,
   onSelectAgent,
   onDeleteAgent,
+  onNewChat,
   onSelectConversation,
   onPageChange
 }: Props) {
   return (
     <aside className="sidebar">
-      <div className="brand">
-        <span className="mark">
-          G
-        </span>
-
-        {' '}Granite
-      </div>
-
       <span className="section-label">
         AGENTS
       </span>
@@ -57,6 +51,19 @@ export default function Sidebar({
           onCreate={() => onPageChange('create-agent')}
         />
       </div>
+
+      <button
+        className="new-chat-button quiet-button"
+        aria-label="New chat"
+        disabled={busy || !loaded || identityDirty || !agent}
+        onClick={onNewChat}
+      >
+        <span aria-hidden="true">
+          +
+        </span>
+
+        New chat
+      </button>
 
       <button
         className={`nav-item ${page === 'chat' ? 'active' : ''}`}

@@ -8,27 +8,6 @@
   flex-direction: column;
 }
 
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  font-weight: 600;
-  font-size: 20px;
-  letter-spacing: -0.6px;
-  margin-bottom: 54px;
-}
-
-.mark {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 32px;
-  background: #bed4ac;
-  color: #1d2a18;
-  border-radius: 7px;
-  font-size: 20px;
-}
-
 .section-label {
   font-size: 10px;
   letter-spacing: 1.6px;
@@ -114,4 +93,20 @@
   align-items: center;
   gap: 7px;
   margin: 0 0 16px;
+}
+
+.new-chat-button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 24px;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.new-chat-button > span {
+  color: #afc49d;
+  font-size: 18px;
+  line-height: 1;
 }

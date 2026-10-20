@@ -2,33 +2,62 @@
   height: 100vh;
   display: flex;
   flex-direction: column;
+  background: radial-gradient(ellipse at 50% 35%, #a3c38c05, transparent 60%);
 }
 
 .messages {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 32px max(28px, calc((100% - 760px) / 2));
+  padding: 48px max(28px, calc((100% - 760px) / 2)) 32px;
   scrollbar-gutter: stable;
 }
 
+.messages-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
 .empty-chat {
-  padding: 11vh 0 30px;
+  width: 100%;
+  padding: 32px 0;
   text-align: center;
   animation: enter 0.25s ease-out;
 }
 
 .empty-icon {
-  font-size: 46px;
-  color: #bfd5ac;
-  margin-bottom: 26px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 80px;
+  height: 80px;
+  margin: 0 auto;
+  font-size: 40px;
+  color: #a9c092;
 }
 
-.empty-chat p {
-  color: #94a08e;
-  font-size: 13px;
-  line-height: 1.9;
-  margin-bottom: 24px;
+.empty-icon::before {
+  content: '';
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #a8c68a12, transparent 68%);
+  pointer-events: none;
+}
+
+.empty-chat h1 {
+  margin: 8px 0 0;
+  color: #c6d0bf;
+  font-size: 28px;
+  font-weight: 450;
+  letter-spacing: -0.8px;
+  overflow-wrap: anywhere;
+}
+
+.empty-chat > button {
+  margin-top: 16px;
 }
 
 .message {
@@ -71,42 +100,87 @@
 }
 
 .composer-area {
-  padding: 0 28px 15px;
+  padding: 0 28px 28px;
   max-width: 850px;
   width: 100%;
   margin: 0 auto;
 }
 
 .composer {
-  border: 1px solid #48563e;
-  background: #1b211a;
+  border: 1px solid #3b4834;
+  background: #1a2019;
   border-radius: 12px;
-  padding: 14px;
-  transition: border-color 0.2s;
+  padding: 16px;
+  box-shadow: 0 12px 40px #00000012;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .composer:focus-within {
-  border-color: #8caa75;
+  border-color: #718b5f;
+  box-shadow: 0 0 0 3px #a9c09208, 0 12px 40px #00000012;
 }
 
-.composer > div {
+.composer-controls {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
 }
 
-.composer > div > span,
-.composer-note {
+.composer-status {
+  flex: 1;
+  min-width: 140px;
   font-size: 10px;
   color: #829078;
+  line-height: 1.6;
 }
 
-.composer-note {
-  text-align: center;
-  margin: 9px 0 0;
-  line-height: 1.6;
+.composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  margin-left: auto;
+}
+
+.composer-model {
+  position: relative;
+  min-width: 0;
+  max-width: min(240px, 38vw);
+}
+
+.composer-model select {
+  display: block;
+  appearance: none;
+  max-width: 100%;
+  padding: 8px 24px 8px 8px;
+  border-radius: 6px;
+  color: #a9b79e;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.composer-model select:hover:not(:disabled) {
+  background: #293226;
+  color: #d6e4ce;
+}
+
+.composer-model > span {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #829078;
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.model-connect {
+  border-color: transparent;
+  color: #a9b79e;
+  font-size: 11px;
 }
 
 .stop-button {

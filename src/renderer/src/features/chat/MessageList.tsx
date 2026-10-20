@@ -1,10 +1,9 @@
 import type { RefObject } from 'react'
 import type { Agent, AgentMessage } from '../../../../shared/agent'
-import type { SavedConnection, StreamActivity } from '../../../../shared/chat'
+import type { StreamActivity } from '../../../../shared/chat'
 
 type Props = {
   agent: Agent | undefined
-  connection: SavedConnection | undefined
   busy: boolean
   loaded: boolean
   identityDirty: boolean
@@ -12,13 +11,11 @@ type Props = {
   activity: StreamActivity
   end: RefObject<HTMLDivElement | null>
   follow: RefObject<boolean>
-  onOpenSettings: () => void
   onCreateAgent: () => void
 }
 
 export default function MessageList({
   agent,
-  connection,
   busy,
   loaded,
   identityDirty,
@@ -26,12 +23,11 @@ export default function MessageList({
   activity,
   end,
   follow,
-  onOpenSettings,
   onCreateAgent
 }: Props) {
   return (
     <section
-      className="messages"
+      className={messages.length ? 'messages' : 'messages messages-empty'}
       onScroll={event => {
         const el = event.currentTarget
         follow.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100
@@ -41,35 +37,19 @@ export default function MessageList({
     >
       {!messages.length && (
         <div className="empty-chat">
-          <div className="empty-icon">
+          <div className="empty-icon" aria-hidden="true">
             ◈
           </div>
 
-          <div className="eyebrow">
-            {agent ? `MEET ${agent.name.toUpperCase()}` : 'YOUR AGENTS'}
-          </div>
-
-          <h1>
-            {agent ? 'A little continuity.' : 'Create your first agent.'}
-          </h1>
-
-          <p>
-            {!agent
-              ? 'Give an agent a name to start its own workspace, memory, and conversations.'
-              : connection
-                ? 'An assistant with a workspace, notes, and a memory of what matters to you.'
-                : 'Add a connection to start your first conversation.'}
-          </p>
+          {agent && (
+            <h1>
+              {agent.name}
+            </h1>
+          )}
 
           {!agent && loaded && (
             <button disabled={identityDirty} onClick={onCreateAgent}>
               Create agent
-            </button>
-          )}
-
-          {agent && !connection && loaded && (
-            <button disabled={identityDirty} onClick={onOpenSettings}>
-              Connect a model ↗
             </button>
           )}
         </div>

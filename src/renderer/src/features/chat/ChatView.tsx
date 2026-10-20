@@ -19,7 +19,6 @@ type Props = {
   elapsed: number
   stopping: boolean
   onSelectConnection: (id: string) => void
-  onNewChat: () => void
   onOpenSettings: () => void
   onCreateAgent: () => void
   onDismissError: () => void
@@ -44,7 +43,6 @@ export default function ChatView({
   elapsed,
   stopping,
   onSelectConnection,
-  onNewChat,
   onOpenSettings,
   onCreateAgent,
   onDismissError,
@@ -59,40 +57,8 @@ export default function ChatView({
 
   return (
     <main className="chat-main">
-      <header>
-        <div className="header-title">
-          <span>
-            {agent?.name ?? 'Agent'}
-          </span>
-
-          <span className="header-divider" />
-
-          <select
-            aria-label="Active connection"
-            value={connection?.id ?? ''}
-            disabled={busy || !loaded}
-            onChange={event => onSelectConnection(event.target.value)}
-          >
-            <option value="" disabled>
-              {loaded ? 'Choose connection' : 'Loading…'}
-            </option>
-
-            {connections.map(item => (
-              <option key={item.id} value={item.id}>
-                {item.name} · {item.model}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <button className="quiet-button" disabled={busy || !loaded} onClick={onNewChat}>
-          New chat
-        </button>
-      </header>
-
       <MessageList
         agent={agent}
-        connection={connection}
         busy={busy}
         loaded={loaded}
         identityDirty={identityDirty}
@@ -100,7 +66,6 @@ export default function ChatView({
         activity={activity}
         end={end}
         follow={follow}
-        onOpenSettings={onOpenSettings}
         onCreateAgent={onCreateAgent}
       />
 
@@ -144,31 +109,64 @@ export default function ChatView({
             }}
           />
 
-          <div>
-            <span>
+          <div className="composer-controls">
+            <span className="composer-status">
               {busy ? progress : 'Enter to send · Shift + Enter for a new line'}
             </span>
 
-            {busy ? (
-              <button
-                type="button"
-                className="stop-button"
-                disabled={stopping}
-                onClick={() => void onStop()}
-              >
-                ■ {stopping ? 'Stopping…' : 'Stop'}
-              </button>
-            ) : (
-              <button type="submit" disabled={!draft.trim() || !connection || !agent || !loaded}>
-                Send ↗
-              </button>
-            )}
+            <div className="composer-actions">
+              {connections.length ? (
+                <div className="composer-model">
+                  <select
+                    aria-label="Active connection"
+                    title={connection ? `${connection.model} · ${connection.name}` : 'Select model'}
+                    value={connection?.id ?? ''}
+                    disabled={busy || !loaded}
+                    onChange={event => onSelectConnection(event.target.value)}
+                  >
+                    <option value="" disabled>
+                      {loaded ? 'Select model' : 'Loading…'}
+                    </option>
+
+                    {connections.map(item => (
+                      <option key={item.id} value={item.id}>
+                        {item.model} · {item.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <span aria-hidden="true">
+                    ⌄
+                  </span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="model-connect quiet-button"
+                  disabled={busy || !loaded || identityDirty}
+                  onClick={onOpenSettings}
+                >
+                  Connect model
+                </button>
+              )}
+
+              {busy ? (
+                <button
+                  type="button"
+                  className="stop-button"
+                  disabled={stopping}
+                  onClick={() => void onStop()}
+                >
+                  ■ {stopping ? 'Stopping…' : 'Stop'}
+                </button>
+              ) : (
+                <button type="submit" disabled={!draft.trim() || !connection || !agent || !loaded}>
+                  Send ↗
+                </button>
+              )}
+            </div>
           </div>
         </form>
-
-        <p className="composer-note">
-          {connection ? `Inference: ${connection.name}. ` : ''}Notes, memory, and conversations are saved locally.
-        </p>
       </div>
     </main>
   )

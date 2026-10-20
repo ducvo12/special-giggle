@@ -94,7 +94,7 @@ export async function verifyDeletion({
   await wait(
     () =>
       evaluate(
-        'document.querySelector(".empty-chat h1")?.textContent.includes("Create your first agent")'
+        'document.querySelector(".empty-chat button")?.textContent.trim() === "Create agent"'
       ),
     'last agent deleted'
   )
@@ -122,7 +122,7 @@ export async function verifyDeletion({
 
   await evaluate('document.querySelector(".agent-dropdown-trigger").click()')
   await evaluate(
-    'document.querySelector("header").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))'
+    'document.querySelector(".messages").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))'
   )
   await wait(
     () => evaluate('document.querySelector("[role=menu]") === null'),
@@ -183,7 +183,7 @@ export async function verifyDeletion({
   await wait(
     () =>
       evaluate(
-        'document.querySelector(".empty-chat h1")?.textContent.includes("Create your first agent")'
+        'document.querySelector(".empty-chat button")?.textContent.trim() === "Create agent"'
       ),
     'menu agent removed'
   )

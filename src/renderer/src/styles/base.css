@@ -89,19 +89,6 @@ header {
   color: #a0aaa0;
 }
 
-.header-title {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  min-width: 0;
-}
-
-.header-divider {
-  width: 1px;
-  height: 18px;
-  background: #384033;
-}
-
 select {
   min-width: 0;
   max-width: 380px;

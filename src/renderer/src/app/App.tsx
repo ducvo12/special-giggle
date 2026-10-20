@@ -74,6 +74,10 @@ export default function App() {
         conversations={conversations}
         conversationId={conversationId}
         onSelectAgent={id => void selectAgent(id)}
+        onNewChat={() => {
+          newChat()
+          setPage('chat')
+        }}
         onDeleteAgent={async id => {
           const deleted = await deleteAgent(id)
 
@@ -135,7 +139,6 @@ export default function App() {
           elapsed={elapsed}
           stopping={stopping}
           onSelectConnection={setSelectedId}
-          onNewChat={newChat}
           onOpenSettings={() => setPage('settings')}
           onCreateAgent={() => setPage('create-agent')}
           onDismissError={() => setError('')}
