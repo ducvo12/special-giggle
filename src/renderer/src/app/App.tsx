@@ -22,6 +22,7 @@ export default function App() {
     selectedId,
     setSelectedId,
     connection,
+    modelSelection,
     conversations,
     conversationId,
     loaded,
@@ -142,6 +143,7 @@ export default function App() {
           agent={agent}
           connections={connections}
           connection={connection}
+          modelSelection={modelSelection}
           busy={busy}
           loaded={loaded && !managingAgents}
           identityDirty={identityDirty}

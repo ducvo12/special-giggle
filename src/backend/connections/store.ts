@@ -23,7 +23,7 @@ function validateDraft(draft: ConnectionDraft) {
       draft.accountId.length > 100 ||
       typeof draft.model !== 'string'
     ) {
-      throw new Error('Choose a signed-in ChatGPT account and a model.')
+      throw new Error('Choose a signed-in ChatGPT account.')
     }
   } else {
     validateConnection(draft)
@@ -161,7 +161,7 @@ export class ConnectionStore {
         throw new Error('Enter a connection name (up to 100 characters).')
       }
 
-      if (!draft.model.trim()) {
+      if (draft.provider !== 'chatgpt' && !draft.model.trim()) {
         throw new Error('Choose or enter a model ID.')
       }
 
@@ -230,7 +230,7 @@ export class ConnectionStore {
     })
   }
 
-  resolve(id: string): Promise<Connection> {
+  resolve(id: string, model?: string): Promise<Connection> {
     return this.serialize(async () => {
       await this.load()
       const record = this.records.find(item => item.id === id)
@@ -239,13 +239,23 @@ export class ConnectionStore {
         throw new Error('Choose a saved connection first.')
       }
 
+      if (model !== undefined) {
+        if (typeof model !== 'string' || !model.trim() || model.length > 200) {
+          throw new Error('Choose a valid model.')
+        }
+
+        if (record.provider !== 'chatgpt') {
+          throw new Error('Model switching is available for ChatGPT account connections.')
+        }
+      }
+
       return {
         provider: record.provider,
         protocol: record.protocol,
         accountId: record.accountId,
         effort: record.effort,
         baseUrl: record.baseUrl,
-        model: record.model,
+        model: model?.trim() ?? record.model,
         apiKey:
           record.provider === 'chatgpt' || record.provider === 'codex' ? '' : this.decrypt(record)
       }

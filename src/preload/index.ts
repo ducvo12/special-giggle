@@ -13,7 +13,8 @@ contextBridge.exposeInMainWorld('granite', {
   connections: {
     list: () => ipcRenderer.invoke('connections:list'),
     save: draft => ipcRenderer.invoke('connections:save', draft),
-    delete: id => ipcRenderer.invoke('connections:delete', id)
+    delete: id => ipcRenderer.invoke('connections:delete', id),
+    models: id => ipcRenderer.invoke('connections:models', id)
   },
   models: draft => ipcRenderer.invoke('model:list', draft),
   chatgpt: {
@@ -40,8 +41,8 @@ contextBridge.exposeInMainWorld('granite', {
     entries: (agentId, path) => ipcRenderer.invoke('workspace:entries', agentId, path),
     read: (agentId, path) => ipcRenderer.invoke('workspace:read', agentId, path)
   },
-  stream: (requestId, agentId, conversationId, connectionId, text) =>
-    ipcRenderer.invoke('model:stream', requestId, agentId, conversationId, connectionId, text),
+  stream: (requestId, agentId, conversationId, connectionId, text, model) =>
+    ipcRenderer.invoke('model:stream', requestId, agentId, conversationId, connectionId, text, model),
   stop: requestId => ipcRenderer.invoke('model:stop', requestId),
   onDelta: callback => {
     const listener = (_event: Electron.IpcRendererEvent, delta: StreamDelta) => callback(delta)

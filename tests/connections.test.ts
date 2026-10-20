@@ -75,3 +75,37 @@ test('unavailable encryption and corrupt storage fail without writing credential
     await rm(directory, { recursive: true, force: true })
   }
 })
+
+test('one ChatGPT connection resolves different models without changing its saved default or credentials', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'granite-account-models-'))
+
+  try {
+    const store = new ConnectionStore(directory, secrets)
+    const saved = await store.save({
+      name: 'My ChatGPT account',
+      provider: 'chatgpt',
+      accountId: 'account-one',
+      baseUrl: '',
+      apiKey: '',
+      model: ''
+    })
+
+    for (const model of ['account-model-a', 'account-model-b']) {
+      const connection = await store.resolve(saved.id, model)
+      assert.equal(connection.model, model)
+      assert.equal(connection.accountId, 'account-one')
+      assert.equal(connection.apiKey, '')
+      assert.equal(connection.protocol, 'responses')
+    }
+
+    const restored = new ConnectionStore(directory, secrets)
+    assert.deepEqual(await restored.list(), [saved])
+    assert.equal((await restored.resolve(saved.id)).model, '')
+    await assert.rejects(restored.resolve(saved.id, ''), /valid model/)
+    await assert.rejects(restored.resolve(saved.id, 'a'.repeat(201)), /valid model/)
+    const api = await store.save(draft)
+    await assert.rejects(store.resolve(api.id, 'another-model'), /ChatGPT account/)
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})

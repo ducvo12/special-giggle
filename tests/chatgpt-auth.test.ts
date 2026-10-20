@@ -16,7 +16,7 @@ const protection = {
 test(
   'Granite ChatGPT OAuth verifies identity, protects tokens, retains registration, serializes refresh, and revokes its own session',
   { timeout: 20_000 },
-  async () => {
+  async context => {
     const directory = await mkdtemp(join(tmpdir(), 'granite-oauth-'))
     const { privateKey, publicKey } = await generateKeyPair('RS256')
     const jwk = { ...(await exportJWK(publicKey)), kid: 'test', alg: 'RS256' }
@@ -154,6 +154,37 @@ test(
       ])
       assert.deepEqual(results, ['refreshed-access-test', 'refreshed-access-test'])
       assert.equal(refreshes, 1)
+
+      const originalFetch = globalThis.fetch
+      const catalogFetch = context.mock.method(globalThis, 'fetch', async (input, init) => {
+        if (String(input) !== 'https://api.openai.com/v1/models') {
+          return originalFetch(input, init)
+        }
+
+        assert.equal(init.headers.Authorization, 'Bearer refreshed-access-test')
+
+        return Response.json({
+          models: [
+            { slug: 'account-model-b', display_name: 'Account Model B', visibility: 'list' },
+            { slug: 'hidden-model', visibility: 'hide' },
+            null,
+            { slug: 'account-model-a', visibility: 'list' },
+            { slug: 'account-model-b', display_name: 'Duplicate', visibility: 'list' },
+            { slug: '', visibility: 'list' }
+          ]
+        })
+      })
+
+      try {
+        assert.deepEqual(await restored.modelCatalog(account.id), [
+          { id: 'account-model-b', name: 'Account Model B' },
+          { id: 'account-model-a', name: 'account-model-a' }
+        ])
+        assert.deepEqual(await restored.models(account.id), ['account-model-b', 'account-model-a'])
+      } finally {
+        catalogFetch.mock.restore()
+      }
+
       subject = 'another-user'
       await assert.rejects(signIn(account.id), /different account/)
       subject = 'test-subject'

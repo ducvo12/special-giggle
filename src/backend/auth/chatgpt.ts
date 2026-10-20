@@ -413,6 +413,10 @@ export class ChatGPTAccounts {
   }
 
   async models(id: string) {
+    return (await this.modelCatalog(id)).map(model => model.id)
+  }
+
+  async modelCatalog(id: string): Promise<{ id: string; name: string }[]> {
     const token = await this.resolve(id)
     const response = await fetch('https://api.openai.com/v1/models', {
       redirect: 'error',
@@ -432,9 +436,31 @@ export class ChatGPTAccounts {
       throw new Error('ChatGPT returned an unexpected model catalog.')
     }
 
-    return data.models
-      .filter((model: any) => model.visibility === 'list' && typeof model.slug === 'string')
-      .map((model: any) => model.slug) as string[]
+    const seen = new Set<string>()
+
+    return data.models.flatMap((model: any) => {
+      if (
+        !model ||
+        model.visibility !== 'list' ||
+        typeof model.slug !== 'string' ||
+        !model.slug.trim() ||
+        seen.has(model.slug)
+      ) {
+        return []
+      }
+
+      seen.add(model.slug)
+
+      return [
+        {
+          id: model.slug,
+          name:
+            typeof model.display_name === 'string' && model.display_name.trim()
+              ? model.display_name
+              : model.slug
+        }
+      ]
+    })
   }
 
   signOut(id: string) {

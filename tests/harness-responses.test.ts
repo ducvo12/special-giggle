@@ -229,6 +229,31 @@ test(
       runtime.close()
       runtime = await AgentRuntime.open(directory)
       await run('Recall')
+
+      const switchIndex = mock.requests.length
+      await runtime.run(
+        'Switch model',
+        agent.id,
+        conversation.id,
+        { ...connection, model: 'another-account-model' },
+        'Continue with another model',
+        emit
+      )
+      const switched = mock.requests[switchIndex]
+      assert.equal(switched.model, 'another-account-model')
+      assert.match(switched.instructions, /calm, clear/)
+      assert.match(switched.instructions, /extra-instruction/)
+      assert.ok(
+        switched.input.some(
+          (item: any) => item.role === 'user' && item.content[0].text === 'Save note'
+        )
+      )
+      assert.ok(!switched.input.some((item: any) => item.type === 'reasoning'))
+      assert.equal(
+        runtime.store.get(agent.id, conversation.id).messages.at(-1)!.model,
+        'another-account-model'
+      )
+
       const before = mock.requests.length
       const ready = new Promise<void>(resolve => {
         approvalReady = resolve

@@ -206,17 +206,20 @@ export default function ChatGPTConnectionEditor({
 
         <div className="model-field">
           <label>
-            Model
+            Default model
 
             <select
-              required
               value={editing.model}
               onChange={event => field('model', event.target.value)}
               disabled={!account?.planEnabled}
             >
-              {!models.includes(editing.model) && (
+              <option value="">
+                Automatic · first available model
+              </option>
+
+              {editing.model && !models.includes(editing.model) && (
                 <option value={editing.model}>
-                  {editing.model || 'Load available models'}
+                  {editing.model}
                 </option>
               )}
 
@@ -237,6 +240,10 @@ export default function ChatGPTConnectionEditor({
             Load models
           </button>
         </div>
+
+        <p className="connection-intro">
+          This connection includes all models available to this account in Granite. Choose a model beside Send; you do not need separate connections.
+        </p>
 
         <label>
           Reasoning effort
@@ -303,7 +310,7 @@ export default function ChatGPTConnectionEditor({
           <button
             type="submit"
             disabled={
-              busy || signingIn || !account?.signedIn || !account.planEnabled || !editing.model
+              busy || signingIn || !account?.signedIn || !account.planEnabled
             }
           >
             Save connection

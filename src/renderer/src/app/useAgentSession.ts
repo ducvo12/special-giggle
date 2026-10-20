@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { SavedConnection, StreamActivity } from '../../../shared/chat'
 import type { ApprovalRequest } from '../../../shared/harness'
 import type { Agent, AgentMessage, Conversation } from '../../../shared/agent'
+import { useConnectionModel } from '../features/chat/useConnectionModel'
 
 const bridgeError = 'Could not communicate with the desktop backend.'
 
@@ -39,6 +40,7 @@ export function useAgentSession() {
   const follow = useRef(true)
 
   const connection = connections.find(item => item.id === selectedId)
+  const modelSelection = useConnectionModel(connection)
   const agent = agents.find(agent => agent.id === agentId)
 
   async function loadConversation(id: string, owner = agentId) {
@@ -236,6 +238,7 @@ export function useAgentSession() {
       agentOperation.current ||
       !draft.trim() ||
       !connection ||
+      !modelSelection.ready ||
       !agent ||
       !loaded
     ) {
@@ -272,13 +275,20 @@ export function useAgentSession() {
           id: requestId,
           role: 'assistant',
           content: '',
-          model: connection.model,
+          model: modelSelection.model,
           tools: [],
           status: 'running'
         }
       ])
 
-      const result = await window.granite.stream(requestId, agent.id, id, connection.id, text)
+      const result = await window.granite.stream(
+        requestId,
+        agent.id,
+        id,
+        connection.id,
+        text,
+        connection.provider === 'chatgpt' ? modelSelection.model : undefined
+      )
 
       if (!result.ok) {
         setError(result.error)
@@ -363,6 +373,7 @@ export function useAgentSession() {
     selectedId,
     setSelectedId,
     connection,
+    modelSelection,
     conversations,
     conversationId,
     loaded,

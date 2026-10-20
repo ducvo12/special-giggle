@@ -19,6 +19,7 @@ export async function modelRequest(options: ModelOptions, path: string, body: un
       signal: AbortSignal.any([signal, AbortSignal.timeout(120_000)]),
       headers: {
         'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
         ...(connection.apiKey ? { Authorization: `Bearer ${connection.apiKey}` } : {})
       },
       body: JSON.stringify(body)

@@ -6,7 +6,7 @@ Granite owns the agent loop. Model providers receive instructions, conversation 
 
 Open **Settings → Connections → Add connection**.
 
-- **ChatGPT account:** Choose **ChatGPT account**, then **Continue with ChatGPT**. Authorize Granite and eligible ChatGPT plan use in the browser. Select the saved account, load models, choose a model and reasoning effort, and save. This uses Granite’s own registration and encrypted credentials. It does not access Codex’s credentials or ChatGPT conversation history. Availability follows the account/workspace grant and OpenAI’s current local/open-source eligibility rules.
+- **ChatGPT account:** Choose **ChatGPT account**, then **Continue with ChatGPT**. Authorize Granite and eligible ChatGPT plan use in the browser. Select the saved account, optionally choose a default model and reasoning effort, and save one connection. In chat, select that connection and choose among its available models beside Send. Granite loads the account’s current catalog automatically, displays model names, remembers the selection per connection, and offers a refresh button. The backend checks the selected model against that account’s catalog before inference. This uses Granite’s own registration and encrypted credentials. It does not access Codex’s credentials or ChatGPT conversation history. The exposed catalog may differ from the ChatGPT app’s model picker; availability follows the account/workspace grant and OpenAI’s current local/open-source eligibility rules.
 - **OpenAI API:** Choose **API connection**, set **API protocol** to **Responses**, enter `https://api.openai.com/v1` and your API key, load or enter a model, and save.
 - **Local/compatible server:** Keep **Chat Completions**, enter the server’s API base URL, and load its models. Existing API connections keep their original protocol by default.
 
@@ -71,8 +71,11 @@ After `npm run build`, the macOS desktop acceptance checks use isolated temporar
 
 ```sh
 node scripts/verify-harness-desktop.mjs
+node scripts/verify-chatgpt-models-desktop.mjs
 node scripts/verify-desktop.mjs
 node scripts/verify-agents-desktop.mjs --offline
 ```
 
 The harness check exercises the actual settings editor, skill saving, Responses connection, approval denial and allowance, Stop while waiting for approval, and restart persistence. It uses a mock model and consumes no account usage.
+
+The ChatGPT model-picker check instruments a disposable build and profile with mock account credentials and a local catalog/inference server. It verifies saving one account connection without a fixed model, switching models in the same chat, remembering the selection after restart, refreshing changed catalogs, retrying failed discovery, and rejecting unavailable models before inference. It consumes no real account usage.

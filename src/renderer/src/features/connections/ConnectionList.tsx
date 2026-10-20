@@ -55,7 +55,9 @@ export default function ConnectionList({
             </h3>
 
             <p>
-              {item.model}
+              {item.provider === 'chatgpt'
+                ? `All available account models · ${item.model ? `default: ${item.model}` : 'automatic default'}`
+                : item.model}
             </p>
 
             <span>

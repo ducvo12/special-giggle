@@ -58,6 +58,24 @@ export function registerIpc(directory: string) {
     return safely(() => store.delete(id))
   })
 
+  ipcMain.handle('connections:models', (event, id: string) => {
+    trusted(event)
+
+    return safely(async () => {
+      if (typeof id !== 'string' || id.length > 100) {
+        throw new Error('Choose a saved connection first.')
+      }
+
+      const connection = await store.resolve(id)
+
+      if (connection.provider !== 'chatgpt') {
+        throw new Error('Choose a ChatGPT account connection to load its models.')
+      }
+
+      return chatgpt.modelCatalog(connection.accountId ?? '')
+    })
+  })
+
   ipcMain.handle('model:list', (event, draft: ConnectionDraft) => {
     trusted(event)
 
@@ -173,7 +191,8 @@ export function registerIpc(directory: string) {
       agentId: string,
       conversationId: string,
       connectionId: string,
-      text: string
+      text: string,
+      model?: string
     ) => {
       trusted(event)
 
@@ -199,9 +218,18 @@ export function registerIpc(directory: string) {
         event.sender.once('destroyed', destroyed)
 
         try {
-          const connection = await store.resolve(connectionId)
+          const connection = await store.resolve(connectionId, model)
 
           if (connection.provider === 'chatgpt') {
+            const catalog = await chatgpt.modelCatalog(connection.accountId ?? '')
+            connection.model ||= catalog[0]?.id ?? ''
+
+            if (!catalog.some(item => item.id === connection.model)) {
+              throw new Error(
+                'This model is no longer available. Refresh the model list and choose another model.'
+              )
+            }
+
             connection.baseUrl = 'https://api.openai.com/v1'
             connection.protocol = 'responses'
             connection.apiKey = await chatgpt.resolve(connection.accountId ?? '')

@@ -29,6 +29,11 @@ export interface ConnectionDraft extends Connection {
   removeKey?: boolean
 }
 
+export interface ModelOption {
+  id: string
+  name: string
+}
+
 export interface Message {
   role: 'user' | 'assistant'
   content: string
@@ -64,6 +69,7 @@ export interface GraniteBridge {
     list: () => Promise<Result<SavedConnection[]>>
     save: (draft: ConnectionDraft) => Promise<Result<SavedConnection>>
     delete: (id: string) => Promise<Result<void>>
+    models: (id: string) => Promise<Result<ModelOption[]>>
   }
   models: (draft: ConnectionDraft) => Promise<Result<string[]>>
   chatgpt: {
@@ -93,7 +99,8 @@ export interface GraniteBridge {
     agentId: string,
     conversationId: string,
     connectionId: string,
-    text: string
+    text: string,
+    model?: string
   ) => Promise<Result<{ stopped: boolean }>>
   stop: (requestId: string) => Promise<void>
   onDelta: (callback: (delta: StreamDelta) => void) => () => void

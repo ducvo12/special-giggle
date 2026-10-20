@@ -2,11 +2,14 @@ import type { RefObject } from 'react'
 import type { Agent, AgentMessage } from '../../../../shared/agent'
 import type { SavedConnection, StreamActivity } from '../../../../shared/chat'
 import MessageList from './MessageList'
+import ChatModelPicker from './ChatModelPicker'
+import type { ModelSelection } from './useConnectionModel'
 
 type Props = {
   agent: Agent | undefined
   connections: SavedConnection[]
   connection: SavedConnection | undefined
+  modelSelection: ModelSelection
   busy: boolean
   loaded: boolean
   identityDirty: boolean
@@ -31,6 +34,7 @@ export default function ChatView({
   agent,
   connections,
   connection,
+  modelSelection,
   busy,
   loaded,
   identityDirty,
@@ -70,6 +74,12 @@ export default function ChatView({
       />
 
       <div className="composer-area">
+        {modelSelection.error && (
+          <div className="error" role="alert">
+            {modelSelection.error} Use the refresh button to try again.
+          </div>
+        )}
+
         {error && (
           <div className="error" role="alert">
             {error}
@@ -116,29 +126,13 @@ export default function ChatView({
 
             <div className="composer-actions">
               {connections.length ? (
-                <div className="composer-model">
-                  <select
-                    aria-label="Active connection"
-                    title={connection ? `${connection.model} · ${connection.name}` : 'Select model'}
-                    value={connection?.id ?? ''}
-                    disabled={busy || !loaded}
-                    onChange={event => onSelectConnection(event.target.value)}
-                  >
-                    <option value="" disabled>
-                      {loaded ? 'Select model' : 'Loading…'}
-                    </option>
-
-                    {connections.map(item => (
-                      <option key={item.id} value={item.id}>
-                        {item.model} · {item.name}
-                      </option>
-                    ))}
-                  </select>
-
-                  <span aria-hidden="true">
-                    ⌄
-                  </span>
-                </div>
+                <ChatModelPicker
+                  connections={connections}
+                  connection={connection}
+                  selection={modelSelection}
+                  disabled={busy || !loaded}
+                  onSelectConnection={onSelectConnection}
+                />
               ) : (
                 <button
                   type="button"
@@ -160,7 +154,10 @@ export default function ChatView({
                   ■ {stopping ? 'Stopping…' : 'Stop'}
                 </button>
               ) : (
-                <button type="submit" disabled={!draft.trim() || !connection || !agent || !loaded}>
+                <button
+                  type="submit"
+                  disabled={!draft.trim() || !modelSelection.ready || !agent || !loaded}
+                >
                   Send ↗
                 </button>
               )}

@@ -3,7 +3,9 @@ import { HarnessError } from '../types.ts'
 // Both model transports use SSE. Completion is determined by the adapter's
 // terminal event; a disconnected stream is never treated as a completed turn.
 export async function readModelEvents(response: Response, dispatch: (event: any) => boolean) {
-  if (!response.body || !response.headers.get('content-type')?.includes('text/event-stream')) {
+  const contentType = response.headers.get('content-type')?.split(';')[0].trim().toLowerCase()
+
+  if (!response.body || (contentType && contentType !== 'text/event-stream')) {
     await response.body?.cancel()
     throw new HarnessError(
       'The model did not return an event stream. Check the connection protocol.'
@@ -16,8 +18,25 @@ export async function readModelEvents(response: Response, dispatch: (event: any)
   let data: string[] = []
   let size = 0
   let terminal = false
+  let formatConfirmed = contentType === 'text/event-stream'
+  let firstLine = true
 
   const line = (value: string) => {
+    if (firstLine) {
+      value = value.replace(/^\uFEFF/, '')
+      firstLine = false
+    }
+
+    // Some subscription responses omit Content-Type while returning valid SSE.
+    // Confirm an SSE field before accepting a stream without that header.
+    if (!formatConfirmed && value) {
+      if (!/^(?:data:|event:|id:|retry:|:)/.test(value)) {
+        throw new HarnessError('The model did not return a valid event stream.')
+      }
+
+      formatConfirmed = true
+    }
+
     if (value.startsWith('data:')) {
       data.push(value.slice(5).replace(/^ /, ''))
     }
