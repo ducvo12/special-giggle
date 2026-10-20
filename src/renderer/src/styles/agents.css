@@ -10,15 +10,15 @@
   justify-content: space-between;
   gap: 10px;
   width: 100%;
-  background: #1b211a;
-  color: #c7d4be;
-  border-color: #35402f;
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border);
   padding: 10px;
   text-align: left;
 }
 
 .agent-dropdown-trigger:hover:not(:disabled) {
-  background: #293226;
+  background: var(--surface-selected);
 }
 
 .agent-dropdown-trigger > span:first-child,
@@ -38,9 +38,9 @@
   max-height: min(420px, 65vh);
   overflow-y: auto;
   padding: 6px;
-  border: 1px solid #42503c;
+  border: 1px solid var(--border-strong);
   border-radius: 10px;
-  background: #1b211a;
+  background: var(--surface);
   box-shadow: 0 16px 40px #0008;
 }
 
@@ -55,7 +55,7 @@
 .agent-menu-delete {
   background: transparent;
   border-color: transparent;
-  color: #c7d4be;
+  color: var(--text);
 }
 
 .agent-menu-choice {
@@ -70,12 +70,12 @@
 }
 
 .agent-menu-choice[aria-checked='true'] {
-  background: #293226;
-  color: #d6e4ce;
+  background: var(--surface-selected);
+  color: var(--text-strong);
 }
 
 .agent-menu-delete {
-  color: #d8b3a3;
+  color: var(--text-secondary);
   font-size: 11px;
   padding: 7px 9px;
 }
@@ -83,26 +83,26 @@
 .agent-menu-create {
   width: 100%;
   margin-top: 6px;
-  border-top: 1px solid #35402f;
+  border-top: 1px solid var(--border);
   border-radius: 0 0 5px 5px;
   padding: 12px 9px;
   text-align: left;
-  color: #bdd5a9;
+  color: var(--text);
 }
 
 .agent-menu-choice:hover:not(:disabled),
 .agent-menu-create:hover:not(:disabled) {
-  background: #293226;
+  background: var(--surface-selected);
 }
 
 .agent-menu-delete:hover:not(:disabled) {
-  background: #422a24;
-  color: #f0b8a4;
+  background: var(--surface-selected);
+  color: var(--text);
 }
 
 .agent-menu-empty {
   margin: 10px;
-  color: #8e9b86;
+  color: var(--text-muted);
   font-size: 12px;
 }
 
@@ -112,7 +112,7 @@
 
 .agent-delete-confirmation p {
   margin: 0 0 8px;
-  color: #e6e9e4;
+  color: var(--text-strong);
   font-size: 13px;
   overflow-wrap: anywhere;
 }

@@ -1,3 +1,4 @@
+import Select, { SelectOption } from '../../components/Select'
 import { useEffect, useState } from 'react'
 import type { Agent } from '../../../../shared/agent'
 import {
@@ -260,20 +261,20 @@ export default function HarnessSettings({
                 <label>
                   Connection
 
-                  <select
+                  <Select
                     value={server.transport}
                     onChange={event =>
                       update({ transport: event.target.value as 'stdio' | 'http' })
                     }
                   >
-                    <option value="stdio">
+                    <SelectOption value="stdio">
                       Local program
-                    </option>
+                    </SelectOption>
 
-                    <option value="http">
+                    <SelectOption value="http">
                       HTTP server
-                    </option>
-                  </select>
+                    </SelectOption>
+                  </Select>
                 </label>
 
                 {server.transport === 'stdio' ? (

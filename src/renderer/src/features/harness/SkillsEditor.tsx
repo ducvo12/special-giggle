@@ -1,3 +1,4 @@
+import Select, { SelectOption } from '../../components/Select'
 import { useEffect, useState } from 'react'
 
 export default function SkillsEditor({
@@ -107,7 +108,7 @@ export default function SkillsEditor({
         <label>
           Choose a skill
 
-          <select
+          <Select
             disabled={skillDirty}
             value={skillSaved.name}
             onChange={event => {
@@ -120,16 +121,16 @@ export default function SkillsEditor({
               setSkillSaved(skill)
             }}
           >
-            <option value="">
+            <SelectOption value="">
               New skill
-            </option>
+            </SelectOption>
 
             {skills.map(skill => (
-              <option key={skill.name} value={skill.name}>
+              <SelectOption key={skill.name} value={skill.name}>
                 {skill.name}
-              </option>
+              </SelectOption>
             ))}
-          </select>
+          </Select>
         </label>
 
         <label>

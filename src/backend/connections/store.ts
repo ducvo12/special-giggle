@@ -172,6 +172,14 @@ export class ConnectionStore {
       }
 
       if (draft.provider === 'chatgpt') {
+        if (this.records.some(record =>
+          record.id !== draft.id &&
+          (record.provider === 'chatgpt' || record.provider === 'codex') &&
+          record.accountId === draft.accountId
+        )) {
+          throw new Error('This ChatGPT account already has a connection. Edit that connection or sign in with a different account.')
+        }
+
         const record: StoredConnection = {
           id: previous?.id ?? randomUUID(),
           provider: 'chatgpt',

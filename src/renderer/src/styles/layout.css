@@ -1,9 +1,57 @@
+.app-header {
+  height: 44px;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 0 16px;
+  background: var(--surface-sidebar);
+  -webkit-app-region: drag;
+}
+
+.app-header button {
+  -webkit-app-region: no-drag;
+}
+
+.app-header-mac {
+  /* Leave room for the native close, minimize, and fullscreen controls. */
+  padding-left: 92px;
+}
+
+.sidebar-toggle {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-color: transparent;
+}
+
+.home-button {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-strong);
+  padding: 5px 7px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+
+.home-button:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.app-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .sidebar {
   width: 210px;
   flex-shrink: 0;
   padding: 30px 18px 22px;
-  background: #111412;
-  border-right: 1px solid #282e28;
+  background: var(--surface-sidebar);
+  border-right: 1px solid var(--surface-selected);
   display: flex;
   flex-direction: column;
 }
@@ -11,7 +59,7 @@
 .section-label {
   font-size: 10px;
   letter-spacing: 1.6px;
-  color: #747f75;
+  color: var(--focus);
   margin: 0 10px 15px;
 }
 
@@ -22,7 +70,7 @@
   width: 100%;
   border-radius: 7px;
   font-size: 13px;
-  color: #929e8e;
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -30,12 +78,12 @@
 }
 
 .nav-item.active {
-  background: #242d24;
-  color: #d6e4ce;
+  background: var(--surface-hover);
+  color: var(--text-strong);
 }
 
 .nav-item:hover:not(:disabled) {
-  background: #202720;
+  background: var(--surface-hover);
 }
 
 .sidebar-bottom {
@@ -44,7 +92,7 @@
 
 .sidebar-footer {
   padding: 20px 12px 0;
-  color: #8e9a8e;
+  color: var(--text-muted);
   font-size: 11px;
   display: flex;
   align-items: center;
@@ -56,7 +104,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #b5cd9d;
+  background: var(--text);
 }
 
 .live-dot {
@@ -78,14 +126,14 @@
   text-overflow: ellipsis;
   background: transparent;
   border-color: transparent;
-  color: #8f9c88;
+  color: var(--text-muted);
   padding: 10px;
 }
 
 .conversation-list button.selected,
 .workspace-browser button.selected {
-  background: #242d24;
-  color: #d6e4ce;
+  background: var(--surface-hover);
+  color: var(--text-strong);
 }
 
 .agent-switcher {
@@ -106,7 +154,7 @@
 }
 
 .new-chat-button > span {
-  color: #afc49d;
+  color: var(--text-secondary);
   font-size: 18px;
   line-height: 1;
 }

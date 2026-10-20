@@ -324,7 +324,7 @@ export class ChatGPTAccounts {
 
       return await this.serialize(async () => {
         const previous = this.records.find(
-          record => record.clientId === clientId && record.subject === identity.sub
+          record => record.subject === identity.sub
         )
         const record: RecordEntry = {
           id: previous?.id ?? randomUUID(),

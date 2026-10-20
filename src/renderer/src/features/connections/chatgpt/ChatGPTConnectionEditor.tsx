@@ -1,8 +1,10 @@
+import Select, { SelectOption } from '../../../components/Select'
 import { useEffect, useState, type FormEvent, type RefObject } from 'react'
-import type { ConnectionDraft } from '../../../../../shared/chat'
+import type { ConnectionDraft, SavedConnection } from '../../../../../shared/chat'
 import type { ChatGPTAccount } from '../../../../../shared/harness'
 
 type Props = {
+  connections: SavedConnection[]
   editing: ConnectionDraft
   busy: boolean
   models: string[]
@@ -14,6 +16,7 @@ type Props = {
 }
 
 export default function ChatGPTConnectionEditor({
+  connections,
   editing,
   busy,
   models,
@@ -70,6 +73,14 @@ export default function ChatGPTConnectionEditor({
       }
 
       setAccounts(current => [...current.filter(item => item.id !== result.value.id), result.value])
+      const duplicate = connections.find(item =>
+        item.id !== editing.id && item.accountId === result.value.id &&
+        (item.provider === 'chatgpt' || item.provider === 'codex')
+      )
+      if (duplicate) {
+        setError(`This account is already connected as “${duplicate.name}”. Sign in with a different account.`)
+        return
+      }
       field('accountId', result.value.id)
       field('model', '')
 
@@ -143,15 +154,15 @@ export default function ChatGPTConnectionEditor({
         <label>
           Connection type
 
-          <select value="chatgpt" onChange={event => field('provider', event.target.value)}>
-            <option value="openai">
+          <Select value="chatgpt" onChange={event => field('provider', event.target.value)}>
+            <SelectOption value="openai">
               API connection
-            </option>
+            </SelectOption>
 
-            <option value="chatgpt">
+            <SelectOption value="chatgpt">
               ChatGPT account
-            </option>
-          </select>
+            </SelectOption>
+          </Select>
         </label>
 
         <label>
@@ -166,69 +177,49 @@ export default function ChatGPTConnectionEditor({
           />
         </label>
 
-        <p className="connection-intro">
-          Use your eligible ChatGPT plan with Granite’s own agent runtime. Codex is not required.
-        </p>
-
-        <label>
-          ChatGPT account
-
-          <select
-            value={editing.accountId ?? ''}
-            onChange={event => {
-              field('accountId', event.target.value)
-              field('model', '')
-            }}
-          >
-            <option value="">
-              Connect a new account
-            </option>
-
-            {accounts.map(item => (
-              <option key={item.id} value={item.id}>
-                {item.email}{item.signedIn ? '' : ' · signed out'}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <div className="connect-actions">
-          <button type="button" onClick={() => void login()}>
-            Continue with ChatGPT
-          </button>
+        <div className="chatgpt-account">
+          <span className="field-hint">ChatGPT account</span>
+          <span>{account?.email ?? 'No account connected'}</span>
+          <div className="connect-actions">
+          {(!account?.signedIn || !account.planEnabled) && (
+            <button type="button" onClick={() => void login()}>
+              {account ? 'Sign in again' : 'Connect ChatGPT account'}
+            </button>
+          )}
 
           {account?.signedIn && (
             <button type="button" className="quiet-button" onClick={() => void signOut()}>
               Sign out of Granite
             </button>
           )}
+          </div>
         </div>
 
         <div className="model-field">
           <label>
             Default model
 
-            <select
+            <Select
               value={editing.model}
               onChange={event => field('model', event.target.value)}
               disabled={!account?.planEnabled}
             >
-              <option value="">
+              <SelectOption value="">
                 Automatic · first available model
-              </option>
+              </SelectOption>
 
               {editing.model && !models.includes(editing.model) && (
-                <option value={editing.model}>
+                <SelectOption value={editing.model}>
                   {editing.model}
-                </option>
+                </SelectOption>
               )}
 
               {models.map(model => (
-                <option key={model} value={model}>
+                <SelectOption key={model} value={model}>
                   {model}
-                </option>
+                </SelectOption>
               ))}
-            </select>
+            </Select>
           </label>
 
           <button
@@ -241,31 +232,24 @@ export default function ChatGPTConnectionEditor({
           </button>
         </div>
 
-        <p className="connection-intro">
-          This connection includes all models available to this account in Granite. Choose a model beside Send; you do not need separate connections.
-        </p>
-
         <label>
-          Reasoning effort
+          Default reasoning effort
 
-          <select
+          <Select
             value={editing.effort ?? ''}
             onChange={event => field('effort', event.target.value)}
           >
-            <option value="">
+            <SelectOption value="">
               Model default
-            </option>
+            </SelectOption>
 
             {['low', 'medium', 'high', 'xhigh', 'max', 'ultra'].map(effort => (
-              <option key={effort} value={effort}>
+              <SelectOption key={effort} value={effort}>
                 {effort}
-              </option>
+              </SelectOption>
             ))}
-          </select>
+          </Select>
 
-          <small>
-            Supported effort levels depend on the selected model. Higher effort can use more time and account allowance.
-          </small>
         </label>
       </fieldset>
 
@@ -298,10 +282,6 @@ export default function ChatGPTConnectionEditor({
       )}
 
       <div className="editor-footer">
-        <p>
-          Granite manages this sign-in independently of Codex. Credentials are encrypted on this device. Model access and usage follow your ChatGPT account’s permissions and limits.
-        </p>
-
         <div>
           <button type="button" className="quiet-button" disabled={busy} onClick={onCancel}>
             Cancel

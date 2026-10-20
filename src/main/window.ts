@@ -8,7 +8,11 @@ export function createWindow(): void {
     minWidth: 720,
     minHeight: 520,
     title: 'Granite',
-    backgroundColor: '#141715',
+    ...(process.platform === 'darwin' && {
+      titleBarStyle: 'hiddenInset' as const,
+      trafficLightPosition: { x: 16, y: 15 }
+    }),
+    backgroundColor: '#181818',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,

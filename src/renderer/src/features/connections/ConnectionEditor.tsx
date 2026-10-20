@@ -1,8 +1,10 @@
+import Select, { SelectOption } from '../../components/Select'
 import type { FormEvent, RefObject } from 'react'
 import type { ConnectionDraft, SavedConnection } from '../../../../shared/chat'
 import ChatGPTConnectionEditor from './chatgpt/ChatGPTConnectionEditor'
 
 type Props = {
+  connections: SavedConnection[]
   editing: ConnectionDraft
   original: SavedConnection | undefined
   models: string[]
@@ -15,6 +17,7 @@ type Props = {
 }
 
 export default function ConnectionEditor({
+  connections,
   editing,
   original,
   models,
@@ -31,6 +34,7 @@ export default function ConnectionEditor({
   if (editing.provider === 'chatgpt') {
     return (
       <ChatGPTConnectionEditor
+        connections={connections}
         editing={editing}
         busy={busy}
         models={models}
@@ -59,32 +63,32 @@ export default function ConnectionEditor({
         <label>
           Connection type
 
-          <select value="openai" onChange={e => field('provider', e.target.value)}>
-            <option value="openai">
+          <Select value="openai" onChange={e => field('provider', e.target.value)}>
+            <SelectOption value="openai">
               OpenAI-compatible API
-            </option>
+            </SelectOption>
 
-            <option value="chatgpt">
+            <SelectOption value="chatgpt">
               ChatGPT account
-            </option>
-          </select>
+            </SelectOption>
+          </Select>
         </label>
 
         <label>
           API protocol
 
-          <select
+          <Select
             value={editing.protocol ?? 'chat-completions'}
             onChange={event => field('protocol', event.target.value)}
           >
-            <option value="chat-completions">
+            <SelectOption value="chat-completions">
               Chat Completions · local / compatible servers
-            </option>
+            </SelectOption>
 
-            <option value="responses">
+            <SelectOption value="responses">
               Responses · OpenAI reasoning models
-            </option>
-          </select>
+            </SelectOption>
+          </Select>
         </label>
 
         <label>
@@ -165,19 +169,11 @@ export default function ConnectionEditor({
           <label>
             Model ID
 
-            <input
-              required
-              list="available-models"
-              value={editing.model}
-              onChange={e => field('model', e.target.value)}
-              placeholder="Load models or enter an ID"
-            />
-
-            <datalist id="available-models">
-              {models.map(model => (
-                <option key={model} value={model} />
-              ))}
-            </datalist>
+            <Select editable required aria-label="Model ID" value={editing.model}
+              onChange={event => field('model', event.target.value)}
+              placeholder="Load models or enter an ID">
+              {models.map(model => <SelectOption key={model} value={model}>{model}</SelectOption>)}
+            </Select>
           </label>
 
           <button
@@ -194,20 +190,20 @@ export default function ConnectionEditor({
           <label>
             Reasoning effort
 
-            <select
+            <Select
               value={editing.effort ?? ''}
               onChange={event => field('effort', event.target.value)}
             >
-              <option value="">
+              <SelectOption value="">
                 Model default
-              </option>
+              </SelectOption>
 
               {['low', 'medium', 'high', 'xhigh', 'max', 'ultra'].map(effort => (
-                <option key={effort} value={effort}>
+                <SelectOption key={effort} value={effort}>
                   {effort}
-                </option>
+                </SelectOption>
               ))}
-            </select>
+            </Select>
           </label>
         )}
       </fieldset>

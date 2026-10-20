@@ -109,3 +109,25 @@ test('one ChatGPT connection resolves different models without changing its save
     await rm(directory, { recursive: true, force: true })
   }
 })
+
+test('ChatGPT accounts have one connection while edits and different accounts remain allowed', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'granite-unique-accounts-'))
+  try {
+    const store = new ConnectionStore(directory, secrets)
+    const account = { name: 'Personal', provider: 'chatgpt' as const, accountId: 'personal', baseUrl: '', apiKey: '', model: '' }
+    const attempts = await Promise.allSettled([store.save(account), store.save({ ...account, name: 'Duplicate' })])
+    assert.equal(attempts.filter(result => result.status === 'fulfilled').length, 1)
+    const rejected = attempts.find(result => result.status === 'rejected')
+    assert.match(String(rejected?.reason), /already has a connection/)
+    const [saved] = await store.list()
+    await store.save({ ...account, id: saved.id, name: 'Updated', model: 'default-model' })
+    const other = await store.save({ ...account, accountId: 'work', name: 'Work' })
+    await assert.rejects(store.save({ ...account, id: other.id }), /already has a connection/)
+    assert.equal((await store.list()).length, 2)
+    assert.equal((await store.resolve(saved.id)).model, 'default-model')
+    const reloaded = new ConnectionStore(directory, secrets)
+    await assert.rejects(reloaded.save(account), /already has a connection/)
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})

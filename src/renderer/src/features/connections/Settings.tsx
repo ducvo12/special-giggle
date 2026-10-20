@@ -14,12 +14,10 @@ const bridgeError = 'Could not communicate with the desktop backend.'
 
 export default function Settings({
   connections,
-  onChange,
-  onBack
+  onChange
 }: {
   connections: SavedConnection[]
   onChange: (next: SavedConnection[]) => void
-  onBack: () => void
 }) {
   const [editing, setEditing] = useState<ConnectionDraft | null>(null)
   const [models, setModels] = useState<string[]>([])
@@ -187,40 +185,12 @@ export default function Settings({
 
   return (
     <main className="settings-main">
-      <header>
-        <span>
-          Settings
-        </span>
-
-        <button className="quiet-button" onClick={onBack}>
-          Back to chat
-        </button>
-      </header>
-
       <div className="settings-content">
-        <div className="settings-title">
-          <div>
-            <div className="eyebrow">
-              PREFERENCES
-            </div>
-
-            <h1>
-              Settings
-            </h1>
-          </div>
-        </div>
-
-        <div className="settings-tabs">
-          <button aria-current="page">
-            Connections
-          </button>
-        </div>
-
         <div className="section-heading">
           <div>
-            <h2>
-              Model connections
-            </h2>
+            <h1 className="settings-category-title">
+              Connections
+            </h1>
 
             <p>
               Connect a ChatGPT account, OpenAI, or a local model server.
@@ -248,6 +218,7 @@ export default function Settings({
 
         {editing ? (
           <ConnectionEditor
+            connections={connections}
             editing={editing}
             original={original}
             models={models}

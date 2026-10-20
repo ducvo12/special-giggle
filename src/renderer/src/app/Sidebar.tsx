@@ -35,8 +35,27 @@ export default function Sidebar({
   onSelectConversation,
   onPageChange
 }: Props) {
+  if (page === 'settings') {
+    return (
+      <aside id="app-sidebar" className="sidebar" aria-label="Settings navigation">
+        <button className="quiet-button settings-back" onClick={() => onPageChange('chat')}>
+          <span aria-hidden="true">←</span> Back to chat
+        </button>
+        <span className="section-label">SETTINGS</span>
+        <nav aria-label="Settings categories">
+          <button className="nav-item active" aria-current="page" onClick={() => onPageChange('settings')}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+              <path d="M8 3v5m8-5v5M6 8h12v3a6 6 0 0 1-12 0V8Zm6 9v4" />
+            </svg>
+            Connections
+          </button>
+        </nav>
+      </aside>
+    )
+  }
+
   return (
-    <aside className="sidebar">
+    <aside id="app-sidebar" className="sidebar">
       <span className="section-label">
         AGENTS
       </span>
@@ -133,7 +152,7 @@ export default function Sidebar({
 
       <div className="sidebar-bottom">
         <button
-          className={`nav-item ${page === 'settings' ? 'active' : ''}`}
+          className="nav-item"
           disabled={identityDirty}
           onClick={() => onPageChange('settings')}
         >

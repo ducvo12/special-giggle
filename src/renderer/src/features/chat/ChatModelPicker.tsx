@@ -1,3 +1,4 @@
+import Select, { SelectOption } from '../../components/Select'
 import type { SavedConnection } from '../../../../shared/chat'
 import type { ModelSelection } from './useConnectionModel'
 
@@ -17,54 +18,46 @@ export default function ChatModelPicker({
   return (
     <>
       <div className="composer-model">
-        <select
+        <Select
           aria-label="Active connection"
           title={connection?.name ?? 'Select connection'}
           value={connection?.id ?? ''}
           disabled={disabled}
           onChange={event => onSelectConnection(event.target.value)}
         >
-          <option value="" disabled>
+          <SelectOption value="" disabled>
             Select connection
-          </option>
+          </SelectOption>
 
           {connections.map(item => (
-            <option key={item.id} value={item.id}>
+            <SelectOption key={item.id} value={item.id}>
               {item.provider === 'chatgpt' ? item.name : `${item.model} · ${item.name}`}
-            </option>
+            </SelectOption>
           ))}
-        </select>
-
-        <span aria-hidden="true">
-          ⌄
-        </span>
+        </Select>
       </div>
 
       {connection?.provider === 'chatgpt' && (
         <>
           <div className="composer-model">
-            <select
+            <Select
               aria-label="ChatGPT model"
               value={selection.model}
               disabled={disabled || selection.loading || !selection.models.length}
               onChange={event => selection.select(event.target.value)}
             >
               {!selection.model && (
-                <option value="">
+                <SelectOption value="">
                   {selection.loading ? 'Loading models…' : 'No models available'}
-                </option>
+                </SelectOption>
               )}
 
               {selection.models.map(model => (
-                <option key={model.id} value={model.id}>
+                <SelectOption key={model.id} value={model.id}>
                   {model.name}
-                </option>
+                </SelectOption>
               ))}
-            </select>
-
-            <span aria-hidden="true">
-              ⌄
-            </span>
+            </Select>
           </div>
 
           <button

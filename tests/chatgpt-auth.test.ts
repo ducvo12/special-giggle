@@ -205,6 +205,14 @@ test(
         await fetch(callback)
       }, account.id)
       assert.equal(signedAgain.id, account.id)
+      const sameAccount = await signIn()
+      assert.equal(sameAccount.id, account.id, 'a fresh sign-in keeps the same account identity')
+      assert.equal((await accounts.list()).length, 1)
+      subject = 'work-user'
+      const workAccount = await signIn()
+      assert.notEqual(workAccount.id, account.id)
+      assert.equal((await accounts.list()).length, 2)
+      subject = 'test-subject'
       noPlan = true
       const notGranted = await signIn()
       assert.equal(notGranted.planEnabled, false)
