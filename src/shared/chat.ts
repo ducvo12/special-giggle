@@ -1,12 +1,21 @@
 import type { Agent, Conversation, ConversationDetail, ToolActivity, WorkspaceEntry } from './agent'
+import type { ApprovalRequest, ChatGPTAccount, HarnessSettings } from './harness'
 
 export interface Connection {
+  provider?: 'openai' | 'codex' | 'chatgpt'
+  protocol?: 'chat-completions' | 'responses'
+  accountId?: string
+  effort?: string
   baseUrl: string
   apiKey: string
   model: string
 }
 
 export interface SavedConnection {
+  provider?: 'openai' | 'codex' | 'chatgpt'
+  protocol?: 'chat-completions' | 'responses'
+  accountId?: string
+  effort?: string
   id: string
   name: string
   baseUrl: string
@@ -40,6 +49,7 @@ export interface StreamDelta {
   text: string
   activity?: StreamActivity
   tool?: ToolActivity
+  approval?: ApprovalRequest | null
 }
 
 export interface GraniteBridge {
@@ -56,6 +66,19 @@ export interface GraniteBridge {
     delete: (id: string) => Promise<Result<void>>
   }
   models: (draft: ConnectionDraft) => Promise<Result<string[]>>
+  chatgpt: {
+    accounts: () => Promise<Result<ChatGPTAccount[]>>
+    login: (accountId?: string) => Promise<Result<ChatGPTAccount>>
+    cancelLogin: () => Promise<Result<void>>
+    signOut: (id: string) => Promise<Result<{ revoked: boolean }>>
+  }
+  harness: {
+    get: (agentId: string) => Promise<Result<HarnessSettings>>
+    save: (agentId: string, settings: HarnessSettings) => Promise<Result<HarnessSettings>>
+    skills: (agentId: string) => Promise<Result<{ name: string; content: string }[]>>
+    saveSkill: (agentId: string, name: string, content: string) => Promise<Result<void>>
+    approve: (requestId: string, approvalId: string, allow: boolean) => Promise<Result<void>>
+  }
   conversations: {
     list: (agentId: string) => Promise<Result<Conversation[]>>
     create: (agentId: string) => Promise<Result<ConversationDetail>>

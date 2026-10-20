@@ -25,7 +25,10 @@ export class AgentFilesystem extends FilesystemBackend {
 
     const parts = path.split('/').filter(Boolean)
 
-    if (writing && ['identity.md', 'agent.json'].includes(parts[0]?.toLowerCase())) {
+    if (
+      writing &&
+      ['identity.md', 'agent.json', 'harness.json', 'skills'].includes(parts[0]?.toLowerCase())
+    ) {
       throw new Error('Identity and agent configuration are read-only to the agent.')
     }
 

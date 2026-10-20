@@ -68,7 +68,7 @@ export default function MessageList({
                   <summary>
                     <span className={`tool-state ${tool.status}`} />
 
-                    {tool.name}
+                    {tool.label ?? tool.name.replaceAll('_', ' ')}
 
                     <span>
                       {tool.status}

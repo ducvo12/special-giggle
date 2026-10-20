@@ -1,20 +1,17 @@
 import { defineConfig } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import { resolve } from 'node:path'
+import { agentWorkerBuild } from './scripts/agent-worker-build'
 
 export default defineConfig({
-  // Bundle the agent SDKs: some ship internal dist/node_modules/.pnpm chunks
-  // that desktop packagers otherwise omit. Keep the native SQLite addon external.
   main: {
     ssr: { noExternal: true },
+    plugins: [agentWorkerBuild()],
     build: {
       externalizeDeps: false,
       rollupOptions: {
         external: ['better-sqlite3'],
-        input: {
-          index: resolve('src/main/index.ts'),
-          'agent-worker': resolve('src/backend/agents/worker.ts')
-        }
+        input: { index: resolve('src/main/index.ts') }
       }
     }
   },

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { SavedConnection, StreamActivity } from '../../../shared/chat'
+import type { ApprovalRequest } from '../../../shared/harness'
 import type { Agent, AgentMessage, Conversation } from '../../../shared/agent'
 
 const bridgeError = 'Could not communicate with the desktop backend.'
@@ -23,6 +24,7 @@ export function useAgentSession() {
 
   const [busy, setBusy] = useState(false)
   const [stopping, setStopping] = useState(false)
+  const [approval, setApproval] = useState<ApprovalRequest | null>(null)
   const [activity, setActivity] = useState<StreamActivity>({
     reasoningCharacters: 0,
     answerCharacters: 0
@@ -172,6 +174,10 @@ export function useAgentSession() {
         return
       }
 
+      if (Object.hasOwn(delta, 'approval')) {
+        setApproval(delta.approval ?? null)
+      }
+
       if (delta.activity) {
         setActivity(delta.activity)
       }
@@ -285,6 +291,7 @@ export function useAgentSession() {
       setDraft(text)
     } finally {
       run.current = null
+      setApproval(null)
       setBusy(false)
       setStopping(false)
     }
@@ -364,6 +371,18 @@ export function useAgentSession() {
     setDraft,
     busy,
     stopping,
+    approval,
+    async approve(allow: boolean) {
+      if (!approval || approval.requestId !== run.current) {
+        return
+      }
+
+      const result = await window.granite.harness.approve(approval.requestId, approval.id, allow)
+
+      if (!result.ok) {
+        setError(result.error)
+      }
+    },
     activity,
     elapsed,
     error,

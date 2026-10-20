@@ -1,5 +1,6 @@
 import type { FormEvent, RefObject } from 'react'
 import type { ConnectionDraft, SavedConnection } from '../../../../shared/chat'
+import ChatGPTConnectionEditor from './chatgpt/ChatGPTConnectionEditor'
 
 type Props = {
   editing: ConnectionDraft
@@ -27,6 +28,21 @@ export default function ConnectionEditor({
   const changedEndpoint =
     original && original.baseUrl !== editing.baseUrl.trim().replace(/\/+$/, '')
 
+  if (editing.provider === 'chatgpt') {
+    return (
+      <ChatGPTConnectionEditor
+        editing={editing}
+        busy={busy}
+        models={models}
+        onLoadModels={onLoadModels}
+        field={field}
+        onSave={onSave}
+        onCancel={onCancel}
+        nameInput={nameInput}
+      />
+    )
+  }
+
   return (
     <form className="connection-editor" onSubmit={onSave}>
       <div className="editor-heading">
@@ -35,11 +51,42 @@ export default function ConnectionEditor({
         </h2>
 
         <span className="badge">
-          OPENAI COMPATIBLE
+          {editing.protocol === 'responses' ? 'RESPONSES API' : 'OPENAI COMPATIBLE'}
         </span>
       </div>
 
       <fieldset disabled={busy}>
+        <label>
+          Connection type
+
+          <select value="openai" onChange={e => field('provider', e.target.value)}>
+            <option value="openai">
+              OpenAI-compatible API
+            </option>
+
+            <option value="chatgpt">
+              ChatGPT account
+            </option>
+          </select>
+        </label>
+
+        <label>
+          API protocol
+
+          <select
+            value={editing.protocol ?? 'chat-completions'}
+            onChange={event => field('protocol', event.target.value)}
+          >
+            <option value="chat-completions">
+              Chat Completions · local / compatible servers
+            </option>
+
+            <option value="responses">
+              Responses · OpenAI reasoning models
+            </option>
+          </select>
+        </label>
+
         <label>
           Connection name
 
@@ -142,6 +189,27 @@ export default function ConnectionEditor({
             {busy ? 'Checking…' : 'Load models'}
           </button>
         </div>
+
+        {editing.protocol === 'responses' && (
+          <label>
+            Reasoning effort
+
+            <select
+              value={editing.effort ?? ''}
+              onChange={event => field('effort', event.target.value)}
+            >
+              <option value="">
+                Model default
+              </option>
+
+              {['low', 'medium', 'high', 'xhigh', 'max', 'ultra'].map(effort => (
+                <option key={effort} value={effort}>
+                  {effort}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </fieldset>
 
       <div className="editor-footer">

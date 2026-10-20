@@ -105,6 +105,18 @@ export default function Sidebar({
         {' '}Identity
       </button>
 
+      <button
+        className={`nav-item ${page === 'tools' ? 'active' : ''}`}
+        disabled={identityDirty || !agent || busy}
+        onClick={() => onPageChange('tools')}
+      >
+        <span>
+          ⌘
+        </span>
+
+        {' '}Tools & skills
+      </button>
+
       <div className="conversation-list">
         {conversations.map(chat => (
           <button

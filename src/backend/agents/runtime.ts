@@ -1,34 +1,35 @@
 import { join } from 'node:path'
 import { rmSync } from 'node:fs'
-import { ChatOpenAI } from '@langchain/openai'
-import { AIMessage, HumanMessage } from '@langchain/core/messages'
-import { createDeepAgent, registerHarnessProfile } from 'deepagents'
-import { todoListMiddleware } from 'langchain'
+import { createHash } from 'node:crypto'
 import type { Connection, StreamDelta } from '../../shared/chat.ts'
-import { observeModelStream } from '../models/observed-fetch.ts'
+import type { HarnessSettings } from '../../shared/harness.ts'
 import { workspaceEntries, workspaceText } from '../workspace/workspace.ts'
 import { AgentStore } from './store.ts'
 import { AgentRegistry } from './registry.ts'
+import { ApprovalQueue } from '../harness/approvals.ts'
+import { runHarness } from '../harness/loop.ts'
+import { HarnessError } from '../harness/types.ts'
+import {
+  readHarnessSettings,
+  saveHarnessSettings,
+  listSkills,
+  saveSkill
+} from '../harness/settings.ts'
 
-registerHarnessProfile('openai', {
-  excludedTools: ['task', 'execute', 'delete_file'],
-  generalPurposeSubagent: { enabled: false }
-})
-
-const instructions = `You are a personal agent with a persistent workspace. Your name and personality come from the agent profile and identity below. Follow the identity’s communication style.
-Your only filesystem is the workspace root /. Use /notes/ for notes and /projects/ for projects.
-Use /memory.md to remember explicit user preferences across conversations. Read existing content before editing it. Update it when the user asks you to remember something. Do not store secrets or speculative facts.
-Your identity and user memory are loaded below. Identity and /agent.json are read-only to the agent; the user can edit identity in the application. Notes and other files can be written with the file tools.
-For a simple question or a quote, answer directly. Do not make a plan or use a tool unless needed.
-For requested file changes, actually call the tools and report their outcome. Do not invent tool results.
-There is no terminal or delegation in this version. A stopped run may leave completed file changes in place.`
-
-class AgentRunError extends Error {}
+const instructions = `You are a personal agent running in Granite. Your name and personality come from the agent profile and identity below.
+Your file tools use a virtual workspace rooted at /. Use /notes/ for notes and /projects/ for projects.
+Use /memory.md for explicit user preferences across conversations. Read existing content before editing. Never store secrets or guesses as facts.
+Identity, agent configuration, harness settings, and skills are read-only to tools; the user manages them in the application.
+For a simple question, answer directly. Use plans and tools only when they help complete the user's request. For file changes, actually call tools and report their outcome.
+Load a relevant skill from the available catalog before applying its instructions. MCP and terminal tools are available only if the user enabled them.
+Granite enforces permissions independently of your instructions. Respect a denied action; do not attempt a different tool to bypass it.
+Completed actions remain after Stop or a failed run. Inspect current files before continuing interrupted work; never assume unfinished actions succeeded.`
 
 export class AgentRuntime {
   store: AgentStore
   registry: AgentRegistry
   active: { id: string; controller: AbortController } | null = null
+  approvals = new ApprovalQueue()
   private editingIdentity = false
   private changingAgents = false
 
@@ -112,6 +113,7 @@ export class AgentRuntime {
 
     try {
       await this.registry.get(agentId)
+
       return this.store.create(agentId)
     } finally {
       this.changingAgents = false
@@ -121,6 +123,42 @@ export class AgentRuntime {
   stop(id: string) {
     if (this.active?.id === id) {
       this.active.controller.abort()
+    }
+  }
+
+  async settings(agentId: string) {
+    return readHarnessSettings(await this.registry.workspace(agentId))
+  }
+
+  async skills(agentId: string) {
+    return listSkills(await this.registry.workspace(agentId))
+  }
+
+  async saveSettings(agentId: string, settings: HarnessSettings) {
+    if (this.active || this.editingIdentity || this.changingAgents) {
+      throw new Error('Finish the current operation before changing agent tools.')
+    }
+
+    this.editingIdentity = true
+
+    try {
+      return await saveHarnessSettings(await this.registry.workspace(agentId), settings)
+    } finally {
+      this.editingIdentity = false
+    }
+  }
+
+  async saveSkill(agentId: string, name: string, content: string) {
+    if (this.active || this.editingIdentity || this.changingAgents) {
+      throw new Error('Finish the current operation before saving a skill.')
+    }
+
+    this.editingIdentity = true
+
+    try {
+      await saveSkill(await this.registry.workspace(agentId), name, content)
+    } finally {
+      this.editingIdentity = false
     }
   }
 
@@ -134,7 +172,7 @@ export class AgentRuntime {
   ) {
     if (this.active || this.editingIdentity || this.changingAgents) {
       throw new Error(
-        'An agent is already working or its identity is being saved. Finish the current operation first.'
+        'An agent is already working or its settings are being saved. Finish the current operation first.'
       )
     }
 
@@ -143,53 +181,56 @@ export class AgentRuntime {
       !text.trim() ||
       text.length > 32_000 ||
       typeof requestId !== 'string' ||
+      !requestId ||
       requestId.length > 100
     ) {
       throw new Error('Invalid or oversized message.')
     }
 
+    if (connection.provider === 'codex') {
+      throw new Error(
+        'This connection uses the previous Codex runtime. Reconnect with ChatGPT or a Responses API connection in Settings.'
+      )
+    }
+
     const controller = new AbortController()
+    const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(300_000)])
     this.active = { id: requestId, controller }
     let turn: ReturnType<AgentStore['begin']> | undefined
     let lastSave = 0
-    const observation = observeModelStream(requestId, emit)
-    const { activity } = observation
+    const activity = { reasoningCharacters: 0, answerCharacters: 0 }
 
     try {
       const profile = await this.registry.get(agentId)
       const workspace = await this.registry.workspace(agentId)
-      const [identity, memory] = await Promise.all([
+      const [identity, memory, settings] = await Promise.all([
         workspaceText(workspace, '/identity.md'),
-        workspaceText(workspace, '/memory.md')
+        workspaceText(workspace, '/memory.md'),
+        readHarnessSettings(workspace)
       ])
-
-      turn = this.store.begin(agentId, conversationId, text.trim(), connection.model)
-      const persist = () => {
-        if (turn) {
-          this.store.saveMessage(conversationId, turn.message)
-        }
-      }
-
-      const model = new ChatOpenAI({
-        model: connection.model,
-        apiKey: connection.apiKey || 'local-no-key',
-        configuration: { baseURL: connection.baseUrl, fetch: observation.fetch },
-        streaming: true,
-        useResponsesApi: false,
-        maxRetries: 0,
-        timeout: 120_000,
-        maxTokens: 4096
-      })
-
-      const agent = createDeepAgent({
-        name: profile.id,
-        model,
-        backend: workspace,
-        checkpointer: this.store.saver,
-        middleware: [todoListMiddleware()],
-        systemPrompt: [
+      const modelKey = createHash('sha256')
+        .update(
+          JSON.stringify([
+            connection.provider ?? 'openai',
+            connection.protocol ?? 'chat-completions',
+            connection.baseUrl,
+            connection.model,
+            connection.accountId ?? ''
+          ])
+        )
+        .digest('hex')
+      turn = this.store.begin(agentId, conversationId, text.trim(), connection.model, modelKey)
+      const persist = () => this.store.saveMessage(conversationId, turn!.message)
+      const previous = turn.recovered ? undefined : this.store.modelState(conversationId, modelKey)
+      const result = await runHarness({
+        connection,
+        workspace,
+        settings,
+        instructions: [
           instructions,
-          '',
+          turn.interrupted
+            ? 'The previous run was interrupted. Completed file changes remain. Inspect current files before continuing unfinished work.'
+            : '',
           '<agent_profile>',
           JSON.stringify(profile),
           '</agent_profile>',
@@ -200,127 +241,61 @@ export class AgentRuntime {
           memory,
           '</user_memory>'
         ].join('\n'),
-        permissions: [
-          { operations: ['write'], paths: ['/identity.md', '/agent.json'], mode: 'deny' }
-        ]
-      })
+        history: turn.history,
+        state: previous,
+        text: text.trim(),
+        signal,
+        onText: text => {
+          turn!.message.content += text
+          activity.answerCharacters += text.length
+          emit({ requestId, text, activity: { ...activity } })
 
-      const history = turn.recovered
-        ? turn.history
-            .filter(m => m.content)
-            .map(m => (m.role === 'user' ? new HumanMessage(m.content) : new AIMessage(m.content)))
-        : []
-
-      if (turn.recovered) {
-        history.push(
-          new HumanMessage(
-            'The previous run was interrupted. Completed file changes remain. Inspect the current files before continuing unfinished work; do not assume unfinished actions succeeded.'
-          )
-        )
-      }
-
-      const stream = agent.streamEvents(
-        { messages: [...history, new HumanMessage(text.trim())] },
-        {
-          version: 'v2',
-          configurable: { thread_id: turn.graphId },
-          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(300_000)]),
-          recursionLimit: 40
-        }
-      )
-
-      for await (const event of stream) {
-        if (controller.signal.aborted) {
-          break
-        }
-
-        if (event.event === 'on_chat_model_stream') {
-          const content = event.data.chunk?.content
-          const text =
-            typeof content === 'string'
-              ? content
-              : Array.isArray(content)
-                ? content
-                    .filter(b => b.type === 'text')
-                    .map(b => b.text)
-                    .join('')
-                : ''
-
-          if (text) {
-            turn.message.content += text
-            activity.answerCharacters += text.length
-            emit({ requestId, text, activity: { ...activity } })
+          if (Date.now() - lastSave > 150) {
+            persist()
+            lastSave = Date.now()
           }
-        } else if (event.event === 'on_tool_start') {
-          const tool = {
-            id: event.run_id,
-            name: event.name,
-            input: preview(event.data.input),
-            status: 'running' as const
+        },
+        onReasoning: characters => {
+          activity.reasoningCharacters += characters
+          emit({ requestId, text: '', activity: { ...activity } })
+        },
+        onTool: tool => {
+          const index = turn!.message.tools!.findIndex(item => item.id === tool.id)
+
+          if (index < 0) {
+            turn!.message.tools!.push(tool)
+          } else {
+            turn!.message.tools![index] = tool
           }
-          turn.message.tools!.push(tool)
+
           persist()
           emit({ requestId, text: '', tool })
-        } else if (event.event === 'on_tool_end' || event.event === 'on_tool_error') {
-          const tool = turn.message.tools!.find(tool => tool.id === event.run_id)
-
-          if (tool) {
-            tool.output = preview(event.data.output?.content ?? event.data.output ?? 'Tool failed.')
-            tool.status =
-              event.event === 'on_tool_error' ||
-              /^(Error|Permission denied)/i.test(tool.output) ||
-              event.data.output?.status === 'error'
-                ? 'error'
-                : 'complete'
-            persist()
-            emit({ requestId, text: '', tool: { ...tool } })
-          }
-        }
-
-        if (Date.now() - lastSave > 150) {
-          persist()
-          lastSave = Date.now()
-        }
-      }
-
-      if (!controller.signal.aborted && observation.budgetExceeded) {
-        throw new AgentRunError(
-          'The model reached its output limit. Try a shorter request or another model.'
-        )
-      }
-
-      if (!controller.signal.aborted && !turn.message.content.trim()) {
-        const tools = turn.message.tools ?? []
-
-        if (tools.length && tools.every(tool => tool.status === 'complete')) {
-          // Some local models send a valid empty `stop` after successful tools.
-          // Preserve verified outcomes without inventing an assistant reply or
-          // retrying side effects merely to obtain a verbal confirmation.
-          turn.message.notice =
-            'The model ended without a final message. Completed tool results are shown above.'
-        } else {
-          throw new AgentRunError(
-            tools.length
-              ? 'The model ended after a tool error. Review tool activity; completed changes are kept.'
-              : 'The model returned no answer. Try another model or a shorter request.'
+        },
+        approve: (kind, title, detail) =>
+          this.approvals.ask({ requestId, agentId, kind, title, detail }, signal, approval =>
+            emit({ requestId, text: '', approval })
           )
-        }
+      })
+      signal.throwIfAborted()
+
+      if (result.withoutAnswer) {
+        turn.message.notice =
+          'The model ended without a final message. Completed tool results are shown above.'
       }
 
-      this.store.finish(
-        conversationId,
-        turn.message,
-        controller.signal.aborted ? 'stopped' : 'complete'
-      )
+      this.store.saver.db.transaction(() => {
+        this.store.saveModelState(conversationId, modelKey, result.state)
+        this.store.finish(conversationId, turn!.message, 'complete')
+      })()
 
-      return { stopped: controller.signal.aborted }
+      return { stopped: false }
     } catch (error) {
-      // Provider errors can echo request bodies or credentials. Keep them out of
-      // renderer events and persistent conversations.
       const safe =
-        error instanceof AgentRunError
-          ? error.message
-          : 'The agent could not finish this reply. Check the connection and model, then try again.'
+        signal.aborted && !controller.signal.aborted
+          ? 'The agent reached its five-minute run limit. Completed file changes are kept.'
+          : error instanceof HarnessError
+            ? error.message
+            : 'The agent could not finish this reply. Check the connection and model, then try again.'
 
       if (turn) {
         if (!controller.signal.aborted) {
@@ -351,8 +326,4 @@ export class AgentRuntime {
 
     this.store.close()
   }
-}
-
-function preview(value: unknown): string {
-  return (typeof value === 'string' ? value : (JSON.stringify(value) ?? '')).slice(0, 4000)
 }

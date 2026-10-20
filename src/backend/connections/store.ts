@@ -4,6 +4,43 @@ import { join } from 'node:path'
 import type { ConnectionDraft, SavedConnection, Connection } from '../../shared/chat'
 import { validateConnection } from '../models/api.ts'
 
+function validateDraft(draft: ConnectionDraft) {
+  if (
+    !draft ||
+    (draft.provider !== undefined && !['openai', 'codex', 'chatgpt'].includes(draft.provider))
+  ) {
+    throw new Error('Choose a supported connection type.')
+  }
+
+  if (draft.provider === 'codex') {
+    throw new Error('Reconnect this legacy connection with ChatGPT or a Responses API connection.')
+  }
+
+  if (draft.provider === 'chatgpt') {
+    if (
+      typeof draft.accountId !== 'string' ||
+      !draft.accountId ||
+      draft.accountId.length > 100 ||
+      typeof draft.model !== 'string'
+    ) {
+      throw new Error('Choose a signed-in ChatGPT account and a model.')
+    }
+  } else {
+    validateConnection(draft)
+  }
+
+  if (draft.protocol !== undefined && !['chat-completions', 'responses'].includes(draft.protocol)) {
+    throw new Error('Choose a supported API protocol.')
+  }
+
+  if (
+    draft.effort !== undefined &&
+    !/^(|none|minimal|low|medium|high|xhigh|max|ultra)$/.test(draft.effort)
+  ) {
+    throw new Error('Choose a supported reasoning effort.')
+  }
+}
+
 interface StoredConnection extends Omit<SavedConnection, 'hasKey'> {
   encryptedKey?: string
 }
@@ -43,6 +80,13 @@ export class ConnectionStore {
             typeof item.name !== 'string' ||
             typeof item.baseUrl !== 'string' ||
             typeof item.model !== 'string' ||
+            (item.provider !== undefined &&
+              !['openai', 'codex', 'chatgpt'].includes(item.provider)) ||
+            (item.accountId !== undefined && typeof item.accountId !== 'string') ||
+            (item.protocol !== undefined &&
+              !['chat-completions', 'responses'].includes(item.protocol)) ||
+            (item.codexPath !== undefined && typeof item.codexPath !== 'string') ||
+            (item.effort !== undefined && typeof item.effort !== 'string') ||
             (item.encryptedKey !== undefined && typeof item.encryptedKey !== 'string')
         )
       ) {
@@ -111,7 +155,7 @@ export class ConnectionStore {
   save(draft: ConnectionDraft): Promise<SavedConnection> {
     return this.serialize(async () => {
       await this.load()
-      validateConnection(draft)
+      validateDraft(draft)
 
       if (typeof draft.name !== 'string' || !draft.name.trim() || draft.name.length > 100) {
         throw new Error('Enter a connection name (up to 100 characters).')
@@ -125,6 +169,22 @@ export class ConnectionStore {
 
       if (draft.id && !previous) {
         throw new Error('Connection no longer exists.')
+      }
+
+      if (draft.provider === 'chatgpt') {
+        const record: StoredConnection = {
+          id: previous?.id ?? randomUUID(),
+          provider: 'chatgpt',
+          protocol: 'responses',
+          accountId: draft.accountId,
+          name: draft.name.trim(),
+          baseUrl: '',
+          model: draft.model.trim(),
+          effort: draft.effort || ''
+        }
+        await this.persist([...this.records.filter(item => item.id !== record.id), record])
+
+        return this.public(record)
       }
 
       if (
@@ -153,7 +213,9 @@ export class ConnectionStore {
         name: draft.name.trim(),
         baseUrl: draft.baseUrl.trim().replace(/\/+$/, ''),
         model: draft.model.trim(),
-        encryptedKey
+        encryptedKey,
+        protocol: draft.protocol ?? 'chat-completions',
+        effort: draft.effort || ''
       }
       await this.persist([...this.records.filter(item => item.id !== record.id), record])
 
@@ -177,21 +239,42 @@ export class ConnectionStore {
         throw new Error('Choose a saved connection first.')
       }
 
-      return { baseUrl: record.baseUrl, model: record.model, apiKey: this.decrypt(record) }
+      return {
+        provider: record.provider,
+        protocol: record.protocol,
+        accountId: record.accountId,
+        effort: record.effort,
+        baseUrl: record.baseUrl,
+        model: record.model,
+        apiKey:
+          record.provider === 'chatgpt' || record.provider === 'codex' ? '' : this.decrypt(record)
+      }
     })
   }
 
   resolveDraft(draft: ConnectionDraft): Promise<Connection> {
     return this.serialize(async () => {
       await this.load()
-      validateConnection(draft)
+      validateDraft(draft)
+
+      if (draft.provider === 'chatgpt') {
+        return { ...draft, baseUrl: 'https://api.openai.com/v1', protocol: 'responses', apiKey: '' }
+      }
+
       const previous = this.records.find(record => record.id === draft.id)
       // Never forward an existing secret to a changed endpoint without re-entry.
       const sameEndpoint = previous?.baseUrl === draft.baseUrl.trim().replace(/\/+$/, '')
       const apiKey =
         draft.apiKey.trim() || (!draft.removeKey && sameEndpoint ? this.decrypt(previous) : '')
 
-      return { baseUrl: draft.baseUrl, model: draft.model, apiKey }
+      return {
+        provider: draft.provider,
+        protocol: draft.protocol,
+        effort: draft.effort,
+        baseUrl: draft.baseUrl,
+        model: draft.model,
+        apiKey
+      }
     })
   }
 }

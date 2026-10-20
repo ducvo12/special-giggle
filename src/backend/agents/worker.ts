@@ -1,5 +1,6 @@
 import { AgentRuntime } from './runtime.ts'
 import type { Connection, StreamDelta } from '../../shared/chat.ts'
+import type { HarnessSettings } from '../../shared/harness.ts'
 
 type Request = { id: string; action: string; args: unknown[] }
 
@@ -40,6 +41,21 @@ port.on('message', async ({ data }: { data: Request }) => {
         break
       case 'agents:saveIdentity':
         value = await agent.saveIdentity(args[0] as string, args[1] as string, args[2] as string)
+        break
+      case 'harness:get':
+        value = await agent.settings(args[0] as string)
+        break
+      case 'harness:save':
+        value = await agent.saveSettings(args[0] as string, args[1] as HarnessSettings)
+        break
+      case 'harness:skills':
+        value = await agent.skills(args[0] as string)
+        break
+      case 'harness:saveSkill':
+        value = await agent.saveSkill(args[0] as string, args[1] as string, args[2] as string)
+        break
+      case 'harness:approve':
+        agent.approvals.answer(args[0] as string, args[1] as string, args[2] as boolean)
         break
       case 'list':
         await agent.registry.get(args[0] as string)

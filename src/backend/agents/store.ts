@@ -8,6 +8,7 @@ import type {
   RunStatus,
   ToolActivity
 } from '../../shared/agent.ts'
+import type { NativeItem } from '../harness/types.ts'
 
 export class AgentStore {
   saver: SqliteSaver
@@ -33,11 +34,20 @@ export class AgentStore {
       .exec(`CREATE TABLE IF NOT EXISTS conversations (id TEXT PRIMARY KEY, title TEXT NOT NULL, updatedAt INTEGER NOT NULL, graphId TEXT NOT NULL, recover INTEGER NOT NULL DEFAULT 0);
       CREATE TABLE IF NOT EXISTS messages (id TEXT PRIMARY KEY, conversationId TEXT NOT NULL, createdAt INTEGER NOT NULL, data TEXT NOT NULL);
       CREATE INDEX IF NOT EXISTS message_conversation ON messages(conversationId, createdAt);`)
+    this.saver.db.exec(
+      'CREATE TABLE IF NOT EXISTS harness_state (conversationId TEXT PRIMARY KEY, modelKey TEXT NOT NULL, data TEXT NOT NULL)'
+    )
     const columns = this.saver.db.pragma('table_info(conversations)') as { name: string }[]
 
     if (!columns.some(column => column.name === 'agentId')) {
       this.saver.db.exec(
         "ALTER TABLE conversations ADD COLUMN agentId TEXT NOT NULL DEFAULT 'atlas'"
+      )
+    }
+
+    if (!columns.some(column => column.name === 'engine')) {
+      this.saver.db.exec(
+        "ALTER TABLE conversations ADD COLUMN engine TEXT NOT NULL DEFAULT 'openai'"
       )
     }
 
@@ -144,7 +154,7 @@ export class AgentStore {
       .run(Date.now(), conversationId)
   }
 
-  begin(agentId: string, conversationId: string, text: string, model: string) {
+  begin(agentId: string, conversationId: string, text: string, model: string, engine = 'openai') {
     const detail = this.get(agentId, conversationId)
 
     if (detail.messages.length >= 200) {
@@ -152,9 +162,10 @@ export class AgentStore {
     }
 
     const row = this.saver.db
-      .prepare('SELECT graphId, recover FROM conversations WHERE id = ?')
-      .get(conversationId) as { graphId: string; recover: number }
-    const graphId = row.recover ? randomUUID() : row.graphId
+      .prepare('SELECT graphId, recover, engine FROM conversations WHERE id = ?')
+      .get(conversationId) as { graphId: string; recover: number; engine: string }
+    const recovered = Boolean(row.recover) || row.engine !== engine
+    const graphId = recovered ? randomUUID() : row.graphId
     const message: AgentMessage = {
       id: randomUUID(),
       role: 'assistant',
@@ -171,8 +182,8 @@ export class AgentStore {
       }
 
       this.saver.db
-        .prepare('UPDATE conversations SET graphId = ?, recover = 0 WHERE id = ?')
-        .run(graphId, conversationId)
+        .prepare('UPDATE conversations SET graphId = ?, recover = 0, engine = ? WHERE id = ?')
+        .run(graphId, engine, conversationId)
       this.saver.db
         .prepare(
           'INSERT OR IGNORE INTO conversation_threads (graphId, conversationId) VALUES (?, ?)'
@@ -182,7 +193,13 @@ export class AgentStore {
       this.saveMessage(conversationId, message)
     })()
 
-    return { message, graphId, recovered: Boolean(row.recover), history: detail.messages }
+    return {
+      message,
+      graphId,
+      recovered,
+      interrupted: Boolean(row.recover),
+      history: detail.messages
+    }
   }
 
   finish(id: string, message: AgentMessage, status: RunStatus) {
@@ -204,8 +221,29 @@ export class AgentStore {
     this.saver.db.close()
   }
 
+  modelState(conversationId: string, modelKey: string): NativeItem[] | undefined {
+    const row = this.saver.db
+      .prepare('SELECT data FROM harness_state WHERE conversationId = ? AND modelKey = ?')
+      .get(conversationId, modelKey) as { data: string } | undefined
+
+    return row ? JSON.parse(row.data) : undefined
+  }
+
+  saveModelState(conversationId: string, modelKey: string, state: NativeItem[]) {
+    this.saver.db
+      .prepare(
+        'INSERT INTO harness_state VALUES (?, ?, ?) ON CONFLICT(conversationId) DO UPDATE SET modelKey = excluded.modelKey, data = excluded.data'
+      )
+      .run(conversationId, modelKey, JSON.stringify(state))
+  }
+
   deleteAgent(agentId: string) {
     this.saver.db.transaction(() => {
+      this.saver.db
+        .prepare(
+          'DELETE FROM harness_state WHERE conversationId IN (SELECT id FROM conversations WHERE agentId = ?)'
+        )
+        .run(agentId)
       // The SDK creates checkpoint tables lazily, after the first model run.
       const tables = this.saver.db
         .prepare(

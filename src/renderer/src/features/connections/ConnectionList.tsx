@@ -34,7 +34,7 @@ export default function ConnectionList({
 
             <br />
 
-            or bring a compatible hosted API.
+            use your ChatGPT account, or bring a compatible hosted API.
           </p>
 
           <button className="quiet-button" onClick={() => onEdit()}>
@@ -59,7 +59,11 @@ export default function ConnectionList({
             </p>
 
             <span>
-              {item.baseUrl} {item.hasKey && '· Key saved'}
+              {item.provider === 'chatgpt'
+                ? `ChatGPT · ${item.effort || 'default'} reasoning`
+                : item.provider === 'codex'
+                  ? 'Legacy Codex connection · edit to reconnect with ChatGPT'
+                  : `${item.baseUrl}${item.hasKey ? ' · Key saved' : ''}`}
             </span>
           </div>
 

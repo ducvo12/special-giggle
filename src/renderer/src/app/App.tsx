@@ -4,6 +4,8 @@ import Workspace from '../features/workspace/Workspace'
 import AgentSettings from '../features/agents/AgentSettings'
 import ChatView from '../features/chat/ChatView'
 import Sidebar from './Sidebar'
+import HarnessSettings from '../features/harness/HarnessSettings'
+import ApprovalPrompt from '../features/harness/ApprovalPrompt'
 import type { Page } from './navigation'
 import { useAgentSession } from './useAgentSession'
 
@@ -28,6 +30,8 @@ export default function App() {
     setDraft,
     busy,
     stopping,
+    approval,
+    approve,
     activity,
     elapsed,
     error,
@@ -120,6 +124,17 @@ export default function App() {
             setPage('identity')
           }}
         />
+      ) : page === 'tools' && agent ? (
+        <HarnessSettings
+          key={agent.id}
+          agent={agent}
+          busy={busy}
+          onDirty={setIdentityDirty}
+          onBack={() => {
+            setIdentityDirty(false)
+            setPage('chat')
+          }}
+        />
       ) : page === 'workspace' && agent ? (
         <Workspace key={agent.id} agent={agent} busy={busy} />
       ) : (
@@ -146,6 +161,10 @@ export default function App() {
           onSend={send}
           onStop={stop}
         />
+      )}
+
+      {approval && (
+        <ApprovalPrompt key={approval.id} request={approval} onAnswer={approve} onStop={stop} />
       )}
     </div>
   )

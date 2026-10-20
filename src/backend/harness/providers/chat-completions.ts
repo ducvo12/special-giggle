@@ -1,0 +1,95 @@
+import type { ModelAdapter, ModelOptions, NativeItem, ToolCall } from '../types.ts'
+import { HarnessError } from '../types.ts'
+import { modelRequest } from './http.ts'
+import { readModelEvents } from './stream.ts'
+
+export function chatCompletionsAdapter(options: ModelOptions): ModelAdapter {
+  return {
+    user: content => ({ role: 'user', content }),
+    assistant: content => ({ role: 'assistant', content }),
+    toolResult: (call, content) => ({ role: 'tool', tool_call_id: call.id, content }),
+    async step(input, instructions, tools) {
+      let text = ''
+      let finish = ''
+      const calls = new Map<number, ToolCall>()
+      const response = await modelRequest(options, 'chat/completions', {
+        model: options.connection.model,
+        messages: [{ role: 'system', content: instructions }, ...input],
+        tools: tools.map(tool => ({
+          type: 'function',
+          function: { name: tool.name, description: tool.description, parameters: tool.parameters }
+        })),
+        stream: true,
+        max_tokens: 4096,
+        ...(options.connection.effort ? { reasoning_effort: options.connection.effort } : {})
+      })
+      await readModelEvents(response, event => {
+        if (event.error) {
+          throw new HarnessError('The model server reported an error.')
+        }
+
+        if (event.type === 'done') {
+          if (!finish) {
+            throw new HarnessError('The model ended without a completion status.')
+          }
+
+          return true
+        }
+
+        const choice = event.choices?.[0]
+        const delta = choice?.delta
+
+        if (typeof delta?.content === 'string') {
+          text += delta.content
+          options.onText(delta.content)
+        }
+
+        const reasoning = delta?.reasoning_content ?? delta?.reasoning ?? delta?.thinking
+
+        if (typeof reasoning === 'string') {
+          options.onReasoning(reasoning.length)
+        }
+
+        for (const item of delta?.tool_calls ?? []) {
+          if (!Number.isInteger(item.index) || item.index < 0 || item.index >= 40) {
+            throw new HarnessError('The model returned too many tool calls.')
+          }
+
+          const call = calls.get(item.index) ?? { id: '', name: '', arguments: '' }
+          call.id += item.id ?? ''
+          call.name += item.function?.name ?? ''
+          call.arguments += item.function?.arguments ?? ''
+          calls.set(item.index, call)
+        }
+
+        if (choice?.finish_reason) {
+          finish = choice.finish_reason
+
+          if (finish === 'length') {
+            throw new HarnessError('The model reached its output limit. Try a smaller request.')
+          }
+
+          if (!['stop', 'tool_calls'].includes(finish)) {
+            throw new HarnessError('The model stopped before completing the reply.')
+          }
+
+          return true
+        }
+
+        return false
+      })
+      const list = [...calls.entries()].sort(([a], [b]) => a - b).map(([, call]) => call)
+      const assistant: NativeItem = { role: 'assistant', content: text || null }
+
+      if (list.length) {
+        assistant.tool_calls = list.map(call => ({
+          id: call.id,
+          type: 'function',
+          function: { name: call.name, arguments: call.arguments }
+        }))
+      }
+
+      return { output: [assistant], calls: list, text }
+    }
+  }
+}

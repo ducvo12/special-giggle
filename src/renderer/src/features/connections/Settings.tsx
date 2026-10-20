@@ -40,7 +40,17 @@ export default function Settings({
   function edit(item?: SavedConnection) {
     setEditing(
       item
-        ? { id: item.id, name: item.name, baseUrl: item.baseUrl, model: item.model, apiKey: '' }
+        ? {
+            id: item.id,
+            name: item.name,
+            baseUrl: item.baseUrl,
+            model: item.model,
+            apiKey: '',
+            provider: item.provider === 'codex' ? 'chatgpt' : item.provider,
+            protocol: item.protocol,
+            accountId: item.accountId,
+            effort: item.effort
+          }
         : emptyConnection()
     )
     setModels([])
@@ -50,11 +60,35 @@ export default function Settings({
   }
 
   function field(key: keyof ConnectionDraft, value: string | boolean) {
-    setEditing(current => (current ? { ...current, [key]: value } : null))
+    setEditing(current => {
+      if (!current) {
+        return null
+      }
+
+      if (key === 'provider') {
+        return {
+          ...emptyConnection(),
+          id: current.id,
+          provider: value as 'openai' | 'chatgpt',
+          name: current.name || (value === 'chatgpt' ? 'ChatGPT' : ''),
+          ...(value === 'chatgpt'
+            ? { baseUrl: '', accountId: '', protocol: 'responses' as const, effort: '' }
+            : {})
+        }
+      }
+
+      return { ...current, [key]: value }
+    })
     setError('')
     setNotice('')
 
-    if (key === 'baseUrl' || key === 'apiKey') {
+    if (
+      key === 'baseUrl' ||
+      key === 'apiKey' ||
+      key === 'provider' ||
+      key === 'accountId' ||
+      key === 'protocol'
+    ) {
       setModels([])
     }
   }
@@ -79,7 +113,11 @@ export default function Settings({
 
       setModels(result.value)
 
-      if (!editing.model && result.value[0]) {
+      if (
+        (!editing.model ||
+          (editing.provider === 'chatgpt' && !result.value.includes(editing.model))) &&
+        result.value[0]
+      ) {
         field('model', result.value[0])
       }
 
@@ -185,7 +223,7 @@ export default function Settings({
             </h2>
 
             <p>
-              Bring a local server or an OpenAI-compatible API.
+              Connect a ChatGPT account, OpenAI, or a local model server.
             </p>
           </div>
 
@@ -236,7 +274,7 @@ export default function Settings({
         )}
 
         <p className="settings-footnote">
-          Connections are saved on this device. Model inference runs at the endpoint you choose.
+          Connections are saved on this device. Granite manages agent behavior. Inference runs with the provider you choose.
         </p>
       </div>
     </main>

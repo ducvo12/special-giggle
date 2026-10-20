@@ -62,6 +62,9 @@ test('empty → create → delete leaves no agent files or database rows, includ
     await saveCheckpoint(runtime, recovered.graphId, 'recovered-checkpoint')
     runtime.store.finish(chat.id, recovered.message, 'complete')
     runtime.store.create(agent.id)
+    runtime.store.saveModelState(runtime.store.list(agent.id)[0].id, 'test', [
+      { role: 'user', content: 'retained native state' }
+    ])
     assert.ok(Object.values(rowCounts(runtime)).every(count => count > 0))
 
     // Ownership of both graph histories must survive a process restart.
@@ -114,7 +117,10 @@ test('deletion preserves other agents and rejects unsafe paths, active runs, and
 
     const deleting = runtime.deleteAgent(target.id)
     await assert.rejects(runtime.createAgent('Concurrent agent'), /Finish the current operation/)
-    await assert.rejects(runtime.createConversation(target.id), /Finish the current operation|ENOENT/)
+    await assert.rejects(
+      runtime.createConversation(target.id),
+      /Finish the current operation|ENOENT/
+    )
     await deleting
 
     await assert.rejects(runtime.createConversation(target.id))

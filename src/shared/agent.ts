@@ -5,6 +5,7 @@ export type RunStatus = 'running' | 'complete' | 'stopped' | 'interrupted' | 'er
 export interface ToolActivity {
   id: string
   name: string
+  label?: string
   input: string
   output?: string
   status: 'running' | 'complete' | 'error' | 'interrupted'

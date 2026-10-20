@@ -1,17 +1,22 @@
-import { BrowserWindow, ipcMain, safeStorage } from 'electron'
+import { app, BrowserWindow, ipcMain, safeStorage, shell } from 'electron'
 import { listModels, safely } from '../backend/models/api'
 import { ConnectionStore } from '../backend/connections/store'
 import { AgentClient } from './agent-client'
 import type { ConnectionDraft } from '../shared/chat'
+import { ChatGPTAccounts } from '../backend/auth/chatgpt'
+import type { HarnessSettings } from '../shared/harness'
 
 export function registerIpc(directory: string) {
-  const store = new ConnectionStore(directory, {
+  const protection = {
     available: () =>
       safeStorage.isEncryptionAvailable() &&
       (process.platform !== 'linux' || safeStorage.getSelectedStorageBackend() !== 'basic_text'),
-    encrypt: text => safeStorage.encryptString(text),
-    decrypt: data => safeStorage.decryptString(data)
-  })
+    encrypt: (text: string) => safeStorage.encryptString(text),
+    decrypt: (data: Buffer) => safeStorage.decryptString(data)
+  }
+  const store = new ConnectionStore(directory, protection)
+  const chatgpt = new ChatGPTAccounts(directory, protection)
+  app.on('before-quit', () => chatgpt.cancel())
   const active = new Map<number, { id: string; stopped: boolean }>()
   const agents = new AgentClient(directory, delta => {
     for (const [senderId, request] of active) {
@@ -56,10 +61,84 @@ export function registerIpc(directory: string) {
   ipcMain.handle('model:list', (event, draft: ConnectionDraft) => {
     trusted(event)
 
-    return safely(async () => listModels(await store.resolveDraft(draft)))
+    return safely(async () => {
+      const connection = await store.resolveDraft(draft)
+
+      if (connection.provider === 'chatgpt') {
+        return chatgpt.models(connection.accountId ?? '')
+      }
+
+      return listModels(connection)
+    })
   })
 
+  ipcMain.handle('chatgpt:accounts', event => {
+    trusted(event)
+
+    return safely(() => chatgpt.list())
+  })
+  ipcMain.handle('chatgpt:login', (event, accountId?: string) => {
+    trusted(event)
+
+    if (accountId !== undefined && (typeof accountId !== 'string' || accountId.length > 100)) {
+      return { ok: false, error: 'Invalid account.' }
+    }
+
+    return safely(() => chatgpt.login(url => shell.openExternal(url), accountId))
+  })
+  ipcMain.handle('chatgpt:cancelLogin', event => {
+    trusted(event)
+    chatgpt.cancel()
+
+    return { ok: true, value: undefined }
+  })
+  ipcMain.handle('chatgpt:signOut', (event, id: string) => {
+    trusted(event)
+
+    return safely(async () => {
+      if (active.size) {
+        throw new Error('Stop the current run before signing out.')
+      }
+
+      return chatgpt.signOut(id)
+    })
+  })
+  ipcMain.handle('harness:save', (event, agentId: string, settings: HarnessSettings) => {
+    trusted(event)
+
+    if (
+      typeof agentId !== 'string' ||
+      agentId.length > 64 ||
+      !settings ||
+      JSON.stringify(settings).length > 100_000
+    ) {
+      return { ok: false, error: 'Invalid agent settings.' }
+    }
+
+    return agents.call('harness:save', agentId, settings)
+  })
+  ipcMain.handle(
+    'harness:approve',
+    (event, requestId: string, approvalId: string, allow: boolean) => {
+      trusted(event)
+
+      if (
+        active.get(event.sender.id)?.id !== requestId ||
+        typeof approvalId !== 'string' ||
+        approvalId.length > 100 ||
+        typeof allow !== 'boolean'
+      ) {
+        return { ok: false, error: 'This approval is no longer pending.' }
+      }
+
+      return agents.call('harness:approve', requestId, approvalId, allow)
+    }
+  )
+
   const routes: Record<string, { action: string; limits: number[] }> = {
+    'harness:get': { action: 'harness:get', limits: [64] },
+    'harness:skills': { action: 'harness:skills', limits: [64] },
+    'harness:saveSkill': { action: 'harness:saveSkill', limits: [64, 64, 32_000] },
     'agents:list': { action: 'agents:list', limits: [] },
     'agents:create': { action: 'agents:create', limits: [80] },
     'agents:delete': { action: 'agents:delete', limits: [64] },
@@ -122,13 +201,23 @@ export function registerIpc(directory: string) {
         try {
           const connection = await store.resolve(connectionId)
 
+          if (connection.provider === 'chatgpt') {
+            connection.baseUrl = 'https://api.openai.com/v1'
+            connection.protocol = 'responses'
+            connection.apiKey = await chatgpt.resolve(connection.accountId ?? '')
+          }
+
           if (request.stopped) {
             return { ok: true, value: { stopped: true } }
           }
 
           return await agents.call('run', requestId, agentId, conversationId, connection, text)
-        } catch {
-          return { ok: false, error: 'Could not load the selected connection.' }
+        } catch (error) {
+          return {
+            ok: false,
+            error:
+              error instanceof Error ? error.message : 'Could not load the selected connection.'
+          }
         } finally {
           event.sender.removeListener('destroyed', destroyed)
           active.delete(event.sender.id)

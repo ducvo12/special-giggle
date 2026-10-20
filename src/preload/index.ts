@@ -16,6 +16,21 @@ contextBridge.exposeInMainWorld('granite', {
     delete: id => ipcRenderer.invoke('connections:delete', id)
   },
   models: draft => ipcRenderer.invoke('model:list', draft),
+  chatgpt: {
+    accounts: () => ipcRenderer.invoke('chatgpt:accounts'),
+    login: accountId => ipcRenderer.invoke('chatgpt:login', accountId),
+    cancelLogin: () => ipcRenderer.invoke('chatgpt:cancelLogin'),
+    signOut: id => ipcRenderer.invoke('chatgpt:signOut', id)
+  },
+  harness: {
+    get: agentId => ipcRenderer.invoke('harness:get', agentId),
+    save: (agentId, settings) => ipcRenderer.invoke('harness:save', agentId, settings),
+    skills: agentId => ipcRenderer.invoke('harness:skills', agentId),
+    saveSkill: (agentId, name, content) =>
+      ipcRenderer.invoke('harness:saveSkill', agentId, name, content),
+    approve: (requestId, approvalId, allow) =>
+      ipcRenderer.invoke('harness:approve', requestId, approvalId, allow)
+  },
   conversations: {
     list: agentId => ipcRenderer.invoke('conversations:list', agentId),
     create: agentId => ipcRenderer.invoke('conversations:create', agentId),

@@ -49,7 +49,7 @@ test('workspace contains file tools, rejects traversal and links, and protects i
 })
 
 test(
-  'real Deep Agents tool loop persists files, memory, checkpoints, Stop, and restart recovery',
+  'Granite tool loop persists files, memory, native state, Stop, and restart recovery',
   { timeout: 60_000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'agent-runtime-'))
@@ -305,19 +305,15 @@ test(
         atlas.store.get('atlas', second.id).messages.at(-1)!.notice!,
         /without a final message/
       )
-      const checkpoint = await atlas.store.saver.getTuple({
-        configurable: {
-          thread_id: (
-            atlas.store.saver.db
-              .prepare('SELECT graphId FROM conversations WHERE id = ?')
-              .get(chat.id) as any
-          ).graphId
-        }
-      })
-      assert.ok(checkpoint, 'LangGraph checkpoint exists')
-      assert.deepEqual(checkpoint.checkpoint.channel_values.todos, [
-        { content: 'Save the note', status: 'completed' }
-      ])
+      const stateRow = atlas.store.saver.db
+        .prepare('SELECT data FROM harness_state WHERE conversationId = ?')
+        .get(chat.id) as { data: string }
+      assert.ok(stateRow, 'Granite native model state exists')
+      assert.ok(
+        JSON.parse(stateRow.data).some(
+          (item: any) => item.role === 'tool' && item.content.includes('Save the note')
+        )
+      )
       const started = new Promise<void>(resolve => {
         slowStarted = resolve
       })

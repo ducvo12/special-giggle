@@ -35,6 +35,8 @@ npm run dist
 src/backend/
   agents/                  # runtime lifecycle, agent registry, conversations, worker
   connections/             # saved connections and encrypted credentials
+  auth/                    # independent ChatGPT OAuth and encrypted account storage
+  harness/                 # Granite-owned loop, providers, approvals, skills, MCP, terminal
   models/                  # HTTP API, event-stream decoding, provider activity
   workspace/               # protected filesystem, initialization, file viewing
 
@@ -76,7 +78,7 @@ Run `npm run dev`. Open **Settings → Connections → Add connection**. Enter a
 
 For LM Studio on another computer, enable its local network serving option, run its server, and use that computer's reachable address, for example `http://192.168.1.50:1234/v1`. `localhost` refers to the computer running Granite. Both computers must be able to reach each other and the desktop firewall must allow the server port. HTTP connections are unencrypted; use a trusted network or an HTTPS endpoint.
 
-The adapter uses `GET /models` and `POST /chat/completions`. Responses-only and Anthropic-native endpoints require separate adapters. Codex/ChatGPT sign-in is not implemented by this API-key connection.
+Granite owns the agent loop for all connections. Choose **ChatGPT account** for independent browser sign-in, or **API connection** with **Responses** for OpenAI reasoning models. Existing local/compatible connections use **Chat Completions**. The model adapters call `POST /responses` or `POST /chat/completions`; API model discovery uses `GET /models`. The Codex app-server adapter has been replaced. See [Granite’s harness](harness.md) for setup, architecture, permissions, and current limitations.
 
 Adapter integration check (Node.js with TypeScript stripping support):
 
@@ -90,17 +92,20 @@ Saved connection keys require an available OS credential store; Linux plaintext 
 
 ## Agents and workspaces
 
-Agents run in an Electron utility process. React sends an agent ID, message, and conversation ID through the preload bridge; Electron main resolves the saved model connection and sends it privately to the worker. `ChatOpenAI` supplies the OpenAI-compatible model adapter, `createDeepAgent` supplies the tool loop and filesystem tools, and LangGraph checkpoints use SQLite. API keys never enter the chat renderer.
+Agents run in an Electron utility process. React sends an agent ID, message, and conversation ID through the preload bridge; Electron main resolves the saved model connection and sends it privately to the worker. Granite’s own loop dispatches model requests and approved tool actions. Responses preserves native reasoning items; Chat Completions supports local/compatible servers. SQLite stores display messages and private native model state. The historical checkpoint library is retained for migration and cleanup. API keys never enter the chat renderer.
 
 The **Workspace** page displays the selected agent's actual files. In the application-data directory:
 
 ```text
-connections.json           # encrypted connection keys
+connections.json           # model connection settings and encrypted API keys
+chatgpt-accounts.json      # Granite registration metadata and encrypted OAuth credentials
 atlas.sqlite               # shared database; original filename retained for compatibility
 agents/<agent-id>/
   agent.json                # stable ID and display name
   identity.md               # stable identity, read-only to the agent
   memory.md                 # user preferences shared across this agent’s chats
+  harness.json              # user-managed instructions and tool configuration
+  skills/<name>/SKILL.md    # user-managed skill instructions
   notes/
   projects/
 ```
@@ -113,17 +118,17 @@ A new agent's `identity.md` starts blank. The identity editor offers the preset 
 
 The agent dropdown supports selection, creation, and deletion, including keyboard navigation, Escape, and dismissal by clicking outside it. **Delete** opens a confirmation explaining which data will be removed. Confirming removes the entire agent folder and its conversations, messages, checkpoints, and pending checkpoint writes. `conversation_threads` records graph ownership across interrupted-run recovery so earlier checkpoints are removed too. Other agents are preserved. Deletion is blocked during a run or identity operation. Deleting the last agent returns to the empty view and does not recreate Atlas on restart.
 
-The available tools list directories, read/write/edit files, find filenames, search text, and maintain a task list. Notes and preferences are real files, not simulated memory functions. Simple prompts can be answered without a tool call. The framework's general-purpose subagent, terminal, and file deletion tools are disabled for this milestone. Coding-project creation has deliberately not been tested.
+Workspace tools list/read/write/edit files, find filenames, search text, and record task lists. **Tools & skills** adds per-agent instructions, write approvals, skill editing/loading, MCP servers, and an opt-in terminal. Terminal and MCP calls always require Granite approval. The terminal sandbox currently supports macOS; authenticated HTTP MCP and automatic compaction are not implemented. See [the harness guide](harness.md).
 
 File tools use a virtual filesystem rooted at the selected agent's directory. Parent traversal, symbolic-link access, and agent edits to identity or configuration are rejected. Search uses ripgrep when installed, with the framework's built-in fallback otherwise. Globs reject brace expansion and excessively long patterns, mitigating the current transitive `braces` denial-of-service advisory. These controls constrain the agent's tools; they are not an OS sandbox against another local process modifying files concurrently.
 
-Conversations, partial answers, and tool results are saved locally. Stop aborts the model request; it does not undo completed file changes. On a crash, running turns and unfinished tools become interrupted. On the next message, Granite starts a new checkpoint thread using the visible transcript and an interruption notice, and retains the original checkpoints. It never automatically replays unfinished tool calls. Files remain authoritative and should be inspected before continuing interrupted work. Tool activity remains visible even if a local model sends an empty final answer after successful tool use; a separate notice explains the missing final message.
+Conversations, partial answers, and tool results are saved locally. Stop aborts the model request; it does not undo completed file changes. On a crash, running turns and unfinished tools become interrupted. On the next message, Granite reconstructs provider context from the visible transcript and recorded tool outcomes with an interruption notice. Legacy checkpoints are retained for migration and deletion. It never automatically replays unfinished tool calls. Files remain authoritative and should be inspected before continuing interrupted work. Tool activity remains visible even if a local model sends an empty final answer after successful tool use; a separate notice explains the missing final message.
 
-Each model request has a 4,096-token output cap and two-minute request timeout; a run has a five-minute deadline and graph step limit. These bounds prevent an unbounded reasoning loop. Reasoning character counts are reported, but reasoning text is not saved to the visible transcript. The model must support streamed Chat Completions and native tool calls. Tool reliability and answer quality still depend on the selected model.
+Chat Completions requests have a 4,096-token output cap; Responses uses the model/provider output budget. Model requests have a two-minute timeout, and Granite runs have a five-minute deadline, 40-step/call limits, and bounded context/results. Reasoning character counts may be reported, while native opaque reasoning remains private to provider state. Model tool reliability still depends on the selected model.
 
 ### Verification
 
-`npm install` rebuilds SQLite for Electron. `npm test` runs backend tests using Electron's Node runtime to match its native-module ABI. The suite verifies the real framework tool loop with a mock API, checkpoint persistence, note edits, cross-chat memory, protected paths, Stop, interrupted-run recovery, agent isolation, identity updates, and migration from the original Atlas storage.
+`npm install` rebuilds SQLite for Electron. `npm test` runs backend tests using Electron's Node runtime to match its native-module ABI. The suite verifies Granite’s own tool loop with mock model APIs, native reasoning continuity, OAuth verification, terminal/MCP boundaries, approvals, note edits, cross-chat memory, protected paths, Stop, interrupted-run recovery, agent isolation, identity updates, and migration from the original Atlas storage.
 
 On macOS, after building, an optional desktop smoke check opens an isolated window with a mock model server:
 
