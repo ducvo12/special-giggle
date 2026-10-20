@@ -21,6 +21,7 @@ type Props = {
   onSelectConnection: (id: string) => void
   onNewChat: () => void
   onOpenSettings: () => void
+  onCreateAgent: () => void
   onDismissError: () => void
   onDraftChange: (draft: string) => void
   onSend: () => Promise<void>
@@ -45,6 +46,7 @@ export default function ChatView({
   onSelectConnection,
   onNewChat,
   onOpenSettings,
+  onCreateAgent,
   onDismissError,
   onDraftChange,
   onSend,
@@ -99,6 +101,7 @@ export default function ChatView({
         end={end}
         follow={follow}
         onOpenSettings={onOpenSettings}
+        onCreateAgent={onCreateAgent}
       />
 
       <div className="composer-area">
@@ -143,9 +146,7 @@ export default function ChatView({
 
           <div>
             <span>
-              {busy
-                ? progress
-                : 'Enter to send · Shift + Enter for a new line'}
+              {busy ? progress : 'Enter to send · Shift + Enter for a new line'}
             </span>
 
             {busy ? (

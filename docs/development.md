@@ -105,9 +105,11 @@ agents/<agent-id>/
   projects/
 ```
 
-Development uses `~/Library/Application Support/Granite Development` on macOS. Packaged builds use their own application-data directory. Identity and memory are read fresh for every turn. Changing the selected model preserves the selected agent's identity, memory, and conversations. Use the sidebar agent selector to switch agents, **+** to create one, and **Identity** to edit its identity file. Shared runtime instructions stay in code; each turn loads that agent's name from `agent.json` and personality and memory from its own files. Identity edits apply on the next message, including existing conversations. There is no editable instructions file.
+Development uses `~/Library/Application Support/Granite Development` on macOS. Packaged builds use their own application-data directory. Identity and memory are read fresh for every turn. Changing the selected model preserves the selected agent's identity, memory, and conversations. Use the sidebar agent dropdown to switch agents, choose **New agent** to create one, and open **Identity** to edit its identity file. Shared runtime instructions stay in code; each turn loads that agent's name from `agent.json` and personality and memory from its own files. Identity edits apply on the next message, including existing conversations. There is no editable instructions file.
 
-Atlas is the initial agent, with the stable folder ID `atlas`. New agents get generated folder IDs independent of their display names. Each agent has separate conversations and checkpoints, and its tools can access only its own workspace. Existing Atlas files are adopted unchanged; existing conversations are migrated to belong to Atlas. The database keeps its historical `atlas.sqlite` filename to preserve existing data and journals.
+New installations start with no agents. Use **Create agent** in the empty view, or **New agent** in the custom sidebar dropdown. New agents get generated folder IDs independent of their display names. Each agent has separate conversations and checkpoints, and its tools can access only its own workspace. Existing legacy Atlas files are adopted unchanged when an `agents/atlas/` folder already exists; existing conversations are migrated to belong to Atlas. The database keeps its historical `atlas.sqlite` filename to preserve existing data and journals.
+
+The agent dropdown supports selection, creation, and deletion, including keyboard navigation, Escape, and dismissal by clicking outside it. **Delete** opens a confirmation explaining which data will be removed. Confirming removes the entire agent folder and its conversations, messages, checkpoints, and pending checkpoint writes. `conversation_threads` records graph ownership across interrupted-run recovery so earlier checkpoints are removed too. Other agents are preserved. Deletion is blocked during a run or identity operation. Deleting the last agent returns to the empty view and does not recreate Atlas on restart.
 
 The available tools list directories, read/write/edit files, find filenames, search text, and maintain a task list. Notes and preferences are real files, not simulated memory functions. Simple prompts can be answered without a tool call. The framework's general-purpose subagent, terminal, and file deletion tools are disabled for this milestone. Coding-project creation has deliberately not been tested.
 
@@ -149,3 +151,11 @@ GRANITE_MODEL_BASE_URL=http://YOUR-SERVER:1234/v1 GRANITE_MODEL_ID=YOUR-MODEL \
 ```
 
 Live mode uses your actual model; the default uses a mock. Each check runs an isolated temporary desktop profile and removes it afterwards. It does not add synthetic agents or conversations to your normal profile.
+
+To verify agent creation and deletion with the model server offline:
+
+```sh
+node scripts/verify-agents-desktop.mjs --offline
+```
+
+This check starts with an empty temporary profile, creates an agent through the UI, adds a blank conversation through the desktop bridge, and deletes the agent through the custom dropdown. It verifies that the folder is gone and every database table contains zero rows, then reopens the app to ensure the empty state persists. It also checks cancellation, keyboard navigation, clicking outside the menu, switching agents, and deleting an inactive agent. No model requests are made. Backend tests additionally seed messages, checkpoints, and pending writes directly, including multiple recovery threads, to verify complete cleanup without a model connection.

@@ -1,0 +1,129 @@
+.agent-dropdown {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.agent-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  background: #1b211a;
+  color: #c7d4be;
+  border-color: #35402f;
+  padding: 10px;
+  text-align: left;
+}
+
+.agent-dropdown-trigger:hover:not(:disabled) {
+  background: #293226;
+}
+
+.agent-dropdown-trigger > span:first-child,
+.agent-menu-choice > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-menu {
+  position: absolute;
+  top: calc(100% + 7px);
+  left: 0;
+  z-index: 20;
+  width: 270px;
+  max-width: calc(100vw - 36px);
+  max-height: min(420px, 65vh);
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid #42503c;
+  border-radius: 10px;
+  background: #1b211a;
+  box-shadow: 0 16px 40px #0008;
+}
+
+.agent-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.agent-menu-choice,
+.agent-menu-create,
+.agent-menu-delete {
+  background: transparent;
+  border-color: transparent;
+  color: #c7d4be;
+}
+
+.agent-menu-choice {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+  text-align: left;
+  padding: 11px 9px;
+}
+
+.agent-menu-choice[aria-checked='true'] {
+  background: #293226;
+  color: #d6e4ce;
+}
+
+.agent-menu-delete {
+  color: #d8b3a3;
+  font-size: 11px;
+  padding: 7px 9px;
+}
+
+.agent-menu-create {
+  width: 100%;
+  margin-top: 6px;
+  border-top: 1px solid #35402f;
+  border-radius: 0 0 5px 5px;
+  padding: 12px 9px;
+  text-align: left;
+  color: #bdd5a9;
+}
+
+.agent-menu-choice:hover:not(:disabled),
+.agent-menu-create:hover:not(:disabled) {
+  background: #293226;
+}
+
+.agent-menu-delete:hover:not(:disabled) {
+  background: #422a24;
+  color: #f0b8a4;
+}
+
+.agent-menu-empty {
+  margin: 10px;
+  color: #8e9b86;
+  font-size: 12px;
+}
+
+.agent-delete-confirmation {
+  padding: 8px;
+}
+
+.agent-delete-confirmation p {
+  margin: 0 0 8px;
+  color: #e6e9e4;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.agent-delete-confirmation small {
+  display: block;
+}
+
+.agent-delete-confirmation > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}

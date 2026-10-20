@@ -1,5 +1,5 @@
 import { AgentRuntime } from '../src/backend/agents/runtime.ts'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import assert from 'node:assert/strict'
@@ -17,6 +17,7 @@ if (!baseUrl || !model) {
 const connection = { baseUrl, model, apiKey: process.env.GRANITE_MODEL_API_KEY ?? '' }
 
 const dir = await mkdtemp(join(tmpdir(), 'atlas-live-'))
+await mkdir(join(dir, 'agents', 'atlas'), { recursive: true })
 
 let atlas = await AgentRuntime.open(dir)
 

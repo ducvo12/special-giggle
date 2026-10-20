@@ -1,11 +1,12 @@
 import { createServer } from 'node:http'
 import { spawn } from 'node:child_process'
-import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, writeFile, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import assert from 'node:assert/strict'
 
 const directory = await mkdtemp(join(tmpdir(), 'granite-atlas-ui-'))
+await mkdir(join(directory, 'agents', 'atlas'), { recursive: true })
 
 let disconnected = false,
   app,

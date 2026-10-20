@@ -33,7 +33,10 @@ port.on('message', async ({ data }: { data: Request }) => {
         value = await agent.registry.list()
         break
       case 'agents:create':
-        value = await agent.registry.create(args[0] as string)
+        value = await agent.createAgent(args[0] as string)
+        break
+      case 'agents:delete':
+        value = await agent.deleteAgent(args[0] as string)
         break
       case 'agents:saveIdentity':
         value = await agent.saveIdentity(args[0] as string, args[1] as string, args[2] as string)
@@ -43,8 +46,7 @@ port.on('message', async ({ data }: { data: Request }) => {
         value = agent.store.list(args[0] as string)
         break
       case 'create':
-        await agent.registry.get(args[0] as string)
-        value = agent.store.create(args[0] as string)
+        value = await agent.createConversation(args[0] as string)
         break
       case 'get':
         value = agent.store.get(args[0] as string, args[1] as string)

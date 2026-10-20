@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import type { Agent } from '../../../../shared/agent'
 
 type Props = {
-  agent: Agent
+  agent: Agent | undefined
   creating: boolean
   busy: boolean
   onDirty: (dirty: boolean) => void
@@ -34,7 +34,7 @@ export default function AgentSettings({
   }, [dirty, onDirty])
 
   useEffect(() => {
-    if (creating) {
+    if (creating || !agent) {
       return
     }
 
@@ -65,7 +65,7 @@ export default function AgentSettings({
     return () => {
       mounted = false
     }
-  }, [agent.id, creating])
+  }, [agent?.id, creating])
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -84,7 +84,7 @@ export default function AgentSettings({
         }
 
         await onCreated(result.value)
-      } else {
+      } else if (agent) {
         const result = await window.granite.agents.saveIdentity(agent.id, identity, original)
 
         if (!result.ok) {
@@ -107,7 +107,7 @@ export default function AgentSettings({
     <main className="settings-main">
       <header>
         <span>
-          {creating ? 'New agent' : `${agent.name} / Identity`}
+          {creating ? 'New agent' : `${agent?.name ?? 'Agent'} / Identity`}
         </span>
 
         <button className="quiet-button" disabled={dirty || saving} onClick={onBack}>
@@ -121,7 +121,7 @@ export default function AgentSettings({
         </div>
 
         <h1>
-          {creating ? 'Someone new.' : agent.name}
+          {creating ? 'Someone new.' : agent?.name}
         </h1>
 
         <p className="agent-description">

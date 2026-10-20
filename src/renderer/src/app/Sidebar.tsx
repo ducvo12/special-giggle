@@ -1,5 +1,6 @@
 import type { Agent, Conversation } from '../../../shared/agent'
 import type { Page } from './navigation'
+import AgentDropdown from '../features/agents/AgentDropdown'
 
 type Props = {
   page: Page
@@ -12,6 +13,7 @@ type Props = {
   conversations: Conversation[]
   conversationId: string
   onSelectAgent: (id: string) => void
+  onDeleteAgent: (id: string) => Promise<boolean>
   onSelectConversation: (id: string) => void
   onPageChange: (page: Page) => void
 }
@@ -27,6 +29,7 @@ export default function Sidebar({
   conversations,
   conversationId,
   onSelectAgent,
+  onDeleteAgent,
   onSelectConversation,
   onPageChange
 }: Props) {
@@ -45,28 +48,14 @@ export default function Sidebar({
       </span>
 
       <div className="agent-switcher">
-        <select
-          aria-label="Active agent"
-          value={agentId}
+        <AgentDropdown
+          agents={agents}
+          selectedId={agentId}
           disabled={busy || !loaded || identityDirty}
-          onChange={event => onSelectAgent(event.target.value)}
-        >
-          {agents.map(agent => (
-            <option key={agent.id} value={agent.id}>
-              {agent.name}
-            </option>
-          ))}
-        </select>
-
-        <button
-          className="quiet-button"
-          aria-label="Create agent"
-          title="Create agent"
-          disabled={busy || !loaded || identityDirty}
-          onClick={() => onPageChange('create-agent')}
-        >
-          +
-        </button>
+          onSelect={onSelectAgent}
+          onDelete={onDeleteAgent}
+          onCreate={() => onPageChange('create-agent')}
+        />
       </div>
 
       <button

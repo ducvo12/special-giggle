@@ -44,6 +44,19 @@ export class AgentStore {
     this.saver.db.exec(
       'CREATE INDEX IF NOT EXISTS conversation_agent ON conversations(agentId, updatedAt)'
     )
+
+    // Recovery starts a new graph without discarding the previous checkpoint.
+    // Track every graph so deleting its conversation removes the entire history.
+    this.saver.db.exec(`
+      CREATE TABLE IF NOT EXISTS conversation_threads (
+        graphId TEXT PRIMARY KEY,
+        conversationId TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS thread_conversation ON conversation_threads(conversationId);
+      INSERT OR IGNORE INTO conversation_threads (graphId, conversationId)
+        SELECT graphId, id FROM conversations;
+    `)
+
     // A process exit cannot tell us whether a pending file write completed. Keep
     // the old checkpoint, mark the UI turn interrupted, and never replay it.
     const rows = this.saver.db.prepare('SELECT * FROM messages').all() as {
@@ -86,11 +99,18 @@ export class AgentStore {
       title: 'New conversation',
       updatedAt: Date.now()
     }
-    this.saver.db
-      .prepare(
-        'INSERT INTO conversations (id, title, updatedAt, graphId, recover, agentId) VALUES (?, ?, ?, ?, 0, ?)'
-      )
-      .run(conversation.id, conversation.title, conversation.updatedAt, randomUUID(), agentId)
+    const graphId = randomUUID()
+
+    this.saver.db.transaction(() => {
+      this.saver.db
+        .prepare(
+          'INSERT INTO conversations (id, title, updatedAt, graphId, recover, agentId) VALUES (?, ?, ?, ?, 0, ?)'
+        )
+        .run(conversation.id, conversation.title, conversation.updatedAt, graphId, agentId)
+      this.saver.db
+        .prepare('INSERT INTO conversation_threads (graphId, conversationId) VALUES (?, ?)')
+        .run(graphId, conversation.id)
+    })()
 
     return { ...conversation, messages: [] }
   }
@@ -153,6 +173,11 @@ export class AgentStore {
       this.saver.db
         .prepare('UPDATE conversations SET graphId = ?, recover = 0 WHERE id = ?')
         .run(graphId, conversationId)
+      this.saver.db
+        .prepare(
+          'INSERT OR IGNORE INTO conversation_threads (graphId, conversationId) VALUES (?, ?)'
+        )
+        .run(graphId, conversationId)
       this.saveMessage(conversationId, { id: randomUUID(), role: 'user', content: text })
       this.saveMessage(conversationId, message)
     })()
@@ -177,5 +202,47 @@ export class AgentStore {
 
   close() {
     this.saver.db.close()
+  }
+
+  deleteAgent(agentId: string) {
+    this.saver.db.transaction(() => {
+      // The SDK creates checkpoint tables lazily, after the first model run.
+      const tables = this.saver.db
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('checkpoints', 'writes')"
+        )
+        .all() as { name: string }[]
+
+      for (const { name } of tables) {
+        this.saver.db
+          .prepare(
+            `
+          DELETE FROM ${name} WHERE thread_id IN (
+            SELECT graphId FROM conversation_threads
+            WHERE conversationId IN (SELECT id FROM conversations WHERE agentId = ?)
+          )
+        `
+          )
+          .run(agentId)
+      }
+
+      this.saver.db
+        .prepare(
+          `
+        DELETE FROM messages
+        WHERE conversationId IN (SELECT id FROM conversations WHERE agentId = ?)
+      `
+        )
+        .run(agentId)
+      this.saver.db
+        .prepare(
+          `
+        DELETE FROM conversation_threads
+        WHERE conversationId IN (SELECT id FROM conversations WHERE agentId = ?)
+      `
+        )
+        .run(agentId)
+      this.saver.db.prepare('DELETE FROM conversations WHERE agentId = ?').run(agentId)
+    })()
   }
 }

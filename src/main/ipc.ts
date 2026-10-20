@@ -62,6 +62,7 @@ export function registerIpc(directory: string) {
   const routes: Record<string, { action: string; limits: number[] }> = {
     'agents:list': { action: 'agents:list', limits: [] },
     'agents:create': { action: 'agents:create', limits: [80] },
+    'agents:delete': { action: 'agents:delete', limits: [64] },
     'agents:saveIdentity': { action: 'agents:saveIdentity', limits: [64, 32_000, 100_000] },
     'conversations:list': { action: 'list', limits: [64] },
     'conversations:create': { action: 'create', limits: [64] },

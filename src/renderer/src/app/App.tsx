@@ -12,6 +12,7 @@ export default function App() {
   const [identityDirty, setIdentityDirty] = useState(false)
   const {
     agents,
+    managingAgents,
     agentId,
     agent,
     connections,
@@ -37,6 +38,7 @@ export default function App() {
     selectAgent,
     send,
     stop,
+    deleteAgent,
     newChat,
     addAgent
   } = useAgentSession()
@@ -67,11 +69,20 @@ export default function App() {
         agentId={agentId}
         agent={agent}
         busy={busy}
-        loaded={loaded}
+        loaded={loaded && !managingAgents}
         identityDirty={identityDirty}
         conversations={conversations}
         conversationId={conversationId}
         onSelectAgent={id => void selectAgent(id)}
+        onDeleteAgent={async id => {
+          const deleted = await deleteAgent(id)
+
+          if (!deleted || id === agentId) {
+            setPage('chat')
+          }
+
+          return deleted
+        }}
         onSelectConversation={id => {
           setPage('chat')
           setError('')
@@ -92,9 +103,9 @@ export default function App() {
           }}
           onBack={() => setPage('chat')}
         />
-      ) : (page === 'identity' || page === 'create-agent') && agent ? (
+      ) : page === 'create-agent' || (page === 'identity' && agent) ? (
         <AgentSettings
-          key={`${page}:${agent.id}`}
+          key={`${page}:${agent?.id ?? 'new'}`}
           agent={agent}
           creating={page === 'create-agent'}
           busy={busy}
@@ -113,7 +124,7 @@ export default function App() {
           connections={connections}
           connection={connection}
           busy={busy}
-          loaded={loaded}
+          loaded={loaded && !managingAgents}
           identityDirty={identityDirty}
           messages={messages}
           activity={activity}
@@ -126,6 +137,7 @@ export default function App() {
           onSelectConnection={setSelectedId}
           onNewChat={newChat}
           onOpenSettings={() => setPage('settings')}
+          onCreateAgent={() => setPage('create-agent')}
           onDismissError={() => setError('')}
           onDraftChange={setDraft}
           onSend={send}

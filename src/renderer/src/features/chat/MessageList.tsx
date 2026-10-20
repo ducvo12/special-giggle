@@ -13,6 +13,7 @@ type Props = {
   end: RefObject<HTMLDivElement | null>
   follow: RefObject<boolean>
   onOpenSettings: () => void
+  onCreateAgent: () => void
 }
 
 export default function MessageList({
@@ -25,7 +26,8 @@ export default function MessageList({
   activity,
   end,
   follow,
-  onOpenSettings
+  onOpenSettings,
+  onCreateAgent
 }: Props) {
   return (
     <section
@@ -44,20 +46,28 @@ export default function MessageList({
           </div>
 
           <div className="eyebrow">
-            MEET {agent?.name.toUpperCase()}
+            {agent ? `MEET ${agent.name.toUpperCase()}` : 'YOUR AGENTS'}
           </div>
 
           <h1>
-            A little continuity.
+            {agent ? 'A little continuity.' : 'Create your first agent.'}
           </h1>
 
           <p>
-            {connection
-              ? 'An assistant with a workspace, notes, and a memory of what matters to you.'
-              : 'Add a connection to start your first conversation.'}
+            {!agent
+              ? 'Give an agent a name to start its own workspace, memory, and conversations.'
+              : connection
+                ? 'An assistant with a workspace, notes, and a memory of what matters to you.'
+                : 'Add a connection to start your first conversation.'}
           </p>
 
-          {!connection && loaded && (
+          {!agent && loaded && (
+            <button disabled={identityDirty} onClick={onCreateAgent}>
+              Create agent
+            </button>
+          )}
+
+          {agent && !connection && loaded && (
             <button disabled={identityDirty} onClick={onOpenSettings}>
               Connect a model ↗
             </button>

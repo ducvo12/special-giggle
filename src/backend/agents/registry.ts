@@ -33,10 +33,20 @@ export class AgentRegistry {
   static async open(directory: string) {
     const registry = new AgentRegistry(directory)
     await mkdir(join(directory, 'agents'), { recursive: true, mode: 0o700 })
-    // The existing Atlas folder is adopted without replacing its identity or memory.
+    // Adopt legacy Atlas files only when that folder already exists. An empty
+    // installation, or one whose last agent was deleted, must stay empty.
     const defaultAgent = { id: 'atlas', name: 'Atlas' }
     const root = join(directory, 'agents', defaultAgent.id)
-    await mkdir(root, { recursive: true, mode: 0o700 })
+
+    try {
+      await lstat(root)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return registry
+      }
+
+      throw error
+    }
 
     if ((await lstat(root)).isSymbolicLink()) {
       throw new Error('Agent folders cannot be symbolic links.')

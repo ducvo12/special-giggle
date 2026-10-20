@@ -29,6 +29,8 @@ export function useAgentSession() {
   })
   const [elapsed, setElapsed] = useState(0)
   const [error, setError] = useState('')
+  const [managingAgents, setManagingAgents] = useState(false)
+  const agentOperation = useRef(false)
 
   const run = useRef<string | null>(null)
   const end = useRef<HTMLDivElement>(null)
@@ -79,6 +81,13 @@ export function useAgentSession() {
     setConversationId('')
     setDraft('')
     setError('')
+
+    if (!id) {
+      localStorage.removeItem('granite.agent')
+      setLoaded(true)
+
+      return
+    }
 
     try {
       const chats = await window.granite.conversations.list(id)
@@ -216,7 +225,14 @@ export function useAgentSession() {
   }, [conversationId, agentId])
 
   async function send() {
-    if (run.current || !draft.trim() || !connection || !agent || !loaded) {
+    if (
+      run.current ||
+      agentOperation.current ||
+      !draft.trim() ||
+      !connection ||
+      !agent ||
+      !loaded
+    ) {
       return
     }
 
@@ -289,8 +305,50 @@ export function useAgentSession() {
     }
   }
 
+  async function deleteAgent(id: string) {
+    if (run.current || agentOperation.current) {
+      return false
+    }
+
+    agentOperation.current = true
+    setManagingAgents(true)
+    setError('')
+
+    try {
+      const result = await window.granite.agents.delete(id)
+
+      if (!result.ok) {
+        setError(result.error)
+
+        return false
+      }
+
+      const remaining = agents.filter(agent => agent.id !== id)
+      setAgents(remaining)
+      localStorage.removeItem(`granite.conversation.${id}`)
+
+      if (id === 'atlas') {
+        localStorage.removeItem('granite.conversation')
+      }
+
+      if (id === currentAgent.current) {
+        await selectAgent(remaining[0]?.id ?? '')
+      }
+
+      return true
+    } catch {
+      setError(bridgeError)
+
+      return false
+    } finally {
+      agentOperation.current = false
+      setManagingAgents(false)
+    }
+  }
+
   return {
     agents,
+    managingAgents,
     agentId,
     agent,
     connections,
@@ -316,6 +374,7 @@ export function useAgentSession() {
     selectAgent,
     send,
     stop,
+    deleteAgent,
     newChat() {
       setConversationId('')
       setMessages([])

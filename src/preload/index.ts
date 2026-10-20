@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('granite', {
   agents: {
     list: () => ipcRenderer.invoke('agents:list'),
     create: name => ipcRenderer.invoke('agents:create', name),
+    delete: id => ipcRenderer.invoke('agents:delete', id),
     saveIdentity: (id, identity, expected) =>
       ipcRenderer.invoke('agents:saveIdentity', id, identity, expected)
   },

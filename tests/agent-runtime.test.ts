@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
-import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { AgentRuntime } from '../src/backend/agents/runtime.ts'
@@ -9,6 +9,7 @@ import type { StreamDelta } from '../src/shared/chat.ts'
 
 test('workspace contains file tools, rejects traversal and links, and protects identity', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'atlas-boundary-'))
+  await mkdir(join(dir, 'agents', 'atlas'), { recursive: true })
   const atlas = await AgentRuntime.open(dir)
   const workspace = await atlas.registry.workspace('atlas')
 
@@ -52,6 +53,7 @@ test(
   { timeout: 60_000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'agent-runtime-'))
+    await mkdir(join(dir, 'agents', 'atlas'), { recursive: true })
     const requests: any[] = []
     let slowStarted: (() => void) | undefined
     let disconnected = false

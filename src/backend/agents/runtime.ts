@@ -1,4 +1,5 @@
 import { join } from 'node:path'
+import { rmSync } from 'node:fs'
 import { ChatOpenAI } from '@langchain/openai'
 import { AIMessage, HumanMessage } from '@langchain/core/messages'
 import { createDeepAgent, registerHarnessProfile } from 'deepagents'
@@ -29,6 +30,7 @@ export class AgentRuntime {
   registry: AgentRegistry
   active: { id: string; controller: AbortController } | null = null
   private editingIdentity = false
+  private changingAgents = false
 
   private constructor(store: AgentStore, registry: AgentRegistry) {
     this.store = store
@@ -51,7 +53,7 @@ export class AgentRuntime {
   }
 
   async saveIdentity(agentId: string, identity: string, expected: string) {
-    if (this.active || this.editingIdentity) {
+    if (this.active || this.editingIdentity || this.changingAgents) {
       throw new Error('Finish the current operation before editing an identity.')
     }
 
@@ -61,6 +63,58 @@ export class AgentRuntime {
       return await this.registry.saveIdentity(agentId, identity, expected)
     } finally {
       this.editingIdentity = false
+    }
+  }
+
+  async createAgent(name: string) {
+    if (this.active || this.editingIdentity || this.changingAgents) {
+      throw new Error('Finish the current operation before creating an agent.')
+    }
+
+    this.changingAgents = true
+
+    try {
+      return await this.registry.create(name)
+    } finally {
+      this.changingAgents = false
+    }
+  }
+
+  async deleteAgent(agentId: string) {
+    if (this.active || this.editingIdentity || this.changingAgents) {
+      throw new Error('Finish the current operation before deleting an agent.')
+    }
+
+    this.changingAgents = true
+
+    try {
+      const workspace = await this.registry.workspace(agentId)
+
+      // Run in the worker, synchronously inside the transaction: a filesystem
+      // failure rolls back database deletion, and no other request interleaves.
+      this.store.saver.db.transaction(() => {
+        this.store.deleteAgent(agentId)
+        rmSync(workspace.root, { recursive: true })
+      })()
+    } finally {
+      this.changingAgents = false
+    }
+  }
+
+  async createConversation(agentId: string) {
+    if (this.active || this.editingIdentity || this.changingAgents) {
+      throw new Error('Finish the current operation before creating a conversation.')
+    }
+
+    // Hold the same guard while validating the folder and inserting the row,
+    // so an in-flight request cannot recreate records after agent deletion.
+    this.changingAgents = true
+
+    try {
+      await this.registry.get(agentId)
+      return this.store.create(agentId)
+    } finally {
+      this.changingAgents = false
     }
   }
 
@@ -78,7 +132,7 @@ export class AgentRuntime {
     text: string,
     emit: (delta: StreamDelta) => void
   ) {
-    if (this.active || this.editingIdentity) {
+    if (this.active || this.editingIdentity || this.changingAgents) {
       throw new Error(
         'An agent is already working or its identity is being saved. Finish the current operation first.'
       )

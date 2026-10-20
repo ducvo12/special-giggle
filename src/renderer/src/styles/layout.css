@@ -115,17 +115,3 @@
   gap: 7px;
   margin: 0 0 16px;
 }
-
-.agent-switcher select {
-  background: #1b211a;
-  border: 1px solid #35402f;
-  border-radius: 7px;
-  padding: 10px;
-  flex: 1;
-  width: 0;
-}
-
-.agent-switcher button {
-  font-size: 18px;
-  padding: 5px 10px;
-}
