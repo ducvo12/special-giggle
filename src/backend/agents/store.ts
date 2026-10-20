@@ -237,6 +237,15 @@ export class AgentStore {
       .run(conversationId, modelKey, JSON.stringify(state))
   }
 
+  renameConversation(agentId: string, id: string, title: string) {
+    if (typeof title !== 'string' || !title.trim() || title.trim().length > 200) {
+      throw new Error('Chat names must contain between 1 and 200 characters.')
+    }
+    this.get(agentId, id)
+    this.saver.db.prepare('UPDATE conversations SET title = ? WHERE id = ? AND agentId = ?')
+      .run(title.trim(), id, agentId)
+  }
+
   deleteConversation(agentId: string, id: string) {
     this.saver.db.transaction(() => {
       this.get(agentId, id)

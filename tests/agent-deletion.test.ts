@@ -212,3 +212,30 @@ test('chat deletion removes all recovered history and preserves other chats and 
     await rm(directory, { recursive: true, force: true })
   }
 })
+
+test('chat renaming persists, validates names, and respects ownership and active operations', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'granite-chat-rename-'))
+  let runtime = await AgentRuntime.open(directory)
+  try {
+    const agent = await runtime.createAgent('Owner')
+    const other = await runtime.createAgent('Other')
+    const chat = await runtime.createConversation(agent.id)
+    const turn = runtime.store.begin(agent.id, chat.id, 'Original title', 'offline')
+    runtime.store.finish(chat.id, turn.message, 'complete')
+    const original = runtime.store.get(agent.id, chat.id)
+    await assert.rejects(runtime.renameConversation(other.id, chat.id, 'Wrong owner'), /Conversation not found/)
+    for (const title of ['', '   ', 'x'.repeat(201)]) {
+      await assert.rejects(runtime.renameConversation(agent.id, chat.id, title), /Chat names/)
+    }
+    runtime.active = { id: 'running', controller: new AbortController() }
+    await assert.rejects(runtime.renameConversation(agent.id, chat.id, 'Busy'), /Finish the current operation/)
+    runtime.active = null
+    await runtime.renameConversation(agent.id, chat.id, '  Renamed chat  ')
+    runtime.close()
+    runtime = await AgentRuntime.open(directory)
+    assert.deepEqual(runtime.store.get(agent.id, chat.id), { ...original, title: 'Renamed chat' })
+  } finally {
+    runtime.close()
+    await rm(directory, { recursive: true, force: true })
+  }
+})

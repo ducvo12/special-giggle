@@ -322,6 +322,28 @@ export function useAgentSession() {
     }
   }
 
+  async function renameConversation(id: string, title: string) {
+    if (run.current || agentOperation.current || !loaded) return false
+    agentOperation.current = true
+    setManagingAgents(true)
+    setError('')
+    try {
+      const result = await window.granite.conversations.rename(agentId, id, title)
+      if (!result.ok) {
+        setError(result.error)
+        return false
+      }
+      setConversations(current => current.map(chat => chat.id === id ? { ...chat, title: title.trim() } : chat))
+      return true
+    } catch {
+      setError(bridgeError)
+      return false
+    } finally {
+      agentOperation.current = false
+      setManagingAgents(false)
+    }
+  }
+
   async function deleteConversation(id: string) {
     if (run.current || agentOperation.current || !loaded) {
       return false
@@ -444,6 +466,7 @@ export function useAgentSession() {
     stop,
     deleteAgent,
     deleteConversation,
+    renameConversation,
     newChat() {
       setConversationId('')
       setMessages([])

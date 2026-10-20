@@ -120,6 +120,19 @@ export class AgentRuntime {
     }
   }
 
+  async renameConversation(agentId: string, id: string, title: string) {
+    if (this.active || this.editingIdentity || this.changingAgents) {
+      throw new Error('Finish the current operation before renaming a conversation.')
+    }
+    this.changingAgents = true
+    try {
+      await this.registry.get(agentId)
+      this.store.renameConversation(agentId, id, title)
+    } finally {
+      this.changingAgents = false
+    }
+  }
+
   async deleteConversation(agentId: string, id: string) {
     if (this.active || this.editingIdentity || this.changingAgents) {
       throw new Error('Finish the current operation before deleting a conversation.')

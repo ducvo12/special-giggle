@@ -35,6 +35,7 @@ contextBridge.exposeInMainWorld('granite', {
   conversations: {
     list: agentId => ipcRenderer.invoke('conversations:list', agentId),
     create: agentId => ipcRenderer.invoke('conversations:create', agentId),
+    rename: (agentId, id, title) => ipcRenderer.invoke('conversations:rename', agentId, id, title),
     delete: (agentId, id) => ipcRenderer.invoke('conversations:delete', agentId, id),
     get: (agentId, id) => ipcRenderer.invoke('conversations:get', agentId, id)
   },

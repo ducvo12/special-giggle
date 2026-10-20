@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import ConversationList from './ConversationList'
 import type { Agent, Conversation } from '../../../shared/agent'
 import type { Page } from './navigation'
 import AgentDropdown from '../features/agents/AgentDropdown'
@@ -14,6 +14,7 @@ type Props = {
   conversations: Conversation[]
   conversationId: string
   onSelectAgent: (id: string) => void
+  onRenameConversation: (id: string, title: string) => Promise<boolean>
   onDeleteConversation: (id: string) => Promise<boolean>
   onDeleteAgent: (id: string) => Promise<boolean>
   onNewChat: () => void
@@ -34,11 +35,11 @@ export default function Sidebar({
   onSelectAgent,
   onDeleteAgent,
   onDeleteConversation,
+  onRenameConversation,
   onNewChat,
   onSelectConversation,
   onPageChange
 }: Props) {
-  const [confirming, setConfirming] = useState('')
 
   if (page === 'settings') {
     return (
@@ -141,42 +142,15 @@ export default function Sidebar({
         {' '}Tools & skills
       </button>
 
-      <div className="conversation-list">
-        {conversations.map(chat => (
-          <div className="conversation-row" key={chat.id}>
-            <button
-              title={chat.title}
-              disabled={busy || !loaded || identityDirty}
-              className={`conversation-choice ${conversationId === chat.id ? 'selected' : ''}`}
-              onClick={() => onSelectConversation(chat.id)}
-            >
-              {chat.title}
-            </button>
-            <button
-              className="conversation-delete"
-              title="Delete chat"
-              aria-label={`Delete chat ${chat.title}`}
-              disabled={busy || !loaded || identityDirty}
-              onClick={() => setConfirming(chat.id)}
-            >
-              ×
-            </button>
-            {confirming === chat.id && (
-              <div className="conversation-confirmation" role="group" aria-label={`Delete ${chat.title}?`}>
-                <p>Permanently delete this chat?</p>
-                <button disabled={!loaded || busy || identityDirty} onClick={() => setConfirming('')}>Cancel</button>
-                <button
-                  className="danger-button"
-                  disabled={!loaded || busy || identityDirty}
-                  onClick={async () => {
-                    if (await onDeleteConversation(chat.id)) setConfirming('')
-                  }}
-                >Delete chat</button>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+      <ConversationList
+        key={agentId}
+        conversations={conversations}
+        selectedId={conversationId}
+        disabled={busy || !loaded || identityDirty}
+        onSelect={onSelectConversation}
+        onRename={onRenameConversation}
+        onDelete={onDeleteConversation}
+      />
 
       <div className="sidebar-bottom">
         <button

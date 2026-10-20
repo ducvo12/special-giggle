@@ -163,6 +163,7 @@ export function registerIpc(directory: string) {
     'agents:saveIdentity': { action: 'agents:saveIdentity', limits: [64, 32_000, 100_000] },
     'conversations:list': { action: 'list', limits: [64] },
     'conversations:create': { action: 'create', limits: [64] },
+    'conversations:rename': { action: 'rename', limits: [64, 100, 200] },
     'conversations:delete': { action: 'delete', limits: [64, 100] },
     'conversations:get': { action: 'get', limits: [64, 100] },
     'workspace:entries': { action: 'entries', limits: [64, 1024] },

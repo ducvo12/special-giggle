@@ -117,7 +117,7 @@
   margin: 20px 0;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 2px;
 }
 
 .conversation-list button {
@@ -127,7 +127,10 @@
   background: transparent;
   border-color: transparent;
   color: var(--text-muted);
-  padding: 10px;
+  padding: 5px 8px;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
 }
 
 .conversation-list button.selected,
@@ -159,31 +162,101 @@
   line-height: 1;
 }
 
-.conversation-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+.chat-context-menu {
+  position: fixed;
+  z-index: 100;
+  min-width: 138px;
+  max-width: calc(100vw - 12px);
+  padding: 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface-sidebar);
+  box-shadow: 0 4px 16px #0003;
 }
 
-.conversation-choice {
-  flex: 1;
-  min-width: 0;
-  white-space: nowrap;
-}
-
-.conversation-delete {
-  flex-shrink: 0;
-  font-size: 18px;
-}
-
-.conversation-confirmation {
+.chat-context-menu > button {
+  display: block;
   width: 100%;
-  padding: 0 4px 8px;
+}
+
+.chat-context-menu button {
+  padding: 4px 8px;
+  font-size: 12px;
+  line-height: 18px;
+  border-radius: 4px;
+}
+
+.chat-context-menu button:hover:not(:disabled),
+.chat-context-menu button:focus-visible {
+  background: var(--surface-hover);
+  color: var(--text-strong);
+}
+
+.chat-context-menu form {
+  width: 210px;
+  max-width: 100%;
+  padding: 4px;
   font-size: 12px;
 }
 
-.conversation-list .danger-button {
-  background: var(--surface-selected);
-  color: var(--text);
-  border-color: var(--border-strong);
+.chat-context-menu label { display: block; margin-bottom: 6px; }
+.chat-context-menu p { margin: 2px 0 8px; }
+.chat-context-menu input { width: 100%; padding: 5px 7px; font-size: 12px; }
+.chat-menu-actions { display: flex; justify-content: flex-end; gap: 4px; margin-top: 6px; }
+
+.conversation-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  border-radius: 5px;
+}
+
+.conversation-row .conversation-choice {
+  flex: 1;
+  min-width: 0;
+}
+
+.conversation-row.selected,
+.conversation-row:hover,
+.conversation-row:focus-within,
+.conversation-row.menu-open {
+  background: var(--surface-raised);
+}
+
+.conversation-list .conversation-choice:hover:not(:disabled) {
+  background: transparent;
+  color: var(--text-strong);
+}
+
+.conversation-list .conversation-choice.selected,
+.conversation-list .conversation-choice.selected:hover:not(:disabled) {
+  background: transparent;
+  color: var(--text-strong);
+}
+
+.conversation-list .conversation-more {
+  display: grid;
+  place-items: center;
+  flex: 0 0 24px;
+  height: 24px;
+  padding: 0;
+  margin-right: 3px;
+  opacity: 0;
+  color: var(--text-secondary);
+  border-radius: 4px;
+}
+
+.conversation-row:hover .conversation-more,
+.conversation-row:focus-within .conversation-more,
+.conversation-row.menu-open .conversation-more {
+  opacity: 1;
+}
+
+.conversation-list .conversation-more:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text-strong);
+}
+
+@media (hover: none) {
+  .conversation-list .conversation-more { opacity: 1; }
 }
