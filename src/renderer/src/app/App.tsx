@@ -1,5 +1,5 @@
 import { toggleDevTimings, useDevTimings } from '../features/chat/devTimings'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Settings from '../features/connections/Settings'
 import Workspace from '../features/workspace/Workspace'
 import AgentSettings from '../features/agents/AgentSettings'
@@ -13,6 +13,8 @@ import { useAgentSession } from './useAgentSession'
 export default function App() {
   const devTimings = useDevTimings()
   const [page, setPage] = useState<Page>('chat')
+  const [newChatFocus, setNewChatFocus] = useState(0)
+  const messageInput = useRef<HTMLTextAreaElement>(null)
   const [settingsVisit, setSettingsVisit] = useState(0)
   const [sidebarVisible, setSidebarVisible] = useState(true)
   const [identityDirty, setIdentityDirty] = useState(false)
@@ -72,6 +74,16 @@ export default function App() {
     }
   }, [messages, busy, page])
 
+  function openNewChat() {
+    newChat()
+    setPage('chat')
+    setNewChatFocus(value => value + 1)
+  }
+
+  useEffect(() => {
+    if (newChatFocus) messageInput.current?.focus()
+  }, [newChatFocus])
+
   return (
     <div className="app">
       <header className={`app-header ${window.granite.platform === 'darwin' ? 'app-header-mac' : ''}`}>
@@ -93,10 +105,7 @@ export default function App() {
           aria-label="Granite home"
           title={identityDirty ? 'Save or discard your changes to return home' : 'Home'}
           disabled={identityDirty || busy || !loaded || managingAgents}
-          onClick={() => {
-            newChat()
-            setPage('chat')
-          }}
+          onClick={openNewChat}
         >
           Granite
         </button>
@@ -122,10 +131,7 @@ export default function App() {
           onRenameConversation={renameConversation}
           onDeleteConversation={deleteConversation}
           onSelectAgent={id => void selectAgent(id)}
-          onNewChat={() => {
-            newChat()
-            setPage('chat')
-          }}
+          onNewChat={openNewChat}
           onDeleteAgent={async id => {
             const deleted = await deleteAgent(id)
 
@@ -189,6 +195,7 @@ export default function App() {
           <Workspace key={agent.id} agent={agent} busy={busy} />
         ) : (
           <ChatView
+            messageInput={messageInput}
             agent={agent}
             connections={connections}
             connection={connection}

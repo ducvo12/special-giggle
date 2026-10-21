@@ -6,6 +6,7 @@ import ChatModelPicker from './ChatModelPicker'
 import type { ModelSelection } from './useConnectionModel'
 
 type Props = {
+  messageInput: RefObject<HTMLTextAreaElement | null>
   agent: Agent | undefined
   connections: SavedConnection[]
   connection: SavedConnection | undefined
@@ -31,6 +32,7 @@ type Props = {
 }
 
 export default function ChatView({
+  messageInput,
   agent,
   connections,
   connection,
@@ -98,6 +100,7 @@ export default function ChatView({
           }}
         >
           <textarea
+            ref={messageInput}
             aria-label="Message"
             value={draft}
             disabled={!connection || !agent || !loaded}
