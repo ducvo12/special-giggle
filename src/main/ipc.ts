@@ -153,6 +153,15 @@ export function registerIpc(directory: string) {
     }
   )
 
+  ipcMain.handle('conversations:responseDuration', (event, agentId, id, messageId, durationMs) => {
+    trusted(event)
+    if ([agentId, id, messageId].some(value => typeof value !== 'string' || !value || value.length > 100) ||
+      !Number.isSafeInteger(durationMs) || durationMs < 0) {
+      return { ok: false, error: 'Invalid response timing.' }
+    }
+    return agents.call('responseDuration', agentId, id, messageId, durationMs)
+  })
+
   const routes: Record<string, { action: string; limits: number[] }> = {
     'harness:get': { action: 'harness:get', limits: [64] },
     'harness:skills': { action: 'harness:skills', limits: [64] },

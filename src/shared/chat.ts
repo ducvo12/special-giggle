@@ -89,6 +89,7 @@ export interface GraniteBridge {
     approve: (requestId: string, approvalId: string, allow: boolean) => Promise<Result<void>>
   }
   conversations: {
+    saveResponseDuration: (agentId: string, id: string, messageId: string, durationMs: number) => Promise<Result<void>>
     list: (agentId: string) => Promise<Result<Conversation[]>>
     create: (agentId: string) => Promise<Result<ConversationDetail>>
     rename: (agentId: string, id: string, title: string) => Promise<Result<void>>

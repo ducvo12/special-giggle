@@ -73,6 +73,9 @@ port.on('message', async ({ data }: { data: Request }) => {
       case 'get':
         value = agent.store.get(args[0] as string, args[1] as string)
         break
+      case 'responseDuration':
+        value = agent.store.saveResponseDuration(args[0] as string, args[1] as string, args[2] as string, args[3] as number)
+        break
       case 'entries':
         value = await agent.entries(args[0] as string, args[1] as string)
         break

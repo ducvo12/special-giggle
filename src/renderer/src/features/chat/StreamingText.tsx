@@ -1,3 +1,5 @@
+import { responseClock } from './response-clock'
+import FormattedResponse from './FormattedResponse'
 import { recordVisible } from './devTimings'
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import type { RunStatus } from '../../../../shared/agent'
@@ -65,5 +67,14 @@ export default function StreamingText({
     if (follow.current) end.current?.scrollIntoView()
   }, [messageId, visible, end, follow])
 
-  return <>{visible}</>
+  useEffect(() => {
+    // Two frames let the committed text paint before capturing its visible time.
+    let second: number
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => responseClock.rendered(messageId, visible))
+    })
+    return () => { cancelAnimationFrame(first); cancelAnimationFrame(second) }
+  }, [messageId, visible])
+
+  return <FormattedResponse text={visible} />
 }

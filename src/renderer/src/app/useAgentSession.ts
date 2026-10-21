@@ -1,3 +1,4 @@
+import { responseClock } from '../features/chat/response-clock'
 import { beginTiming, recordDelta, finishTiming, bindTiming } from '../features/chat/devTimings'
 import { useEffect, useRef, useState } from 'react'
 import type { SavedConnection, StreamActivity } from '../../../shared/chat'
@@ -59,7 +60,16 @@ export function useAgentSession() {
     }
 
     const reply = result.value.messages[result.value.messages.length - 1]
-    if (timingId && reply?.role === 'assistant') bindTiming(timingId, reply.id)
+    if (timingId && reply?.role === 'assistant') {
+      bindTiming(timingId, reply.id)
+      if (reply.status === 'complete') {
+        responseClock.bind(timingId, reply.id, reply.content, (messageId, durationMs) => {
+          void window.granite.conversations.saveResponseDuration(owner, id, messageId, durationMs)
+            .then(result => { if (!result.ok) setError(result.error) })
+            .catch(() => setError('Could not save the response duration.'))
+        })
+      }
+    }
     setConversationId(id)
     setMessages(result.value.messages)
   }
@@ -253,6 +263,7 @@ export function useAgentSession() {
 
     const requestId = crypto.randomUUID()
     const text = draft.trim()
+    responseClock.begin(requestId)
     beginTiming(requestId)
     run.current = requestId
     follow.current = true

@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('granite', {
       ipcRenderer.invoke('harness:approve', requestId, approvalId, allow)
   },
   conversations: {
+    saveResponseDuration: (agentId, id, messageId, durationMs) => ipcRenderer.invoke('conversations:responseDuration', agentId, id, messageId, durationMs),
     list: agentId => ipcRenderer.invoke('conversations:list', agentId),
     create: agentId => ipcRenderer.invoke('conversations:create', agentId),
     rename: (agentId, id, title) => ipcRenderer.invoke('conversations:rename', agentId, id, title),

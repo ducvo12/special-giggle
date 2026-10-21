@@ -1,3 +1,5 @@
+import ResponseDuration from './ResponseDuration'
+import { responseClock } from './response-clock'
 import ResponseTimings from './ResponseTimings'
 import { timingFor } from './devTimings'
 import StreamingText from './StreamingText'
@@ -59,10 +61,12 @@ export default function MessageList({
       )}
 
       {messages.map(message => (
-        <article className={`message ${message.role}`} key={timingFor(message.id)?.requestId ?? message.id}>
+        <article className={`message ${message.role}`} key={responseClock.get(message.id)?.requestId ?? timingFor(message.id)?.requestId ?? message.id}>
           <span className="message-role">
             {message.role === 'user' ? 'You' : `${agent?.name ?? 'Agent'} · ${message.model ?? ''}`}
           </span>
+
+          {message.role === 'assistant' && <ResponseDuration message={message} />}
 
           {!!message.tools?.length && (
             <div className="tool-activity" aria-label="Tool activity">

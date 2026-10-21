@@ -12,6 +12,7 @@ export interface ToolActivity {
 }
 
 export interface AgentMessage extends Message {
+  responseDurationMs?: number
   connectionId?: string
   effort?: string
   id: string

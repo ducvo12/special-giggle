@@ -143,6 +143,20 @@ export class AgentStore {
     return { ...row, messages: rows.map(row => JSON.parse(row.data) as AgentMessage) }
   }
 
+  saveResponseDuration(agentId: string, conversationId: string, messageId: string, durationMs: number) {
+    if (!Number.isSafeInteger(durationMs) || durationMs < 0) {
+      throw new Error('Invalid response duration.')
+    }
+    const message = this.get(agentId, conversationId).messages.find(item => item.id === messageId)
+    if (!message || message.role !== 'assistant' || message.status !== 'complete') {
+      throw new Error('Completed response not found.')
+    }
+    if (message.responseDurationMs !== undefined) return
+    // Update only the message metadata; timing must not reorder conversations.
+    this.saver.db.prepare('UPDATE messages SET data = ? WHERE id = ? AND conversationId = ?')
+      .run(JSON.stringify({ ...message, responseDurationMs: durationMs }), messageId, conversationId)
+  }
+
   saveMessage(conversationId: string, message: AgentMessage) {
     this.saver.db
       .prepare(
