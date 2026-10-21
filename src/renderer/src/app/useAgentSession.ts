@@ -1,3 +1,4 @@
+import { beginTiming, recordDelta, finishTiming, bindTiming } from '../features/chat/devTimings'
 import { useEffect, useRef, useState } from 'react'
 import type { SavedConnection, StreamActivity } from '../../../shared/chat'
 import type { ApprovalRequest } from '../../../shared/harness'
@@ -44,7 +45,7 @@ export function useAgentSession() {
   const modelSelection = useConnectionModel(connection, locked?.model, conversationId, [...messages].reverse().find(message => message.role === 'assistant')?.effort)
   const agent = agents.find(agent => agent.id === agentId)
 
-  async function loadConversation(id: string, owner = agentId) {
+  async function loadConversation(id: string, owner = agentId, timingId?: string) {
     const result = await window.granite.conversations.get(owner, id)
 
     if (currentAgent.current !== owner) {
@@ -57,6 +58,8 @@ export function useAgentSession() {
       return
     }
 
+    const reply = result.value.messages[result.value.messages.length - 1]
+    if (timingId && reply?.role === 'assistant') bindTiming(timingId, reply.id)
     setConversationId(id)
     setMessages(result.value.messages)
   }
@@ -177,6 +180,8 @@ export function useAgentSession() {
         return
       }
 
+      recordDelta(delta)
+
       if (Object.hasOwn(delta, 'approval')) {
         setApproval(delta.approval ?? null)
       }
@@ -248,6 +253,7 @@ export function useAgentSession() {
 
     const requestId = crypto.randomUUID()
     const text = draft.trim()
+    beginTiming(requestId)
     run.current = requestId
     follow.current = true
     setBusy(true)
@@ -294,16 +300,18 @@ export function useAgentSession() {
         modelSelection.effort
       )
 
+      finishTiming(requestId)
       if (!result.ok) {
         setError(result.error)
       }
 
-      await loadConversation(id)
+      await loadConversation(id, agent.id, requestId)
       await refreshList()
     } catch (error) {
       setError(error instanceof Error ? error.message : bridgeError)
       setDraft(text)
     } finally {
+      finishTiming(requestId)
       run.current = null
       setApproval(null)
       setBusy(false)

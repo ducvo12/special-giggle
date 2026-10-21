@@ -1,3 +1,6 @@
+import ResponseTimings from './ResponseTimings'
+import { timingFor } from './devTimings'
+import StreamingText from './StreamingText'
 import type { RefObject } from 'react'
 import type { Agent, AgentMessage } from '../../../../shared/agent'
 import type { StreamActivity } from '../../../../shared/chat'
@@ -56,7 +59,7 @@ export default function MessageList({
       )}
 
       {messages.map(message => (
-        <article className={`message ${message.role}`} key={message.id}>
+        <article className={`message ${message.role}`} key={timingFor(message.id)?.requestId ?? message.id}>
           <span className="message-role">
             {message.role === 'user' ? 'You' : `${agent?.name ?? 'Agent'} · ${message.model ?? ''}`}
           </span>
@@ -84,7 +87,11 @@ export default function MessageList({
           )}
 
           <div>
-            {message.content ||
+            {message.content ? (
+              message.role === 'assistant' ? (
+                <StreamingText messageId={message.id} text={message.content} status={message.status} end={end} follow={follow} />
+              ) : message.content
+            ) :
               (message.status === 'running' ? (
                 <span className="thinking">
                   {activity.reasoningCharacters
@@ -101,6 +108,8 @@ export default function MessageList({
                 </span>
               ))}
           </div>
+
+          {message.role === 'assistant' && <ResponseTimings messageId={message.id} />}
 
           {message.notice && (
             <span className="interrupted">

@@ -1,3 +1,4 @@
+import { toggleDevTimings, useDevTimings } from '../features/chat/devTimings'
 import { useEffect, useState } from 'react'
 import Settings from '../features/connections/Settings'
 import Workspace from '../features/workspace/Workspace'
@@ -10,6 +11,7 @@ import type { Page } from './navigation'
 import { useAgentSession } from './useAgentSession'
 
 export default function App() {
+  const devTimings = useDevTimings()
   const [page, setPage] = useState<Page>('chat')
   const [settingsVisit, setSettingsVisit] = useState(0)
   const [sidebarVisible, setSidebarVisible] = useState(true)
@@ -97,6 +99,11 @@ export default function App() {
           }}
         >
           Granite
+        </button>
+        <button type="button" role="switch" aria-checked={devTimings.enabled}
+          className="quiet-button dev-timing-switch" onClick={toggleDevTimings}
+          title="Temporary response timings, kept in memory until the app reloads">
+          Dev timings {devTimings.enabled ? 'on' : 'off'}
         </button>
       </header>
 

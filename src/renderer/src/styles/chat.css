@@ -309,3 +309,21 @@
   box-shadow: 0 1px 4px #0003;
 }
 .effort-slider-track input:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; border-radius: 24px; }
+
+.dev-timing-switch { margin-left: auto; -webkit-app-region: no-drag; }
+.dev-timing-switch[aria-checked='true'] { background: var(--surface-selected); color: var(--text-strong); }
+.response-timings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: normal;
+  font-variant-numeric: tabular-nums;
+}
+.response-timings div { display: flex; flex-direction: column; }
+.response-timings dd { margin: 0; color: var(--text-secondary); }
