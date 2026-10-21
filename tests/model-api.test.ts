@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
-import { chat, listModels, safely } from '../src/backend/models/api.ts'
+import { chat, listModels, listModelCatalog, safely } from '../src/backend/models/api.ts'
 
 test('API adapter discovers models, sends history and authentication, and handles failures', async () => {
   const server = createServer(async (request, response) => {
@@ -9,7 +9,7 @@ test('API adapter discovers models, sends history and authentication, and handle
     response.setHeader('Content-Type', 'application/json')
 
     if (request.url === '/v1/models') {
-      return response.end(JSON.stringify({ data: [{ id: 'test-model' }] }))
+      return response.end(JSON.stringify({ data: [{ id: 'test-model', supported_reasoning_levels: ['medium', 'high'], default_reasoning_level: 'medium' }] }))
     }
 
     let body = ''
@@ -44,6 +44,11 @@ test('API adapter discovers models, sends history and authentication, and handle
 
   try {
     assert.deepEqual(await listModels(connection), ['test-model'])
+    assert.deepEqual(await listModelCatalog(connection), [{
+      id: 'test-model', name: 'test-model',
+      reasoningLevels: [{ effort: 'medium' }, { effort: 'high' }],
+      defaultReasoningLevel: 'medium'
+    }])
     assert.equal(
       await chat(connection, [{ role: 'user', content: 'Hello' }]),
       'Hello from the mock model'

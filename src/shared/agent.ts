@@ -12,6 +12,8 @@ export interface ToolActivity {
 }
 
 export interface AgentMessage extends Message {
+  connectionId?: string
+  effort?: string
   id: string
   status?: RunStatus
   tools?: ToolActivity[]

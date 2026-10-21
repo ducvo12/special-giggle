@@ -231,28 +231,28 @@ test(
       await run('Recall')
 
       const switchIndex = mock.requests.length
+      await assert.rejects(
+        runtime.run(
+          'Switch model',
+          agent.id,
+          conversation.id,
+          { ...connection, model: 'another-account-model' },
+          'Continue with another model',
+          emit
+        ),
+        /model is fixed for this conversation/
+      )
+      assert.equal(mock.requests.length, switchIndex)
       await runtime.run(
-        'Switch model',
+        'Change reasoning',
         agent.id,
         conversation.id,
-        { ...connection, model: 'another-account-model' },
-        'Continue with another model',
+        { ...connection, effort: 'low' },
+        'Continue with less reasoning',
         emit
       )
-      const switched = mock.requests[switchIndex]
-      assert.equal(switched.model, 'another-account-model')
-      assert.match(switched.instructions, /calm, clear/)
-      assert.match(switched.instructions, /extra-instruction/)
-      assert.ok(
-        switched.input.some(
-          (item: any) => item.role === 'user' && item.content[0].text === 'Save note'
-        )
-      )
-      assert.ok(!switched.input.some((item: any) => item.type === 'reasoning'))
-      assert.equal(
-        runtime.store.get(agent.id, conversation.id).messages.at(-1)!.model,
-        'another-account-model'
-      )
+      assert.equal(mock.requests[switchIndex].reasoning.effort, 'low')
+      assert.equal(runtime.store.get(agent.id, conversation.id).messages.at(-1)!.model, connection.model)
 
       const before = mock.requests.length
       const ready = new Promise<void>(resolve => {

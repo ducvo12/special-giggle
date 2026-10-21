@@ -76,7 +76,7 @@ export default function ChatView({
       <div className="composer-area">
         {modelSelection.error && (
           <div className="error" role="alert">
-            {modelSelection.error} Use the refresh button to try again.
+            {modelSelection.error} Reload models in Connections to try again.
           </div>
         )}
 

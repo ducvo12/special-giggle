@@ -39,8 +39,9 @@ export function useAgentSession() {
   const end = useRef<HTMLDivElement>(null)
   const follow = useRef(true)
 
-  const connection = connections.find(item => item.id === selectedId)
-  const modelSelection = useConnectionModel(connection)
+  const locked = messages.find(message => message.role === 'assistant' && message.model)
+  const connection = connections.find(item => item.id === (locked?.connectionId ?? (locked ? connections.find(item => item.model === locked.model)?.id : undefined) ?? selectedId))
+  const modelSelection = useConnectionModel(connection, locked?.model, conversationId, [...messages].reverse().find(message => message.role === 'assistant')?.effort)
   const agent = agents.find(agent => agent.id === agentId)
 
   async function loadConversation(id: string, owner = agentId) {
@@ -276,6 +277,8 @@ export function useAgentSession() {
           role: 'assistant',
           content: '',
           model: modelSelection.model,
+          connectionId: connection.id,
+          effort: modelSelection.effort,
           tools: [],
           status: 'running'
         }
@@ -287,7 +290,8 @@ export function useAgentSession() {
         id,
         connection.id,
         text,
-        connection.provider === 'chatgpt' ? modelSelection.model : undefined
+        connection.provider === 'chatgpt' ? modelSelection.model : undefined,
+        modelSelection.effort
       )
 
       if (!result.ok) {

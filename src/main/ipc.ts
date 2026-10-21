@@ -1,5 +1,5 @@
 import { app, BrowserWindow, ipcMain, safeStorage, shell } from 'electron'
-import { listModels, safely } from '../backend/models/api'
+import { listModels, listModelCatalog, safely } from '../backend/models/api'
 import { ConnectionStore } from '../backend/connections/store'
 import { AgentClient } from './agent-client'
 import type { ConnectionDraft } from '../shared/chat'
@@ -69,7 +69,7 @@ export function registerIpc(directory: string) {
       const connection = await store.resolve(id)
 
       if (connection.provider !== 'chatgpt') {
-        throw new Error('Choose a ChatGPT account connection to load its models.')
+        return listModelCatalog(connection)
       }
 
       return chatgpt.modelCatalog(connection.accountId ?? '')
@@ -194,7 +194,8 @@ export function registerIpc(directory: string) {
       conversationId: string,
       connectionId: string,
       text: string,
-      model?: string
+      model?: string,
+      effort?: string
     ) => {
       trusted(event)
 
@@ -221,6 +222,13 @@ export function registerIpc(directory: string) {
 
         try {
           const connection = await store.resolve(connectionId, model)
+          connection.connectionId = connectionId
+          if (effort !== undefined) {
+            if (typeof effort !== 'string' || !/^(|none|minimal|low|medium|high|xhigh|max|ultra)$/.test(effort)) {
+              throw new Error('Choose a supported reasoning level.')
+            }
+            connection.effort = effort
+          }
 
           if (connection.provider === 'chatgpt') {
             const catalog = await chatgpt.modelCatalog(connection.accountId ?? '')

@@ -5,6 +5,7 @@ type Props = {
   deleting: string | null
   busy: boolean
   onEdit: (connection?: SavedConnection) => void
+  onRefresh: (id: string) => Promise<void>
   onDeleteRequest: (id: string | null) => void
   onDelete: (id: string) => Promise<void>
 }
@@ -14,6 +15,7 @@ export default function ConnectionList({
   deleting,
   busy,
   onEdit,
+  onRefresh,
   onDeleteRequest,
   onDelete
 }: Props) {
@@ -94,7 +96,10 @@ export default function ConnectionList({
               </>
             ) : (
               <>
-                <button className="quiet-button" onClick={() => onEdit(item)}>
+                <button className="quiet-button" disabled={busy} onClick={() => void onRefresh(item.id)}>
+                  Reload models
+                </button>
+                <button className="quiet-button" disabled={busy} onClick={() => onEdit(item)}>
                   Edit
                 </button>
 

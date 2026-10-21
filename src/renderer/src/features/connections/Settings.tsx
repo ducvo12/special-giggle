@@ -131,6 +131,27 @@ export default function Settings({
     }
   }
 
+  async function refreshModels(id: string) {
+    setBusy(true)
+    setError('')
+    setNotice('')
+    try {
+      const result = await window.granite.connections.models(id)
+      if (!result.ok) {
+        setError(result.error)
+        return
+      }
+      window.dispatchEvent(new CustomEvent('granite:models-refreshed', {
+        detail: { connectionId: id, models: result.value }
+      }))
+      setNotice(`Reloaded · ${result.value.length} models available`)
+    } catch {
+      setError(bridgeError)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function save(event: FormEvent) {
     event.preventDefault()
 
@@ -239,6 +260,7 @@ export default function Settings({
             deleting={deleting}
             busy={busy}
             onEdit={edit}
+            onRefresh={refreshModels}
             onDeleteRequest={setDeleting}
             onDelete={remove}
           />

@@ -43,8 +43,8 @@ contextBridge.exposeInMainWorld('granite', {
     entries: (agentId, path) => ipcRenderer.invoke('workspace:entries', agentId, path),
     read: (agentId, path) => ipcRenderer.invoke('workspace:read', agentId, path)
   },
-  stream: (requestId, agentId, conversationId, connectionId, text, model) =>
-    ipcRenderer.invoke('model:stream', requestId, agentId, conversationId, connectionId, text, model),
+  stream: (requestId, agentId, conversationId, connectionId, text, model, effort) =>
+    ipcRenderer.invoke('model:stream', requestId, agentId, conversationId, connectionId, text, model, effort),
   stop: requestId => ipcRenderer.invoke('model:stop', requestId),
   onDelta: callback => {
     const listener = (_event: Electron.IpcRendererEvent, delta: StreamDelta) => callback(delta)

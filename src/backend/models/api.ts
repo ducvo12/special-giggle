@@ -1,5 +1,6 @@
+import { reasoningMetadata } from './catalog.ts'
 import { readEventStream } from './event-stream.ts'
-import type { Connection, Message, Result, StreamActivity } from '../../shared/chat'
+import type { Connection, Message, ModelOption, Result, StreamActivity } from '../../shared/chat'
 
 export function validateConnection(connection: Connection): URL {
   if (
@@ -91,16 +92,20 @@ export async function safely<T>(action: () => Promise<T>): Promise<Result<T>> {
   }
 }
 
-export async function listModels(connection: Connection): Promise<string[]> {
+export async function listModelCatalog(connection: Connection): Promise<ModelOption[]> {
   const data = await request(connection, 'models')
-
   if (!Array.isArray(data.data)) {
     throw new Error('The server returned an unexpected model list.')
   }
+  return data.data.flatMap((model: any) =>
+    typeof model?.id === 'string'
+      ? [{ id: model.id, name: model.id, ...reasoningMetadata(model) }]
+      : []
+  )
+}
 
-  return data.data
-    .map((model: any) => model?.id)
-    .filter((id: unknown): id is string => typeof id === 'string')
+export async function listModels(connection: Connection): Promise<string[]> {
+  return (await listModelCatalog(connection)).map(model => model.id)
 }
 
 export async function chat(connection: Connection, messages: Message[]): Promise<string> {

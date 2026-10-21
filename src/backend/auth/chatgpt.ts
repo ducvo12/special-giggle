@@ -1,3 +1,5 @@
+import type { ModelOption } from '../../shared/chat.ts'
+import { reasoningMetadata } from '../models/catalog.ts'
 import { randomUUID } from 'node:crypto'
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose'
 import type { ChatGPTAccount } from '../../shared/harness.ts'
@@ -416,7 +418,7 @@ export class ChatGPTAccounts {
     return (await this.modelCatalog(id)).map(model => model.id)
   }
 
-  async modelCatalog(id: string): Promise<{ id: string; name: string }[]> {
+  async modelCatalog(id: string): Promise<ModelOption[]> {
     const token = await this.resolve(id)
     const response = await fetch('https://api.openai.com/v1/models', {
       redirect: 'error',
@@ -454,6 +456,7 @@ export class ChatGPTAccounts {
       return [
         {
           id: model.slug,
+          ...reasoningMetadata(model),
           name:
             typeof model.display_name === 'string' && model.display_name.trim()
               ? model.display_name

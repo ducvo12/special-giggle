@@ -2,6 +2,7 @@ import type { Agent, Conversation, ConversationDetail, ToolActivity, WorkspaceEn
 import type { ApprovalRequest, ChatGPTAccount, HarnessSettings } from './harness'
 
 export interface Connection {
+  connectionId?: string
   provider?: 'openai' | 'codex' | 'chatgpt'
   protocol?: 'chat-completions' | 'responses'
   accountId?: string
@@ -30,6 +31,8 @@ export interface ConnectionDraft extends Connection {
 }
 
 export interface ModelOption {
+  reasoningLevels?: { effort: string; description?: string }[]
+  defaultReasoningLevel?: string
   id: string
   name: string
 }
@@ -102,7 +105,8 @@ export interface GraniteBridge {
     conversationId: string,
     connectionId: string,
     text: string,
-    model?: string
+    model?: string,
+    effort?: string
   ) => Promise<Result<{ stopped: boolean }>>
   stop: (requestId: string) => Promise<void>
   onDelta: (callback: (delta: StreamDelta) => void) => () => void

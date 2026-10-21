@@ -221,6 +221,11 @@ export class AgentRuntime {
       )
     }
 
+    const locked = this.store.get(agentId, conversationId).messages.find(message => message.role === 'assistant' && message.model)
+    if (locked && (locked.model !== connection.model || (locked.connectionId && locked.connectionId !== connection.connectionId))) {
+      throw new Error('The model is fixed for this conversation. Start a new chat to choose another model.')
+    }
+
     const controller = new AbortController()
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(300_000)])
     this.active = { id: requestId, controller }
@@ -248,6 +253,9 @@ export class AgentRuntime {
         )
         .digest('hex')
       turn = this.store.begin(agentId, conversationId, text.trim(), connection.model, modelKey)
+      turn.message.connectionId = connection.connectionId
+      turn.message.effort = connection.effort
+      this.store.saveMessage(conversationId, turn.message)
       const persist = () => this.store.saveMessage(conversationId, turn!.message)
       const previous = turn.recovered ? undefined : this.store.modelState(conversationId, modelKey)
       const result = await runHarness({

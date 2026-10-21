@@ -165,7 +165,7 @@ test(
 
         return Response.json({
           models: [
-            { slug: 'account-model-b', display_name: 'Account Model B', visibility: 'list' },
+            { slug: 'account-model-b', display_name: 'Account Model B', visibility: 'list', supported_reasoning_levels: [{ effort: 'low', description: 'Quick' }, { effort: 'high' }], default_reasoning_level: 'low' },
             { slug: 'hidden-model', visibility: 'hide' },
             null,
             { slug: 'account-model-a', visibility: 'list' },
@@ -177,7 +177,7 @@ test(
 
       try {
         assert.deepEqual(await restored.modelCatalog(account.id), [
-          { id: 'account-model-b', name: 'Account Model B' },
+          { id: 'account-model-b', name: 'Account Model B', reasoningLevels: [{ effort: 'low', description: 'Quick' }, { effort: 'high' }], defaultReasoningLevel: 'low' },
           { id: 'account-model-a', name: 'account-model-a' }
         ])
         assert.deepEqual(await restored.models(account.id), ['account-model-b', 'account-model-a'])
