@@ -34,7 +34,9 @@ export default function Select({ value, onChange, children, disabled, title, edi
   const popup = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(0)
-  const [position, setPosition] = useState({ left: 0, top: 0, width: 0, maxHeight: 260 })
+  const [position, setPosition] = useState<{
+    left: number; top?: number; bottom?: number; width: number; maxHeight: number
+  }>({ left: 0, top: 0, width: 0, maxHeight: 260 })
   const search = useRef({ text: '', time: 0 })
   const available = options.map((option, index) => option.disabled ? -1 : index).filter(index => index >= 0)
   const selected = options.find(option => option.value === value)
@@ -62,7 +64,14 @@ export default function Select({ value, onChange, children, disabled, title, edi
     const upwards = below < 180 && above > below
     const maxHeight = Math.min(260, upwards ? above : below)
     const width = Math.min(Math.max(rect.width, 220), window.innerWidth - 16)
-    setPosition({ left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)), top: upwards ? rect.top - Math.min(popup.current?.scrollHeight ?? 260, maxHeight) - 4 : rect.bottom + 4, width, maxHeight })
+    // Anchor the nearest edge so wrapping at the final width cannot move the menu away.
+    setPosition({
+      left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)),
+      top: upwards ? undefined : rect.bottom + 4,
+      bottom: upwards ? window.innerHeight - rect.top + 4 : undefined,
+      width,
+      maxHeight
+    })
     const outside = (event: PointerEvent) => {
       if (!popup.current?.contains(event.target as Node) && event.target !== control.current && !control.current?.contains(event.target as Node)) setOpen(false)
     }
