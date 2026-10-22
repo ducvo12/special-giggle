@@ -291,6 +291,11 @@ export class AgentRuntime {
             lastSave = Date.now()
           }
         },
+        onUsage: usage => {
+          turn!.message.contextUsage = usage
+          persist()
+          emit({ requestId, text: '', contextUsage: usage })
+        },
         onReasoning: characters => {
           activity.reasoningCharacters += characters
           emit({ requestId, text: '', activity: { ...activity } })

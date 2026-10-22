@@ -1,4 +1,4 @@
-import type { Message } from './chat'
+import type { ContextUsage, Message } from './chat'
 
 export type RunStatus = 'running' | 'complete' | 'stopped' | 'interrupted' | 'error'
 
@@ -12,6 +12,7 @@ export interface ToolActivity {
 }
 
 export interface AgentMessage extends Message {
+  contextUsage?: ContextUsage
   responseDurationMs?: number
   connectionId?: string
   effort?: string

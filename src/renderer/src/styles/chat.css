@@ -410,3 +410,46 @@
   font-size: 11px;
   font-variant-numeric: tabular-nums;
 }
+
+.context-indicator { position: relative; display: flex; align-items: center; }
+.composer-actions .context-trigger {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-secondary);
+}
+.composer-actions .context-trigger:hover:not(:disabled) { background: var(--surface-hover); }
+.context-ring-track { stroke: var(--border-strong); stroke-width: 2.5; }
+.context-ring-value { stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; }
+.context-ring-unknown { fill: currentColor; font-size: 10px; font-family: inherit; }
+.context-tooltip {
+  position: fixed;
+  z-index: 20;
+  width: min(300px, calc(100vw - 60px));
+  padding: 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  box-shadow: 0 8px 28px #0008;
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: normal;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+.context-tooltip::after { content: ''; position: absolute; inset: 100% 0 -10px; }
+.context-indicator:hover .context-tooltip,
+.context-indicator:focus-within .context-tooltip,
+.context-indicator.open .context-tooltip { visibility: visible; opacity: 1; pointer-events: auto; }
+.context-tooltip strong { display: block; font-size: 12px; margin-bottom: 3px; }
+.context-tooltip dl { margin: 10px 0 0; }
+.context-tooltip dl > div { display: flex; justify-content: space-between; gap: 14px; }
+.context-tooltip dt { color: var(--text-muted); }
+.context-tooltip dd { margin: 0; font-variant-numeric: tabular-nums; }
+.context-tooltip p { margin: 8px 0 0; color: var(--text-muted); }

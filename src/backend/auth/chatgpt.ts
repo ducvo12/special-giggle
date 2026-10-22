@@ -1,5 +1,5 @@
 import type { ModelOption } from '../../shared/chat.ts'
-import { reasoningMetadata } from '../models/catalog.ts'
+import { contextMetadata, reasoningMetadata } from '../models/catalog.ts'
 import { randomUUID } from 'node:crypto'
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose'
 import type { ChatGPTAccount } from '../../shared/harness.ts'
@@ -456,7 +456,7 @@ export class ChatGPTAccounts {
       return [
         {
           id: model.slug,
-          ...reasoningMetadata(model),
+          ...reasoningMetadata(model), ...contextMetadata(model),
           name:
             typeof model.display_name === 'string' && model.display_name.trim()
               ? model.display_name

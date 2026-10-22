@@ -1,3 +1,4 @@
+import { parseContextUsage } from '../../models/usage.ts'
 import type { ModelAdapter, ModelOptions, NativeItem, ToolCall } from '../types.ts'
 import { HarnessError } from '../types.ts'
 import { modelRequest } from './http.ts'
@@ -20,6 +21,7 @@ export function chatCompletionsAdapter(options: ModelOptions): ModelAdapter {
           function: { name: tool.name, description: tool.description, parameters: tool.parameters }
         })),
         stream: true,
+        stream_options: { include_usage: true },
         max_tokens: 4096,
         ...(options.connection.effort ? { reasoning_effort: options.connection.effort } : {})
       })
@@ -35,6 +37,9 @@ export function chatCompletionsAdapter(options: ModelOptions): ModelAdapter {
 
           return true
         }
+
+        const usage = parseContextUsage(event.usage)
+        if (usage) options.onUsage?.(usage)
 
         const choice = event.choices?.[0]
         const delta = choice?.delta
@@ -73,11 +78,12 @@ export function chatCompletionsAdapter(options: ModelOptions): ModelAdapter {
             throw new HarnessError('The model stopped before completing the reply.')
           }
 
-          return true
+          // Usage is sent in a separate chunk after finish_reason.
+          return false
         }
 
         return false
-      })
+      }, () => Boolean(finish))
       const list = [...calls.entries()].sort(([a], [b]) => a - b).map(([, call]) => call)
       const assistant: NativeItem = { role: 'assistant', content: text || null }
 

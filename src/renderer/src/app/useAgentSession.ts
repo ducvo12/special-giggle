@@ -210,7 +210,7 @@ export function useAgentSession() {
             ? [...(message.tools ?? []).filter(t => t.id !== delta.tool!.id), delta.tool]
             : message.tools
 
-          return { ...message, content: message.content + delta.text, tools }
+          return { ...message, content: message.content + delta.text, tools, ...(delta.contextUsage ? { contextUsage: delta.contextUsage } : {}) }
         })
       )
     })

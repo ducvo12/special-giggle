@@ -1,4 +1,4 @@
-import { reasoningMetadata } from './catalog.ts'
+import { contextMetadata, reasoningMetadata } from './catalog.ts'
 import { readEventStream } from './event-stream.ts'
 import type { Connection, Message, ModelOption, Result, StreamActivity } from '../../shared/chat'
 
@@ -99,7 +99,7 @@ export async function listModelCatalog(connection: Connection): Promise<ModelOpt
   }
   return data.data.flatMap((model: any) =>
     typeof model?.id === 'string'
-      ? [{ id: model.id, name: model.id, ...reasoningMetadata(model) }]
+      ? [{ id: model.id, name: model.id, ...reasoningMetadata(model), ...contextMetadata(model) }]
       : []
   )
 }

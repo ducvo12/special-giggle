@@ -1,3 +1,5 @@
+import { latestContextResponse } from './context-display'
+import ContextIndicator from './ContextIndicator'
 import type { RefObject } from 'react'
 import type { Agent, AgentMessage } from '../../../../shared/agent'
 import type { SavedConnection, StreamActivity } from '../../../../shared/chat'
@@ -56,6 +58,7 @@ export default function ChatView({
   onSend,
   onStop
 }: Props) {
+  const contextResponse = latestContextResponse(messages, modelSelection.model)
   const reasoningProgress = activity.reasoningCharacters
     ? ` · ${activity.reasoningCharacters.toLocaleString()} reasoning characters`
     : ''
@@ -128,6 +131,14 @@ export default function ChatView({
             </span>
 
             <div className="composer-actions">
+              <ContextIndicator
+                usage={contextResponse?.contextUsage}
+                loading={!loaded || modelSelection.contextLoading}
+                hasResponse={Boolean(contextResponse)}
+                limit={modelSelection.contextWindow}
+                maxOutput={modelSelection.maxOutputTokens}
+                busy={busy}
+              />
               {connections.length ? (
                 <ChatModelPicker
                   connections={connections}

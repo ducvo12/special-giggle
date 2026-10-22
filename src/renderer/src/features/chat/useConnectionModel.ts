@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ModelOption, SavedConnection } from '../../../../shared/chat'
 
 export function useConnectionModel(connection: SavedConnection | undefined, lockedModel?: string, conversationId = '', savedEffort?: string) {
+  const contextLimits = useRef(new Map<string, { contextWindow?: number; maxOutputTokens?: number }>())
   const [effortChoice, setEffortChoice] = useState<{ key: string; value: string }>()
   const effortKey = conversationId || connection?.id || ''
   const effort = effortChoice?.key === effortKey ? effortChoice.value : savedEffort ?? connection?.effort ?? ''
@@ -83,10 +84,25 @@ export function useConnectionModel(connection: SavedConnection | undefined, lock
   const model = lockedModel ?? (accountConnection ? (matches ? catalog.model : '') : connection?.model ?? '')
   const loading = accountConnection && (!matches || catalog.loading)
 
+  const contextKey = conversationId && connection ? JSON.stringify([conversationId, connection.id, model]) : ''
+  const advertisedModel = matches ? catalog.models.find(item => item.id === model) : undefined
+  const rememberedLimits = contextKey ? contextLimits.current.get(contextKey) : undefined
+  const contextWindow = rememberedLimits?.contextWindow ?? advertisedModel?.contextWindow
+  const maxOutputTokens = rememberedLimits?.maxOutputTokens ?? advertisedModel?.maxOutputTokens
+
+  useEffect(() => {
+    if (contextKey && (contextWindow !== undefined || maxOutputTokens !== undefined)) {
+      contextLimits.current.set(contextKey, { contextWindow, maxOutputTokens })
+    }
+  }, [contextKey, contextWindow, maxOutputTokens])
+
   return {
     model,
     locked: Boolean(lockedModel),
     effort,
+    contextLoading: contextWindow === undefined && Boolean(connection) && (!matches || catalog.loading),
+    contextWindow,
+    maxOutputTokens,
     reasoningLevels: matches ? catalog.models.find(item => item.id === model)?.reasoningLevels ?? [] : [],
     defaultReasoningLevel: matches ? catalog.models.find(item => item.id === model)?.defaultReasoningLevel : undefined,
     selectEffort(value: string) {

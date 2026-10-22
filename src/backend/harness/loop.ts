@@ -1,4 +1,4 @@
-import type { Connection } from '../../shared/chat.ts'
+import type { Connection, ContextUsage } from '../../shared/chat.ts'
 import type { AgentMessage, ToolActivity } from '../../shared/agent.ts'
 import type { ApprovalRequest, HarnessSettings } from '../../shared/harness.ts'
 import type { AgentFilesystem } from '../workspace/filesystem.ts'
@@ -17,6 +17,7 @@ export async function runHarness(options: {
   text: string
   signal: AbortSignal
   onText: (text: string) => void
+  onUsage?: (usage: ContextUsage) => void
   onReasoning: (characters: number) => void
   onTool: (tool: ToolActivity) => void
   approve: (kind: ApprovalRequest['kind'], title: string, detail: string) => Promise<boolean>

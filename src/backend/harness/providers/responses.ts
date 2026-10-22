@@ -1,3 +1,4 @@
+import { parseContextUsage } from '../../models/usage.ts'
 import type { ModelAdapter, ModelOptions, NativeItem, ToolCall } from '../types.ts'
 import { HarnessError } from '../types.ts'
 import { modelRequest } from './http.ts'
@@ -50,6 +51,9 @@ export function responsesAdapter(options: ModelOptions): ModelAdapter {
             'The model reached its limit before finishing. Partial text and completed actions are kept.'
           )
         }
+
+        const usage = parseContextUsage(event.response?.usage)
+        if (usage) options.onUsage?.(usage)
 
         if (event.type === 'response.output_text.delta') {
           text += event.delta

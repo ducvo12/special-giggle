@@ -30,7 +30,17 @@ export interface ConnectionDraft extends Connection {
   removeKey?: boolean
 }
 
+export interface ContextUsage {
+  inputTokens: number
+  outputTokens: number
+  totalTokens: number
+  cachedTokens?: number
+  reasoningTokens?: number
+}
+
 export interface ModelOption {
+  contextWindow?: number
+  maxOutputTokens?: number
   reasoningLevels?: { effort: string; description?: string }[]
   defaultReasoningLevel?: string
   id: string
@@ -57,6 +67,7 @@ export interface StreamDelta {
   text: string
   activity?: StreamActivity
   tool?: ToolActivity
+  contextUsage?: ContextUsage
   approval?: ApprovalRequest | null
 }
 

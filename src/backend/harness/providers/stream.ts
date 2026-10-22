@@ -2,7 +2,7 @@ import { HarnessError } from '../types.ts'
 
 // Both model transports use SSE. Completion is determined by the adapter's
 // terminal event; a disconnected stream is never treated as a completed turn.
-export async function readModelEvents(response: Response, dispatch: (event: any) => boolean) {
+export async function readModelEvents(response: Response, dispatch: (event: any) => boolean, completedAtEof?: () => boolean) {
   const contentType = response.headers.get('content-type')?.split(';')[0].trim().toLowerCase()
 
   if (!response.body || (contentType && contentType !== 'text/event-stream')) {
@@ -93,6 +93,7 @@ export async function readModelEvents(response: Response, dispatch: (event: any)
 
         line('')
 
+        terminal ||= completedAtEof?.() ?? false
         if (!terminal) {
           throw new HarnessError(
             'The connection ended before the model finished. Partial text and completed actions are kept.'

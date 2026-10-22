@@ -1,4 +1,4 @@
-import type { Connection } from '../../shared/chat.ts'
+import type { Connection, ContextUsage } from '../../shared/chat.ts'
 
 export type NativeItem = Record<string, any>
 
@@ -35,6 +35,7 @@ export interface ModelOptions {
   connection: Connection
   signal: AbortSignal
   onText: (text: string) => void
+  onUsage?: (usage: ContextUsage) => void
   onReasoning: (characters: number) => void
 }
 
