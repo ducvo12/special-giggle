@@ -80,7 +80,7 @@ export default function Sidebar({
       <button
         className="new-chat-button quiet-button"
         aria-label="New chat"
-        disabled={busy || !loaded || identityDirty || !agent}
+        disabled={!loaded || identityDirty || !agent}
         onClick={onNewChat}
       >
         <span aria-hidden="true">
@@ -146,7 +146,8 @@ export default function Sidebar({
         key={agentId}
         conversations={conversations}
         selectedId={conversationId}
-        disabled={busy || !loaded || identityDirty}
+        disabled={!loaded || identityDirty}
+        actionsDisabled={busy || !loaded || identityDirty}
         onSelect={onSelectConversation}
         onRename={onRenameConversation}
         onDelete={onDeleteConversation}

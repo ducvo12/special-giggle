@@ -5,6 +5,7 @@ type Props = {
   conversations: Conversation[]
   selectedId: string
   disabled: boolean
+  actionsDisabled?: boolean
   onSelect: (id: string) => void
   onRename: (id: string, title: string) => Promise<boolean>
   onDelete: (id: string) => Promise<boolean>
@@ -12,7 +13,7 @@ type Props = {
 
 type Menu = { id: string; x: number; y: number; mode: 'options' | 'rename' | 'delete' }
 
-export default function ConversationList({ conversations, selectedId, disabled, onSelect, onRename, onDelete }: Props) {
+export default function ConversationList({ conversations, selectedId, disabled, actionsDisabled = disabled, onSelect, onRename, onDelete }: Props) {
   const [menu, setMenu] = useState<Menu | null>(null)
   const [title, setTitle] = useState('')
   const [saving, setSaving] = useState(false)
@@ -56,11 +57,11 @@ export default function ConversationList({ conversations, selectedId, disabled, 
   }, [menu, saving])
 
   useEffect(() => {
-    if (disabled && !saving) setMenu(null)
-  }, [disabled, saving])
+    if ((disabled || actionsDisabled) && !saving) setMenu(null)
+  }, [disabled, actionsDisabled, saving])
 
   async function submit() {
-    if (!menu || saving || disabled) return
+    if (!menu || saving || disabled || actionsDisabled) return
     setSaving(true)
     try {
       const success = menu.mode === 'rename'
@@ -85,11 +86,12 @@ export default function ConversationList({ conversations, selectedId, disabled, 
           onClick={() => { setMenu(null); onSelect(chat.id) }}
           onContextMenu={event => {
             event.preventDefault()
-            if (disabled || saving) return
+            if (disabled || actionsDisabled || saving) return
             trigger.current = event.currentTarget
             setMenu({ id: chat.id, x: event.clientX, y: event.clientY, mode: 'options' })
           }}
           onKeyDown={event => {
+            if (actionsDisabled) return
             if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
               event.preventDefault()
               const rect = event.currentTarget.getBoundingClientRect()
@@ -104,7 +106,7 @@ export default function ConversationList({ conversations, selectedId, disabled, 
           title="Chat options"
           aria-haspopup="menu"
           aria-expanded={menu?.id === chat.id}
-          disabled={disabled || saving}
+          disabled={disabled || actionsDisabled || saving}
           onClick={event => {
             const rect = event.currentTarget.getBoundingClientRect()
             trigger.current = event.currentTarget

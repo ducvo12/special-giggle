@@ -453,3 +453,17 @@
 .context-tooltip dt { color: var(--text-muted); }
 .context-tooltip dd { margin: 0; font-variant-numeric: tabular-nums; }
 .context-tooltip p { margin: 8px 0 0; color: var(--text-muted); }
+
+.background-response {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.message.resumed-entry {
+  animation: none;
+}

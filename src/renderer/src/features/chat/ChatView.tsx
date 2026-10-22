@@ -8,12 +8,15 @@ import ChatModelPicker from './ChatModelPicker'
 import type { ModelSelection } from './useConnectionModel'
 
 type Props = {
+  conversationId: string
   messageInput: RefObject<HTMLTextAreaElement | null>
   agent: Agent | undefined
   connections: SavedConnection[]
   connection: SavedConnection | undefined
   modelSelection: ModelSelection
   busy: boolean
+  requestPending: boolean
+  onOpenActiveChat: () => void
   loaded: boolean
   identityDirty: boolean
   messages: AgentMessage[]
@@ -34,12 +37,15 @@ type Props = {
 }
 
 export default function ChatView({
+  conversationId,
   messageInput,
   agent,
   connections,
   connection,
   modelSelection,
   busy,
+  requestPending,
+  onOpenActiveChat,
   loaded,
   identityDirty,
   messages,
@@ -67,6 +73,7 @@ export default function ChatView({
   return (
     <main className="chat-main">
       <MessageList
+        key={conversationId || 'new-chat'}
         agent={agent}
         busy={busy}
         loaded={loaded}
@@ -79,6 +86,12 @@ export default function ChatView({
       />
 
       <div className="composer-area">
+        {requestPending && !busy && (
+          <div className="background-response" role="status">
+            <span>Another chat is responding</span>
+            <button type="button" className="quiet-button" onClick={onOpenActiveChat}>View reply</button>
+          </div>
+        )}
         {modelSelection.error && (
           <div className="error" role="alert">
             {modelSelection.error} Reload models in Connections to try again.
@@ -118,7 +131,7 @@ export default function ChatView({
               if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
                 event.preventDefault()
 
-                if (!busy) {
+                if (!requestPending) {
                   void onSend()
                 }
               }
@@ -173,7 +186,7 @@ export default function ChatView({
                   className="send-button"
                   aria-label="Send message"
                   title="Send message"
-                  disabled={!draft.trim() || !modelSelection.ready || !agent || !loaded}
+                  disabled={requestPending || !draft.trim() || !modelSelection.ready || !agent || !loaded}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M12 19V5m-6 6 6-6 6 6" />

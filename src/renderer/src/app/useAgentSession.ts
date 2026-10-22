@@ -1,3 +1,4 @@
+import { ConversationStream } from './conversation-stream'
 import { responseClock } from '../features/chat/response-clock'
 import { beginTiming, recordDelta, finishTiming, bindTiming } from '../features/chat/devTimings'
 import { useEffect, useRef, useState } from 'react'
@@ -21,9 +22,19 @@ export function useAgentSession() {
 
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [conversationId, setConversationId] = useState('')
+  const visibleConversation = useRef({ owner: '', id: '' })
+  const conversationSelection = useRef(0)
+  const activeStream = useRef<ConversationStream | null>(null)
+  const [activeConversationId, setActiveConversationId] = useState('')
+  const drafts = useRef(new Map<string, string>())
   const [loaded, setLoaded] = useState(false)
   const [messages, setMessages] = useState<AgentMessage[]>([])
-  const [draft, setDraft] = useState('')
+  const [draft, setDraftState] = useState('')
+  function setDraft(value: string) {
+    const { owner, id } = visibleConversation.current
+    drafts.current.set(JSON.stringify([owner, id]), value)
+    setDraftState(value)
+  }
 
   const [busy, setBusy] = useState(false)
   const [stopping, setStopping] = useState(false)
@@ -46,32 +57,59 @@ export function useAgentSession() {
   const modelSelection = useConnectionModel(connection, locked?.model, conversationId, [...messages].reverse().find(message => message.role === 'assistant')?.effort)
   const agent = agents.find(agent => agent.id === agentId)
 
-  async function loadConversation(id: string, owner = agentId, timingId?: string) {
+  async function loadConversation(id: string, owner = agentId) {
+    const token = ++conversationSelection.current
+    visibleConversation.current = { owner, id }
+    setConversationId(id)
+    setDraftState(drafts.current.get(JSON.stringify([owner, id])) ?? '')
+    setError('')
+    follow.current = true
+
+    const stream = activeStream.current
+    if (stream?.matches(owner, id)) {
+      setMessages(stream.messages)
+      setLoaded(true)
+      return
+    }
+
+    setLoaded(false)
+    setMessages([])
+    try {
+      const result = await window.granite.conversations.get(owner, id)
+      if (token !== conversationSelection.current || currentAgent.current !== owner) return
+      if (!result.ok) { setError(result.error); return }
+      setMessages(result.value.messages)
+    } catch {
+      if (token === conversationSelection.current) setError(bridgeError)
+    } finally {
+      if (token === conversationSelection.current && currentAgent.current === owner) setLoaded(true)
+    }
+  }
+
+  function isViewing(owner: string, id: string) {
+    return visibleConversation.current.owner === owner && visibleConversation.current.id === id
+  }
+
+  async function finishConversation(id: string, owner: string, requestId: string) {
     const result = await window.granite.conversations.get(owner, id)
-
-    if (currentAgent.current !== owner) {
-      return
-    }
-
     if (!result.ok) {
-      setError(result.error)
-
+      if (isViewing(owner, id)) setError(result.error)
       return
     }
-
-    const reply = result.value.messages[result.value.messages.length - 1]
-    if (timingId && reply?.role === 'assistant') {
-      bindTiming(timingId, reply.id)
+    const reply = result.value.messages.at(-1)
+    const existingReply = activeStream.current?.messages.some(message => message.id === reply?.id && message.id !== requestId)
+    if (reply?.role === 'assistant' && !existingReply) {
+      bindTiming(requestId, reply.id)
       if (reply.status === 'complete') {
-        responseClock.bind(timingId, reply.id, reply.content, (messageId, durationMs) => {
+        responseClock.bind(requestId, reply.id, reply.content, (messageId, durationMs) => {
           void window.granite.conversations.saveResponseDuration(owner, id, messageId, durationMs)
-            .then(result => { if (!result.ok) setError(result.error) })
-            .catch(() => setError('Could not save the response duration.'))
+            .then(result => { if (!result.ok && isViewing(owner, id)) setError(result.error) })
+            .catch(() => { if (isViewing(owner, id)) setError('Could not save the response duration.') })
         })
       }
     }
-    setConversationId(id)
-    setMessages(result.value.messages)
+    if (activeStream.current?.requestId === requestId) activeStream.current.messages = result.value.messages
+    if (isViewing(owner, id)) setMessages(result.value.messages)
   }
 
   async function refreshList() {
@@ -91,6 +129,8 @@ export function useAgentSession() {
 
     const token = ++selection.current
     currentAgent.current = id
+    ++conversationSelection.current
+    visibleConversation.current = { owner: id, id: '' }
     setAgentId(id)
     setLoaded(false)
 
@@ -200,24 +240,17 @@ export function useAgentSession() {
         setActivity(delta.activity)
       }
 
-      setMessages(current =>
-        current.map((message, index) => {
-          if (index !== current.length - 1 || message.role !== 'assistant') {
-            return message
-          }
-
-          const tools = delta.tool
-            ? [...(message.tools ?? []).filter(t => t.id !== delta.tool!.id), delta.tool]
-            : message.tools
-
-          return { ...message, content: message.content + delta.text, tools, ...(delta.contextUsage ? { contextUsage: delta.contextUsage } : {}) }
-        })
-      )
+      const stream = activeStream.current
+      if (stream) {
+        stream.apply(delta)
+        if (isViewing(stream.owner, stream.conversationId)) setMessages(stream.messages)
+      }
     })
 
     return () => {
       mounted = false
       ++selection.current
+      ++conversationSelection.current
       off()
     }
   }, [])
@@ -273,6 +306,16 @@ export function useAgentSession() {
     setDraft('')
     setActivity({ reasoningCharacters: 0, answerCharacters: 0 })
     let id = conversationId
+    const navigationToken = conversationSelection.current
+    const stream = new ConversationStream(requestId, agent.id, id, [
+      ...messages,
+      { id: crypto.randomUUID(), role: 'user', content: text },
+      { id: requestId, role: 'assistant', content: '', model: modelSelection.model,
+        connectionId: connection.id, effort: modelSelection.effort, tools: [], status: 'running' }
+    ])
+    activeStream.current = stream
+    setActiveConversationId(id)
+    setMessages(stream.messages)
 
     try {
       if (!id) {
@@ -283,23 +326,16 @@ export function useAgentSession() {
         }
 
         id = created.value.id
-        setConversationId(id)
-      }
-
-      setMessages(current => [
-        ...current,
-        { id: crypto.randomUUID(), role: 'user', content: text },
-        {
-          id: requestId,
-          role: 'assistant',
-          content: '',
-          model: modelSelection.model,
-          connectionId: connection.id,
-          effort: modelSelection.effort,
-          tools: [],
-          status: 'running'
+        stream.conversationId = id
+        setActiveConversationId(id)
+        if (navigationToken === conversationSelection.current) {
+          const pendingDraft = drafts.current.get(JSON.stringify([agent.id, ''])) ?? ''
+          drafts.current.set(JSON.stringify([agent.id, id]), pendingDraft)
+          visibleConversation.current = { owner: agent.id, id }
+          setConversationId(id)
         }
-      ])
+        await refreshList()
+      }
 
       const result = await window.granite.stream(
         requestId,
@@ -312,18 +348,27 @@ export function useAgentSession() {
       )
 
       finishTiming(requestId)
-      if (!result.ok) {
+      if (!result.ok && isViewing(agent.id, id)) {
         setError(result.error)
       }
 
-      await loadConversation(id, agent.id, requestId)
+      await finishConversation(id, agent.id, requestId)
       await refreshList()
     } catch (error) {
-      setError(error instanceof Error ? error.message : bridgeError)
-      setDraft(text)
+      const message = error instanceof Error ? error.message : bridgeError
+      stream.messages = stream.messages.map(reply => reply.id === requestId
+        ? { ...reply, status: 'error', error: message, interrupted: true }
+        : reply)
+      if (isViewing(agent.id, id)) {
+        setMessages(stream.messages)
+        setError(message)
+        setDraft(text)
+      }
     } finally {
       finishTiming(requestId)
       run.current = null
+      activeStream.current = null
+      setActiveConversationId('')
       setApproval(null)
       setBusy(false)
       setStopping(false)
@@ -391,6 +436,8 @@ export function useAgentSession() {
         localStorage.removeItem('granite.conversation')
       }
       if (conversationId === id) {
+        ++conversationSelection.current
+        visibleConversation.current = { owner: agentId, id: '' }
         setConversationId('')
         setMessages([])
         setDraft('')
@@ -464,6 +511,8 @@ export function useAgentSession() {
     draft,
     setDraft,
     busy,
+    activeConversationId,
+    viewBusy: busy && conversationId === activeConversationId,
     stopping,
     approval,
     async approve(allow: boolean) {
@@ -491,6 +540,8 @@ export function useAgentSession() {
     deleteConversation,
     renameConversation,
     newChat() {
+      ++conversationSelection.current
+      visibleConversation.current = { owner: currentAgent.current, id: '' }
       setConversationId('')
       setMessages([])
       setError('')

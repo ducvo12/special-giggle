@@ -36,6 +36,8 @@ export default function App() {
     draft,
     setDraft,
     busy,
+    viewBusy,
+    activeConversationId,
     stopping,
     approval,
     approve,
@@ -104,7 +106,7 @@ export default function App() {
           className="home-button"
           aria-label="Granite home"
           title={identityDirty ? 'Save or discard your changes to return home' : 'Home'}
-          disabled={identityDirty || busy || !loaded || managingAgents}
+          disabled={identityDirty || !loaded || managingAgents}
           onClick={openNewChat}
         >
           Granite
@@ -195,12 +197,18 @@ export default function App() {
           <Workspace key={agent.id} agent={agent} busy={busy} />
         ) : (
           <ChatView
+            conversationId={conversationId}
             messageInput={messageInput}
             agent={agent}
             connections={connections}
             connection={connection}
             modelSelection={modelSelection}
-            busy={busy}
+            busy={viewBusy}
+            requestPending={busy}
+            onOpenActiveChat={() => {
+              setPage('chat')
+              if (activeConversationId) void loadConversation(activeConversationId)
+            }}
             loaded={loaded && !managingAgents}
             identityDirty={identityDirty}
             messages={messages}

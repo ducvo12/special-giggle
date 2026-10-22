@@ -3,7 +3,7 @@ import { responseClock } from './response-clock'
 import ResponseTimings from './ResponseTimings'
 import { timingFor } from './devTimings'
 import StreamingText from './StreamingText'
-import type { RefObject } from 'react'
+import { useLayoutEffect, useRef, type RefObject } from 'react'
 import type { Agent, AgentMessage } from '../../../../shared/agent'
 import type { StreamActivity } from '../../../../shared/chat'
 
@@ -30,6 +30,21 @@ export default function MessageList({
   follow,
   onCreateAgent
 }: Props) {
+  // A streaming reply already present on entry is a resumed snapshot. Reveal
+  // that snapshot immediately; newly arriving chunks still animate normally.
+  const resumedReplies = useRef(new Set(messages.filter(message =>
+    message.role === 'assistant' && message.status === 'running' && message.content
+  ).map(message => message.id)))
+
+  const resumedEntries = useRef(new Set(resumedReplies.current.size ? messages.map(message => message.id) : []))
+
+  useLayoutEffect(() => {
+    if (loaded) {
+      follow.current = true
+      end.current?.scrollIntoView({ block: 'end', behavior: 'instant' })
+    }
+  }, [loaded, end, follow])
+
   return (
     <section
       className={messages.length ? 'messages' : 'messages messages-empty'}
@@ -61,7 +76,7 @@ export default function MessageList({
       )}
 
       {messages.map(message => (
-        <article className={`message ${message.role}`} key={responseClock.get(message.id)?.requestId ?? timingFor(message.id)?.requestId ?? message.id}>
+        <article className={`message ${message.role}${resumedEntries.current.has(message.id) || resumedReplies.current.has(responseClock.get(message.id)?.requestId ?? message.id) ? 'resumed-entry' : ''}`} key={responseClock.get(message.id)?.requestId ?? timingFor(message.id)?.requestId ?? message.id}>
           <span className="message-role">
             {message.role === 'user' ? 'You' : `${agent?.name ?? 'Agent'} · ${message.model ?? ''}`}
           </span>
@@ -93,7 +108,7 @@ export default function MessageList({
           <div>
             {message.content ? (
               message.role === 'assistant' ? (
-                <StreamingText messageId={message.id} text={message.content} status={message.status} end={end} follow={follow} />
+                <StreamingText skipInitialAnimation={resumedReplies.current.has(message.id)} messageId={message.id} text={message.content} status={message.status} end={end} follow={follow} />
               ) : message.content
             ) :
               (message.status === 'running' ? (

@@ -5,15 +5,16 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import type { RunStatus } from '../../../../shared/agent'
 
 export default function StreamingText({
-  messageId, text, status, end, follow
+  messageId, text, status, end, follow, skipInitialAnimation = false
 }: {
+  skipInitialAnimation?: boolean
   messageId: string
   text: string
   status?: RunStatus
   end: RefObject<HTMLDivElement | null>
   follow: RefObject<boolean>
 }) {
-  const [visible, setVisible] = useState(status === 'running' ? '' : text)
+  const [visible, setVisible] = useState(status === 'running' && !skipInitialAnimation ? '' : text)
   const revealed = useRef(visible)
   const animated = useRef(status === 'running')
   const previousFrame = useRef(0)
