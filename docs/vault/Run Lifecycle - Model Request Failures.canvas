@@ -1,0 +1,226 @@
+{
+  "nodes": [
+    {
+      "id": "intro",
+      "type": "text",
+      "text": "## Model request failures — agreed\n\nAccepted in D-046.\nOne bounded retry before output for temporary connection errors.\nInterrupted output and completed changes remain visible.\n\n[[Run Lifecycle Design]]\n[[Run Lifecycle - Approvals.canvas]]",
+      "x": 0,
+      "y": -450,
+      "width": 460,
+      "height": 310,
+      "color": "5"
+    },
+    {
+      "id": "request",
+      "type": "text",
+      "text": "## Model request is active\n\nA text-only reply or a later request after tools.\nVisible text is provisional.\nTool proposals wait for successful response completion.",
+      "x": 0,
+      "y": 0,
+      "width": 380,
+      "height": 280,
+      "color": "4"
+    },
+    {
+      "id": "failure",
+      "type": "text",
+      "text": "## Connection/request fails\n\nRecord the actual failure.\nNo final-answer success marker.\nGranite can show the error itself without another model call.",
+      "x": 500,
+      "y": 0,
+      "width": 380,
+      "height": 280,
+      "color": "1"
+    },
+    {
+      "id": "check",
+      "type": "text",
+      "text": "## Retry eligible?\n\nTemporary connection/server error.\nNo text or tool-call data emitted.\nOne retry remains and fits the run budget.\nNo Stop, expiry or deletion.",
+      "x": 1000,
+      "y": 0,
+      "width": 380,
+      "height": 280,
+      "color": "2"
+    },
+    {
+      "id": "retry",
+      "type": "text",
+      "text": "## One automatic retry\n\nShow Reconnecting briefly.\nRetry this model request with valid current context.\nNever replay completed tools.\nKeep same run and undo boundary.",
+      "x": 1500,
+      "y": -450,
+      "width": 400,
+      "height": 300,
+      "color": "2"
+    },
+    {
+      "id": "normal",
+      "type": "text",
+      "text": "## Response succeeds\n\nRejoin normal provisional streaming and completed-response inspection.\nExecute permitted tools only after successful response completion.\n[[Run Lifecycle - Text Only.canvas]]",
+      "x": 2100,
+      "y": -450,
+      "width": 400,
+      "height": 300,
+      "color": "3"
+    },
+    {
+      "id": "interrupted",
+      "type": "text",
+      "text": "## Preserve incomplete output\n\nKeep any partial text as interrupted.\nDo not execute tool proposals from the incomplete response.\nWrong credentials/settings: explain the correction needed.",
+      "x": 1500,
+      "y": 0,
+      "width": 400,
+      "height": 300,
+      "color": "1"
+    },
+    {
+      "id": "failed",
+      "type": "text",
+      "text": "## Finish the failed run\n\nShow the error and a Continue action.\nKeep conversation and known outcomes.\nCompleted repository changes remain visible in the diff/counts.\nNo automatic rollback.",
+      "x": 2100,
+      "y": 0,
+      "width": 400,
+      "height": 300,
+      "color": "1"
+    },
+    {
+      "id": "continue",
+      "type": "text",
+      "text": "## User chooses Continue\n\nOnce connection is usable, start a new run in the same chat.\nRevalidate location, retention and permissions.\nDo not replay old tool calls.",
+      "x": 2700,
+      "y": 0,
+      "width": 400,
+      "height": 300,
+      "color": "2"
+    },
+    {
+      "id": "new_run",
+      "type": "text",
+      "text": "## Resume from actual state\n\nOriginal task + steering + relevant history + interruption + actual tool outcomes.\nInspect files before more edits.\nEstablish a new run undo boundary.",
+      "x": 3300,
+      "y": 0,
+      "width": 400,
+      "height": 300,
+      "color": "3"
+    },
+    {
+      "id": "changes",
+      "type": "text",
+      "text": "## Preserve completed edits\n\nA failed explanatory response does not mean a previous edit failed.\nKeep actual changes and outcomes.\nExplicit Stop uses its separate rollback policy.\n[[Run Lifecycle - Stop & Rollback.canvas]]",
+      "x": 500,
+      "y": 550,
+      "width": 430,
+      "height": 320,
+      "color": "6"
+    },
+    {
+      "id": "history",
+      "type": "text",
+      "text": "## Valid provider history\n\nDo not turn partial tool arguments into completed calls.\nNever invent successful execution.\nUnknown/partial tool effects need reconciliation before more writes.",
+      "x": 1500,
+      "y": 550,
+      "width": 430,
+      "height": 300,
+      "color": "6"
+    },
+    {
+      "id": "priority",
+      "type": "text",
+      "text": "## Respect current controls\n\nPending steering reaches the retry.\nStop/deletion wins.\nRetries keep their run limits.\nTemporary timer stays full during active work, then counts down.\nNo silent provider switch.",
+      "x": 2100,
+      "y": 550,
+      "width": 430,
+      "height": 300,
+      "color": "6"
+    },
+    {
+      "id": "undo",
+      "type": "text",
+      "text": "## Continue starts a new run\n\nLater Stop undoes that new run’s edits.\nEarlier failed-run changes stay unless explicitly undone.\nUndo UI/retention for failed runs remains to design.",
+      "x": 2700,
+      "y": 550,
+      "width": 430,
+      "height": 300,
+      "color": "6"
+    }
+  ],
+  "edges": [
+    {
+      "id": "f1",
+      "fromNode": "request",
+      "fromSide": "right",
+      "toNode": "failure",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Request/stream error"
+    },
+    {
+      "id": "f2",
+      "fromNode": "failure",
+      "fromSide": "right",
+      "toNode": "check",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "f3",
+      "fromNode": "check",
+      "fromSide": "right",
+      "toNode": "retry",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Eligible"
+    },
+    {
+      "id": "f4",
+      "fromNode": "retry",
+      "fromSide": "right",
+      "toNode": "normal",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Succeeded",
+      "color": "3"
+    },
+    {
+      "id": "f5",
+      "fromNode": "check",
+      "fromSide": "right",
+      "toNode": "interrupted",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "No retry"
+    },
+    {
+      "id": "f6",
+      "fromNode": "retry",
+      "fromSide": "bottom",
+      "toNode": "interrupted",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "Retry failed",
+      "color": "1"
+    },
+    {
+      "id": "f7",
+      "fromNode": "interrupted",
+      "fromSide": "right",
+      "toNode": "failed",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "f8",
+      "fromNode": "failed",
+      "fromSide": "right",
+      "toNode": "continue",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "User action"
+    },
+    {
+      "id": "f9",
+      "fromNode": "continue",
+      "fromSide": "right",
+      "toNode": "new_run",
+      "toSide": "left",
+      "toEnd": "arrow"
+    }
+  ]
+}

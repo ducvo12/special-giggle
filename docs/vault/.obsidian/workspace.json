@@ -1,0 +1,258 @@
+{
+  "main": {
+    "id": "a8176091cb232c68",
+    "type": "split",
+    "children": [
+      {
+        "id": "ef48faee962b4f87",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "4b483d978740330c",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Decisions & Questions.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Decisions & Questions"
+            }
+          },
+          {
+            "id": "14ddaceb3b8ee2df",
+            "type": "leaf",
+            "state": {
+              "type": "canvas",
+              "state": {
+                "file": "Run Lifecycle - Approvals.canvas",
+                "viewState": {
+                  "x": 1495.9483705679534,
+                  "y": 588.2947009354168,
+                  "zoom": -1.5586914753782724
+                }
+              },
+              "icon": "lucide-layout-dashboard",
+              "title": "Run Lifecycle - Approvals"
+            }
+          },
+          {
+            "id": "9f0d4cb45d4ddd5a",
+            "type": "leaf",
+            "state": {
+              "type": "canvas",
+              "state": {
+                "file": "Harness Overview.canvas",
+                "viewState": {
+                  "x": 240.79763267334022,
+                  "y": 374.4560342215889,
+                  "zoom": -1.1431356415400409
+                }
+              },
+              "icon": "lucide-layout-dashboard",
+              "title": "Harness Overview"
+            }
+          }
+        ],
+        "currentTab": 1
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "9a4bb252308cf3e9",
+    "type": "split",
+    "children": [
+      {
+        "id": "86c173cd996d6f75",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "e922a7c1ec2ef0eb",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "9ecb882b09af5473",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "151cfc31488fbc25",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "a7a55b89af5e9052",
+    "type": "split",
+    "children": [
+      {
+        "id": "0a48ccc4646c3a22",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "37b0cfce6c7c1ea5",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "Run Lifecycle - Approvals.canvas",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks"
+            }
+          },
+          {
+            "id": "6812452e7083e7e4",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "Run Lifecycle - Approvals.canvas",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links"
+            }
+          },
+          {
+            "id": "5bd7393a406de577",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "b84822b3cb3ba159",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "b9a1715052ef1794",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "Run Lifecycle - Approvals.canvas",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "14ddaceb3b8ee2df",
+  "lastOpenFiles": [
+    "Container & Settings.canvas",
+    "Container & Settings Rules.md",
+    "Context Retrieval.canvas",
+    "Repository & Context Tools.md",
+    "Tool Lookup.canvas",
+    "Tool Selection & Context.md",
+    "Run Lifecycle - Tool Failures.canvas",
+    "Model & Tool Failures.md",
+    "Restarted Queues & Timers.md",
+    "Run Lifecycle - Unexpected Closure.canvas",
+    "Unexpected Closure Recovery.md",
+    "Run Lifecycle - Queues & Concurrency.canvas",
+    "Concurrency & Limits.md",
+    "Skills & MCP Policy.md",
+    "Tool Permissions.md",
+    "Tooling Strategy.md",
+    "Remaining Harness Decisions.md",
+    "Run Lifecycle - Chat Deletion.canvas",
+    "Run Lifecycle - Temporary Expiry.canvas",
+    "Run Lifecycle.canvas",
+    "Run Lifecycle - Approvals.canvas",
+    "Run Lifecycle - Model Request Failures.canvas",
+    "Things to Optimize.md",
+    "Run Lifecycle Design.md",
+    "Harness Design.md",
+    "Memory & Context Policy.md",
+    "Decisions & Questions.md",
+    "Harness Overview.md",
+    "Run Lifecycle.md"
+  ]
+}

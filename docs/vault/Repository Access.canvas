@@ -1,0 +1,373 @@
+{
+  "nodes": [
+    {
+      "id": "intro",
+      "type": "text",
+      "text": "## Repository Access — target design\n\nOnly projects attach repositories.\nOne current repo per project; fixed section.\nMissing folders may be relinked.\n\n[[Harness Design]]\n[[Container & Settings Rules]]",
+      "x": 0,
+      "y": -500,
+      "width": 470,
+      "height": 280,
+      "color": "5"
+    },
+    {
+      "id": "member",
+      "type": "text",
+      "text": "## Chat inside this repo’s project?\n\nMembership implies read/write access.\nThe harness verifies membership and target paths. Knowing a path is insufficient.",
+      "x": 480,
+      "y": 0,
+      "width": 350,
+      "height": 230,
+      "color": "2"
+    },
+    {
+      "id": "edit",
+      "type": "text",
+      "text": "## Edit without per-edit approval\n\nProject membership grants local read/write access.\nOne run per repo project; its other chats queue.\nSeparate projects may link/edit the same folder, with a warning.\nShow actual changes and +/− counts.",
+      "x": 2300,
+      "y": 0,
+      "width": 380,
+      "height": 250,
+      "color": "3"
+    },
+    {
+      "id": "outside",
+      "type": "text",
+      "text": "## Outside → no writes\n\nShared repo: automatic read access.\nClosed repo: same-section reads only.\nOtherwise no file access.\nNo modifying tool may bypass membership.",
+      "x": 480,
+      "y": 450,
+      "width": 360,
+      "height": 280,
+      "color": "2"
+    },
+    {
+      "id": "ask",
+      "type": "text",
+      "text": "## Ask permanent chat to move\n\n“Move this chat permanently into Club Website? It cannot leave afterward.”\n\nIf temporary, first obtain separate Keep chat approval.\n[[Temporary Chat Flow.canvas]]",
+      "x": 990,
+      "y": 450,
+      "width": 400,
+      "height": 280,
+      "color": "2"
+    },
+    {
+      "id": "move",
+      "type": "text",
+      "text": "## User accepts → move chat\n\nPreserve chat ID and transcript.\nSet destination project and section.\n\nSuccessful move grants read/write access to this repo without per-edit prompts.",
+      "x": 1510,
+      "y": 450,
+      "width": 370,
+      "height": 280,
+      "color": "4"
+    },
+    {
+      "id": "decline",
+      "type": "text",
+      "text": "## User declines\n\nStay outside: no writes.\nRetain only permitted read access.\nDiscuss changes without editing.",
+      "x": 990,
+      "y": 920,
+      "width": 400,
+      "height": 210,
+      "color": "1"
+    },
+    {
+      "id": "layers",
+      "type": "text",
+      "text": "## Separate access rules\n\nSection mode controls conversation memory.\nRepository visibility controls file reads.\nProject membership grants file writes.",
+      "x": 0,
+      "y": 920,
+      "width": 390,
+      "height": 260,
+      "color": "6"
+    },
+    {
+      "id": "history",
+      "type": "text",
+      "text": "## Section and retention rules\n\nClosed source must open before a cross-section move.\nTemporary must be kept before any project entry.\nProjects never contain temporary chats.\n[[Temporary Chat Flow.canvas]]",
+      "x": 1510,
+      "y": 920,
+      "width": 420,
+      "height": 310,
+      "color": "6"
+    },
+    {
+      "id": "blocked",
+      "type": "text",
+      "text": "## Move blocked\n\nDifferent Closed source: convert the whole source section to Shared first.\nBound to another repo project: cannot move.\n\nNo repository edits while outside.",
+      "x": 990,
+      "y": 1250,
+      "width": 400,
+      "height": 270,
+      "color": "1"
+    },
+    {
+      "id": "blankproject",
+      "type": "text",
+      "text": "## Project with no repository\n\nA collection of chats under one fixed section.\n\nMay stay chat-only or gain its first repository.\nProjects cannot move sections.",
+      "x": 0,
+      "y": 2220,
+      "width": 420,
+      "height": 260,
+      "color": "4"
+    },
+    {
+      "id": "externalrepo",
+      "type": "text",
+      "text": "## Link existing folder\n\nUser selects a folder anywhere on their device.\n\nA managed reference points to the folder; code does not need to be copied into the agent folder.",
+      "x": 600,
+      "y": 2070,
+      "width": 420,
+      "height": 270,
+      "color": "4"
+    },
+    {
+      "id": "newrepo",
+      "type": "text",
+      "text": "## Create repository here\n\nAt the user’s request, create a repo inside this project’s agent-owned storage.\nAttach after successful creation/registration.\nFailure must not delete existing user code.",
+      "x": 600,
+      "y": 2470,
+      "width": 420,
+      "height": 270,
+      "color": "4"
+    },
+    {
+      "id": "attachedrepo",
+      "type": "text",
+      "text": "## Project with one repository\n\nMember chats have read/write access.\nSerialize runs within this project.\nDuplicate links across projects are allowed.\nAll member chats remain bound.",
+      "x": 1200,
+      "y": 2220,
+      "width": 420,
+      "height": 280,
+      "color": "3"
+    },
+    {
+      "id": "permanentrepo",
+      "type": "text",
+      "text": "## One attachment; relink recovery\n\nCannot detach to chat-only or attach a second simultaneous repo.\nMissing folder → warning + Relink folder.\nDifferent codebase allowed (D-061).\nRefresh context before edits.",
+      "x": 1800,
+      "y": 2220,
+      "width": 430,
+      "height": 320,
+      "color": "6"
+    },
+    {
+      "id": "request",
+      "type": "text",
+      "text": "## User requests repository work\n\nFor example: edit the Club Website frontend.",
+      "x": -40,
+      "y": 25,
+      "width": 330,
+      "height": 180,
+      "color": "4"
+    },
+    {
+      "id": "eligibility",
+      "type": "text",
+      "text": "## Can this chat enter the project?\n\nMust be permanent: Keep temporary chat first.\nCross-section source must be Shared.\nCannot leave another repo project.",
+      "x": 460,
+      "y": 1250,
+      "width": 400,
+      "height": 270,
+      "color": "2"
+    },
+    {
+      "id": "context",
+      "type": "text",
+      "text": "## Refresh context and tools\n\nUse destination section’s permitted context.\nEnable this repository’s read/write tools.\nNo approval for each file edit.\nExisting transcript content remains.",
+      "x": 2170,
+      "y": 450,
+      "width": 380,
+      "height": 280,
+      "color": "4"
+    },
+    {
+      "id": "locked",
+      "type": "text",
+      "text": "## Permanent project binding\n\nProject cannot move sections.\nChats cannot leave, even if never edited.\nMissing-folder relinking keeps bound chats.\nOutside chats may enter when section rules allow.",
+      "x": 2900,
+      "y": 450,
+      "width": 400,
+      "height": 290,
+      "color": "6"
+    },
+    {
+      "id": "read_scope",
+      "type": "text",
+      "text": "## Automatic repository reads\n\nShared section → all chats under this agent, including Closed and temporary chats.\n\nClosed section → only chats in that same section.\n\nNo read-permission prompts.\nConversation-memory limits still apply.",
+      "x": 0,
+      "y": 1600,
+      "width": 430,
+      "height": 340,
+      "color": "2"
+    },
+    {
+      "id": "change_visibility",
+      "type": "text",
+      "text": "## Visible changes\n\n3 files changed · +42 / −18\nActual diff from the run baseline.\nInclude new files; distinguish prior edits.\nOpen the file list and diff to inspect.\n\nVisibility, without an approval gate.",
+      "x": 2300,
+      "y": -470,
+      "width": 430,
+      "height": 300,
+      "color": "5"
+    },
+    {
+      "id": "duplicate_links",
+      "type": "text",
+      "text": "## Duplicate links — D-062\n\nTrack linked folders and warn.\nDo not force a unique owning project.\nSerialize within each project only.\nConflicting independent edits may need recovery.\n\n[[Things to Optimize]]",
+      "x": 0,
+      "y": 2920,
+      "width": 460,
+      "height": 340,
+      "color": "5"
+    },
+    {
+      "id": "relink_notice",
+      "type": "text",
+      "text": "## Relink safely — D-061\n\nSettle current work before retargeting.\nOld undo stays bound to old resource.\nRefresh paths/indexes/caches.\nTell the model the repo changed; inspect current files.",
+      "x": 540,
+      "y": 2920,
+      "width": 460,
+      "height": 340,
+      "color": "2"
+    }
+  ],
+  "edges": [
+    {
+      "id": "r1",
+      "fromNode": "request",
+      "fromSide": "right",
+      "toNode": "member",
+      "toSide": "left"
+    },
+    {
+      "id": "r2",
+      "fromNode": "member",
+      "fromSide": "right",
+      "toNode": "edit",
+      "toSide": "left",
+      "label": "Yes"
+    },
+    {
+      "id": "r3",
+      "fromNode": "member",
+      "fromSide": "bottom",
+      "toNode": "outside",
+      "toSide": "top",
+      "label": "No"
+    },
+    {
+      "id": "r4",
+      "fromNode": "outside",
+      "fromSide": "bottom",
+      "toNode": "eligibility",
+      "toSide": "top",
+      "label": "Editing requested"
+    },
+    {
+      "id": "r5",
+      "fromNode": "ask",
+      "fromSide": "right",
+      "toNode": "move",
+      "toSide": "left",
+      "label": "Accept"
+    },
+    {
+      "id": "r6",
+      "fromNode": "ask",
+      "fromSide": "bottom",
+      "toNode": "decline",
+      "toSide": "top",
+      "color": "1",
+      "label": "Decline"
+    },
+    {
+      "id": "r7",
+      "fromNode": "move",
+      "fromSide": "right",
+      "toNode": "context",
+      "toSide": "left",
+      "label": "Move succeeds"
+    },
+    {
+      "id": "r8",
+      "fromNode": "context",
+      "fromSide": "top",
+      "toNode": "edit",
+      "toSide": "bottom",
+      "label": "Recheck permissions"
+    },
+    {
+      "id": "r9",
+      "fromNode": "context",
+      "fromSide": "right",
+      "toNode": "locked",
+      "toSide": "left",
+      "label": "Membership retained"
+    },
+    {
+      "id": "r10",
+      "fromNode": "eligibility",
+      "fromSide": "right",
+      "toNode": "ask",
+      "toSide": "left",
+      "label": "Eligible"
+    },
+    {
+      "id": "r11",
+      "fromNode": "eligibility",
+      "fromSide": "right",
+      "toNode": "blocked",
+      "toSide": "left",
+      "color": "1",
+      "label": "Blocked"
+    },
+    {
+      "id": "r12",
+      "fromNode": "blankproject",
+      "fromSide": "right",
+      "toNode": "externalrepo",
+      "toSide": "left",
+      "label": "User links folder"
+    },
+    {
+      "id": "r13",
+      "fromNode": "blankproject",
+      "fromSide": "right",
+      "toNode": "newrepo",
+      "toSide": "left",
+      "label": "User requests creation"
+    },
+    {
+      "id": "r14",
+      "fromNode": "externalrepo",
+      "fromSide": "right",
+      "toNode": "attachedrepo",
+      "toSide": "left",
+      "label": "First attachment"
+    },
+    {
+      "id": "r15",
+      "fromNode": "newrepo",
+      "fromSide": "right",
+      "toNode": "attachedrepo",
+      "toSide": "left",
+      "label": "Create + register"
+    },
+    {
+      "id": "r16",
+      "fromNode": "attachedrepo",
+      "fromSide": "right",
+      "toNode": "permanentrepo",
+      "toSide": "left",
+      "label": "Permanent binding"
+    },
+    {
+      "id": "r17",
+      "fromNode": "edit",
+      "fromSide": "top",
+      "toNode": "change_visibility",
+      "toSide": "bottom",
+      "label": "Show during work"
+    }
+  ]
+}

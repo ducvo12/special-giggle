@@ -1,0 +1,224 @@
+{
+  "nodes": [
+    {
+      "id": "intro",
+      "type": "text",
+      "text": "## Steering — initial design\n\nAccepted in D-045.\nOriginal request + new messages + actual tool results.\nSafe boundaries; same run and undo record.\n\n[[Run Lifecycle Design]]\n[[Run Lifecycle - Model Request Failures.canvas]]",
+      "x": 0,
+      "y": -450,
+      "width": 460,
+      "height": 310,
+      "color": "5"
+    },
+    {
+      "id": "message",
+      "type": "text",
+      "text": "## 1 · New user message\n\nExample: “Actually, make it green.”\nArrives while the agent is working.\nSteers this run rather than starting a parallel run.",
+      "x": 0,
+      "y": 0,
+      "width": 380,
+      "height": 280,
+      "color": "4"
+    },
+    {
+      "id": "save",
+      "type": "text",
+      "text": "## 2 · Save and hold new actions\n\nSave in arrival order; mark pending.\nPrompt submission resets inactivity.\nHold actions that have not started until the new direction is incorporated.",
+      "x": 500,
+      "y": 0,
+      "width": 380,
+      "height": 280,
+      "color": "4"
+    },
+    {
+      "id": "boundary",
+      "type": "text",
+      "text": "## 3 · Reach a safe boundary\n\nWhich part of the run is active?\nGenerating, running a tool, or between actions.\n\nNever pretend an already-started write did not happen.",
+      "x": 1000,
+      "y": 0,
+      "width": 380,
+      "height": 280,
+      "color": "2"
+    },
+    {
+      "id": "generation",
+      "type": "text",
+      "text": "## During generation\n\nCancel this generation where supported.\nRetain partial text as interrupted activity.\nIgnore obsolete late output/calls.\nIf cancellation is unavailable, wait for response completion.",
+      "x": 1500,
+      "y": -450,
+      "width": 400,
+      "height": 300,
+      "color": "2"
+    },
+    {
+      "id": "tool",
+      "type": "text",
+      "text": "## During a tool\n\nLet an atomic file write finish safely.\nCancel longer work only when safe.\nRecord the actual outcome before continuing.\nNo automatic undo of prior edits.",
+      "x": 1500,
+      "y": 0,
+      "width": 400,
+      "height": 300,
+      "color": "2"
+    },
+    {
+      "id": "between",
+      "type": "text",
+      "text": "## Between actions\n\nSkip unstarted proposals from the obsolete plan.\nKeep completed tool outcomes.\nPrepare valid history for a fresh model request.",
+      "x": 1500,
+      "y": 550,
+      "width": 400,
+      "height": 280,
+      "color": "2"
+    },
+    {
+      "id": "resume",
+      "type": "text",
+      "text": "## 4 · Fresh model request\n\nKeep the original request and relevant history.\nAppend new messages in order.\nInclude actual tool outcomes.\nModel revises its plan; mark steering messages delivered.",
+      "x": 2100,
+      "y": 0,
+      "width": 400,
+      "height": 300,
+      "color": "4"
+    },
+    {
+      "id": "continue",
+      "type": "text",
+      "text": "## 5 · Continue the same run\n\nUse the latest direction.\nMake further permitted edits without per-edit approval.\nCheck pending messages again before tools or normal finalization.",
+      "x": 2700,
+      "y": 0,
+      "width": 400,
+      "height": 300,
+      "color": "3"
+    },
+    {
+      "id": "stop_priority",
+      "type": "text",
+      "text": "## Stop wins\n\nA message during stopping/restoring cannot restart the cancelled run.\nSave for next-run handling after cleanup.\n\n[[Run Lifecycle - Stop & Rollback.canvas]]",
+      "x": 0,
+      "y": 550,
+      "width": 430,
+      "height": 300,
+      "color": "6"
+    },
+    {
+      "id": "same_run",
+      "type": "text",
+      "text": "## Keep the original run boundary\n\nSame run ID, permissions and repo ownership.\nKeep original undo record and operation/context limits.\nNo whole-run budgets in the first iteration.\nLater Stop restores tracked edits across the run.",
+      "x": 500,
+      "y": 550,
+      "width": 430,
+      "height": 320,
+      "color": "6"
+    },
+    {
+      "id": "previous_edits",
+      "type": "text",
+      "text": "## Earlier edits remain visible\n\nThe model may revise or undo its edits to follow the new request.\nSteering itself does not restore the repository.\nActual tool outcomes determine what happened.",
+      "x": 2100,
+      "y": 550,
+      "width": 430,
+      "height": 300,
+      "color": "6"
+    },
+    {
+      "id": "example",
+      "type": "text",
+      "text": "## Both messages reach the model\n\nOriginal: “Make the button blue.”\nSteer: “Actually, make it green.”\n\nKeep the button/task; update its color.\nEarlier constraints still apply unless changed.",
+      "x": 2700,
+      "y": 550,
+      "width": 400,
+      "height": 300,
+      "color": "3"
+    },
+    {
+      "id": "history",
+      "type": "text",
+      "text": "## Preserve a valid tool history\n\nRetain completed calls and their results.\nAccount for cancelled unstarted proposals.\nPartial argument fragments are not completed calls.\nNever invent a successful edit.",
+      "x": 1500,
+      "y": 1000,
+      "width": 430,
+      "height": 300,
+      "color": "6"
+    }
+  ],
+  "edges": [
+    {
+      "id": "v1",
+      "fromNode": "message",
+      "fromSide": "right",
+      "toNode": "save",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "v2",
+      "fromNode": "save",
+      "fromSide": "right",
+      "toNode": "boundary",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "v3",
+      "fromNode": "boundary",
+      "fromSide": "right",
+      "toNode": "generation",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Generating"
+    },
+    {
+      "id": "v4",
+      "fromNode": "boundary",
+      "fromSide": "right",
+      "toNode": "tool",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Tool active"
+    },
+    {
+      "id": "v5",
+      "fromNode": "boundary",
+      "fromSide": "right",
+      "toNode": "between",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Between actions"
+    },
+    {
+      "id": "v6",
+      "fromNode": "generation",
+      "fromSide": "right",
+      "toNode": "resume",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Generation retired"
+    },
+    {
+      "id": "v7",
+      "fromNode": "tool",
+      "fromSide": "right",
+      "toNode": "resume",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Actual outcome known"
+    },
+    {
+      "id": "v8",
+      "fromNode": "between",
+      "fromSide": "right",
+      "toNode": "resume",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Unstarted actions skipped"
+    },
+    {
+      "id": "v9",
+      "fromNode": "resume",
+      "fromSide": "right",
+      "toNode": "continue",
+      "toSide": "left",
+      "toEnd": "arrow"
+    }
+  ]
+}

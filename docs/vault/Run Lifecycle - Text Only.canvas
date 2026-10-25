@@ -1,0 +1,193 @@
+{
+  "nodes": [
+    {
+      "id": "intro",
+      "type": "text",
+      "text": "## Run Lifecycle — text-only success\n\nStart with one prompt and one normal text answer.\nNo tool calls, steering, Stop or failures in this first path.\n\n[[Run Lifecycle Design]]\n[[Harness Design]] · [[Run Lifecycle.canvas]]",
+      "x": 0,
+      "y": -440,
+      "width": 440,
+      "height": 290,
+      "color": "5"
+    },
+    {
+      "id": "submit",
+      "type": "text",
+      "text": "## 1 · User presses Send\n\nSave the user message.\nFor temporary chats, refresh the single expiry value.\nNo separate inactivity-action record.\n\nExample: “Say hello.”",
+      "x": 0,
+      "y": 0,
+      "width": 360,
+      "height": 250,
+      "color": "4"
+    },
+    {
+      "id": "validate",
+      "type": "text",
+      "text": "## 2 · Validate and start\n\nCheck chat, location and model connection.\nCreate the run and freeze location/retention.\nShow preparing. Keep/move are locked until the run ends.",
+      "x": 500,
+      "y": 0,
+      "width": 360,
+      "height": 250,
+      "color": "4"
+    },
+    {
+      "id": "prepare",
+      "type": "text",
+      "text": "## 3 · Assemble permitted context\n\nPersonality and harness instructions.\nCurrent prompt + relevant own history.\nAllowed section/memory context under budget.\n\nNo lookup tool is needed for this example.",
+      "x": 1000,
+      "y": 0,
+      "width": 360,
+      "height": 250,
+      "color": "4"
+    },
+    {
+      "id": "request",
+      "type": "text",
+      "text": "## 4 · Make one model request\n\nSend the prepared context through the selected provider adapter.\n\nUse a streaming response.\nThis path needs one request, not a tool loop.",
+      "x": 1500,
+      "y": 0,
+      "width": 360,
+      "height": 250,
+      "color": "4"
+    },
+    {
+      "id": "stream",
+      "type": "text",
+      "text": "## 5 · Stream provisionally\n\nShow visible text while still working.\nAssemble structured tool calls separately.\n\nText may arrive before a tool call. Do not mark the answer final yet.",
+      "x": 1500,
+      "y": 470,
+      "width": 360,
+      "height": 250,
+      "color": "4"
+    },
+    {
+      "id": "complete",
+      "type": "text",
+      "text": "## 7 · Finalize answer\n\nCompleted model response has no tool calls.\nSave completed text/status and compatible provider state.\n\nNow mark the answer finished.",
+      "x": 1000,
+      "y": 470,
+      "width": 360,
+      "height": 270,
+      "color": "3"
+    },
+    {
+      "id": "idle",
+      "type": "text",
+      "text": "## 8 · Finish → idle\n\nClose resources and release active-run lock. Keep/move become available again.\n\nOnly useful memory updates; a greeting needs none. Temporary adds no durable memory.",
+      "x": 500,
+      "y": 470,
+      "width": 360,
+      "height": 290,
+      "color": "3"
+    },
+    {
+      "id": "scope",
+      "type": "text",
+      "text": "## Stable run, refreshed request\n\nKeep location/retention/model/undo identity.\nPersonality still changes next run.\nRefresh eligible memory and permissions each request.\nHistory grows through steering/tool outcomes.\nD-060 / D-064.",
+      "x": 0,
+      "y": 470,
+      "width": 360,
+      "height": 290,
+      "color": "6"
+    },
+    {
+      "id": "later",
+      "type": "text",
+      "text": "## Planning finish line\n\n[[Remaining Harness Decisions]]\nSeven remaining behavior groups.\nMain run paths and chat deletion agreed; temporary-cleanup details remain proposed.\n[[Run Lifecycle Design]]\n\nLarge-repo/context optimization comes later.",
+      "x": 500,
+      "y": 990,
+      "width": 430,
+      "height": 310,
+      "color": "2"
+    },
+    {
+      "id": "inspect",
+      "type": "text",
+      "text": "## 6 · Completed response: tools?\n\nWait for successful model-response completion.\nNo calls → finalize the answer.\nCalls present → handle tools and keep the run active.\n\nDo not decide from the first text fragment.",
+      "x": 1500,
+      "y": 940,
+      "width": 360,
+      "height": 280,
+      "color": "2"
+    },
+    {
+      "id": "tool_branch",
+      "type": "text",
+      "text": "## First tool branch — agreed\n\nOne permitted read-only call:\nvalidate name/arguments/scope → execute read → return bounded result with call ID → request model again.\n\nNo code changes or rollback here.\n[[Run Lifecycle Design]]",
+      "x": 2000,
+      "y": 940,
+      "width": 390,
+      "height": 290,
+      "color": "6"
+    }
+  ],
+  "edges": [
+    {
+      "id": "s1",
+      "fromNode": "submit",
+      "fromSide": "right",
+      "toNode": "validate",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "s2",
+      "fromNode": "validate",
+      "fromSide": "right",
+      "toNode": "prepare",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "s3",
+      "fromNode": "prepare",
+      "fromSide": "right",
+      "toNode": "request",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "s4",
+      "fromNode": "request",
+      "fromSide": "bottom",
+      "toNode": "stream",
+      "toSide": "top",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "s5",
+      "fromNode": "stream",
+      "fromSide": "bottom",
+      "toNode": "inspect",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "Model response complete"
+    },
+    {
+      "id": "s6",
+      "fromNode": "complete",
+      "fromSide": "left",
+      "toNode": "idle",
+      "toSide": "right",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "s7",
+      "fromNode": "inspect",
+      "fromSide": "left",
+      "toNode": "complete",
+      "toSide": "right",
+      "toEnd": "arrow",
+      "label": "No tool calls"
+    },
+    {
+      "id": "s8",
+      "fromNode": "inspect",
+      "fromSide": "right",
+      "toNode": "tool_branch",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Tool calls present"
+    }
+  ]
+}

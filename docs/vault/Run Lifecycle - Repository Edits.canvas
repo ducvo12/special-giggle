@@ -1,0 +1,228 @@
+{
+  "nodes": [
+    {
+      "id": "intro",
+      "type": "text",
+      "text": "## Repository edit lifecycle\n\nSuccess, first recovery and initial Stop design: AGREED.\nSteering boundaries: AGREED.\n\n[[Run Lifecycle Design]]\n[[Run Lifecycle - Stop & Rollback.canvas]]\n[[Run Lifecycle - Steering.canvas]]",
+      "x": 0,
+      "y": -450,
+      "width": 460,
+      "height": 310,
+      "color": "5"
+    },
+    {
+      "id": "start",
+      "type": "text",
+      "text": "## 1 · Request and validate\n\nSave the user request.\nValidate chat/project and current repository.\nStart stable run/location/undo state.\nMembership grants read/write access.\nRecheck permissions before each new action.",
+      "x": 0,
+      "y": 0,
+      "width": 380,
+      "height": 270,
+      "color": "4"
+    },
+    {
+      "id": "baseline",
+      "type": "text",
+      "text": "## 2 · Record starting state\n\nEstablish the change-tracking baseline.\nPreserve pre-existing user edits.\nSupport requested Stop rollback.\n\nInitial undo design:\n[[Run Lifecycle - Stop & Rollback.canvas]]",
+      "x": 500,
+      "y": 0,
+      "width": 380,
+      "height": 270,
+      "color": "4"
+    },
+    {
+      "id": "read",
+      "type": "text",
+      "text": "## 3 · Read relevant code\n\nModel requests file/search tools.\nHarness checks scope and returns bounded contents linked to each call.\n\nNo per-file approval prompt.",
+      "x": 1000,
+      "y": 0,
+      "width": 380,
+      "height": 270,
+      "color": "4"
+    },
+    {
+      "id": "edit",
+      "type": "text",
+      "text": "## 4 · Apply proposed edit\n\nModel supplies a structured edit.\nHarness validates arguments, target, membership and current file contents.\n\nApply without per-edit approval.",
+      "x": 1500,
+      "y": 0,
+      "width": 380,
+      "height": 270,
+      "color": "4"
+    },
+    {
+      "id": "result",
+      "type": "text",
+      "text": "## 5 · Show and return result\n\nUpdate actual file changes and +/− line counts.\nSave the successful tool outcome.\nSend it to the model in the next request.",
+      "x": 2000,
+      "y": 0,
+      "width": 380,
+      "height": 270,
+      "color": "4"
+    },
+    {
+      "id": "finish",
+      "type": "text",
+      "text": "## 6 · Explain and finish\n\nSuccessful response has no tool calls.\nSave the final answer and finish.\n\nDescribe only edits and checks with known outcomes.",
+      "x": 2500,
+      "y": 0,
+      "width": 380,
+      "height": 270,
+      "color": "3"
+    },
+    {
+      "id": "rejected",
+      "type": "text",
+      "text": "## Edit rejected — agreed\n\nExample: expected text no longer matches.\nValidate before writing; this call changes nothing.\nReturn reason + no-change outcome with the original tool-call ID.",
+      "x": 1500,
+      "y": 550,
+      "width": 380,
+      "height": 300,
+      "color": "2"
+    },
+    {
+      "id": "recover",
+      "type": "text",
+      "text": "## Fresh read — agreed\n\nRun continues with the error visible.\nModel receives the failed tool result, reads the current file, and revises the edit.\n\nSame project permissions; no new approval.",
+      "x": 2000,
+      "y": 550,
+      "width": 380,
+      "height": 300,
+      "color": "2"
+    },
+    {
+      "id": "retry",
+      "type": "text",
+      "text": "## One corrected attempt — agreed\n\nAllow one revised edit for this failed operation.\nSupporting reads do not use the edit attempt.\nHarness validates the new edit again.",
+      "x": 2500,
+      "y": 550,
+      "width": 380,
+      "height": 300,
+      "color": "2"
+    },
+    {
+      "id": "recovered",
+      "type": "text",
+      "text": "## Recovery succeeds\n\nReturn the successful edit result.\nRejoin stage 5: update actual changes and request the model again.\n\nThen finish through the normal path.",
+      "x": 3000,
+      "y": 550,
+      "width": 380,
+      "height": 300,
+      "color": "3"
+    },
+    {
+      "id": "giveup",
+      "type": "text",
+      "text": "## Recovery fails again — agreed\n\nEnd automatic editing for this branch.\nReport what succeeded, failed, and remains changed.\n\nDo not claim the requested task is complete.",
+      "x": 2500,
+      "y": 1040,
+      "width": 380,
+      "height": 300,
+      "color": "1"
+    },
+    {
+      "id": "boundaries",
+      "type": "text",
+      "text": "## Failure boundaries — agreed\n\nA rejected edit does not undo earlier successful edits.\nUser Stop has its separate rollback policy.\n\nScope denial cannot be bypassed.\nUnknown/partial effects need inspection before more writes.",
+      "x": 1500,
+      "y": 1040,
+      "width": 430,
+      "height": 340,
+      "color": "6"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "fromNode": "start",
+      "fromSide": "right",
+      "toNode": "baseline",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "e2",
+      "fromNode": "baseline",
+      "fromSide": "right",
+      "toNode": "read",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "e3",
+      "fromNode": "read",
+      "fromSide": "right",
+      "toNode": "edit",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "e4",
+      "fromNode": "edit",
+      "fromSide": "right",
+      "toNode": "result",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Applied"
+    },
+    {
+      "id": "e5",
+      "fromNode": "result",
+      "fromSide": "right",
+      "toNode": "finish",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Next response: no tools"
+    },
+    {
+      "id": "e6",
+      "fromNode": "edit",
+      "fromSide": "bottom",
+      "toNode": "rejected",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "Stale contents; no mutation",
+      "color": "2"
+    },
+    {
+      "id": "e7",
+      "fromNode": "rejected",
+      "fromSide": "right",
+      "toNode": "recover",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Tool error → model",
+      "color": "2"
+    },
+    {
+      "id": "e8",
+      "fromNode": "recover",
+      "fromSide": "right",
+      "toNode": "retry",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Read, revise",
+      "color": "2"
+    },
+    {
+      "id": "e9",
+      "fromNode": "retry",
+      "fromSide": "right",
+      "toNode": "recovered",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Applied",
+      "color": "3"
+    },
+    {
+      "id": "e10",
+      "fromNode": "retry",
+      "fromSide": "bottom",
+      "toNode": "giveup",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "Failed again",
+      "color": "1"
+    }
+  ]
+}

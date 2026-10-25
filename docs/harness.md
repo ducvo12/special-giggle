@@ -50,7 +50,7 @@ Commands run from a checked directory inside the agent workspace, with a minimal
 
 ## Limits and recovery
 
-Granite enforces a five-minute run deadline, 40 model steps, 40 tool calls per run, a two-million-byte context budget before each model step, bounded tool results, and 200 visible messages per conversation. It retries only transient HTTP service failures before a response stream starts. It never retries a tool action automatically. If a conversation exceeds its budget, start a new chat; identity, memory, skills, and workspace files remain available. Automatic context summarization/compaction is not implemented yet.
+Granite has no fixed run deadline, model-step limit, or total tool-call limit. Stop cancels active work. It enforces a two-million-byte context budget before each model step, bounded tool results, and 200 visible messages per conversation. It retries only transient HTTP service failures before a response stream starts. It never retries a tool action automatically. If a conversation exceeds its budget, start a new chat; identity, memory, skills, and workspace files remain available. Automatic context summarization/compaction is not implemented yet.
 
 Provider failures are redacted before display or persistence. Partial text and completed tool activity survive failure and restart. Native state is committed only with a completed turn. Agent deletion removes the entire folder, messages, native state, and all tracked legacy checkpoints.
 

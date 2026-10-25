@@ -1,0 +1,272 @@
+{
+  "nodes": [
+    {
+      "id": "title",
+      "type": "text",
+      "text": "## Agent Structure — draft\n\nAgent → Section → Project → Chat.\nChats may also sit directly in a section.\nOnly projects can attach repositories.\n\n[[Harness Design]] · [[Memory & Context.canvas]]\n[[Repository Access.canvas]]",
+      "x": 0,
+      "y": -640,
+      "width": 450,
+      "height": 270,
+      "color": "5"
+    },
+    {
+      "id": "identity",
+      "type": "text",
+      "text": "## identity.md\n\nPersonality in every mode, including Temporary.\nNo user-specific memory.\n\nAgent edits require approval in Shared; blocked in Closed.",
+      "x": -560,
+      "y": -220,
+      "width": 360,
+      "height": 240,
+      "color": "2"
+    },
+    {
+      "id": "memory",
+      "type": "text",
+      "text": "## memory.md\n\nConfirmed durable user facts/preferences.\nManual and agent edits have equal standing.\nUse current eligible contents each model call.\nTrack sources; user can inspect/edit.",
+      "x": -560,
+      "y": 100,
+      "width": 360,
+      "height": 230,
+      "color": "2"
+    },
+    {
+      "id": "notes",
+      "type": "text",
+      "text": "## notes/\n\nReusable procedures and evidenced research.\nAutomatic scoped updates when useful.\n\nClosed cannot read/write global notes. Temporary contributes none.",
+      "x": -560,
+      "y": 410,
+      "width": 360,
+      "height": 240,
+      "color": "2"
+    },
+    {
+      "id": "agent",
+      "type": "text",
+      "text": "## Agent\n\nOwn folder, identity and user memory.\n\nSections organize every chat.\nNo subagents in this version.",
+      "x": 0,
+      "y": 50,
+      "width": 380,
+      "height": 240,
+      "color": "5"
+    },
+    {
+      "id": "general",
+      "type": "text",
+      "text": "## General — single built-in section\n\nAlways Shared; cannot delete or contain projects.\n\nPermanent chats and temporary chats sit together. No separate Temporary section.",
+      "x": 560,
+      "y": -340,
+      "width": 360,
+      "height": 240,
+      "color": "4"
+    },
+    {
+      "id": "club",
+      "type": "text",
+      "text": "## Computer Science Club — section\n\nCannot own a repository.\nClosed → Shared only.\nClosed chats cannot leave until the whole section becomes Shared.\nProjects stay in this section.",
+      "x": 560,
+      "y": 470,
+      "width": 360,
+      "height": 260,
+      "color": "3"
+    },
+    {
+      "id": "generalchats",
+      "type": "text",
+      "text": "## Permanent General chats\n\nChat 1\nChat 2\n\nNo expiry. Normal scoped memory rules apply.",
+      "x": 1080,
+      "y": -340,
+      "width": 340,
+      "height": 210,
+      "color": "4"
+    },
+    {
+      "id": "tempchat",
+      "type": "text",
+      "text": "## Temporary retention\n\nDirectly under a section, never a project.\nRead section/project context.\nNo durable memory or shared summaries.\nKeep, then separately move into a repo project before editing.",
+      "x": 1080,
+      "y": 30,
+      "width": 340,
+      "height": 240,
+      "color": "1"
+    },
+    {
+      "id": "direct",
+      "type": "text",
+      "text": "## Direct section chats\n\nPlan club events\nResearch computer science\nTemporary research chat\n\nTemporary chats read context for this section and its projects.",
+      "x": 1080,
+      "y": 440,
+      "width": 340,
+      "height": 220,
+      "color": "3"
+    },
+    {
+      "id": "website",
+      "type": "text",
+      "text": "## Club Website — project\n\nOne current repo; external or internal.\nMember chats have read/write access.\nChats cannot leave; no detach to chat-only.\nMissing folder may be relinked (D-061).",
+      "x": 1080,
+      "y": 740,
+      "width": 340,
+      "height": 230,
+      "color": "3"
+    },
+    {
+      "id": "planning",
+      "type": "text",
+      "text": "## Planning — chat-only project\n\nStays in its parent section.\nMay gain one repository later.\nThen all existing chats become bound to the project.",
+      "x": 1080,
+      "y": 1090,
+      "width": 340,
+      "height": 210,
+      "color": "3"
+    },
+    {
+      "id": "codechats",
+      "type": "text",
+      "text": "## Website chats — bound to project\n\nFrontend chat\nBackend chat\nAnother frontend chat\n\nCannot move outside Club Website.",
+      "x": 1600,
+      "y": 740,
+      "width": 340,
+      "height": 230,
+      "color": "3"
+    },
+    {
+      "id": "planchats",
+      "type": "text",
+      "text": "## Planning chats\n\nPossible event topics\nDiscuss slides",
+      "x": 1600,
+      "y": 1090,
+      "width": 340,
+      "height": 180,
+      "color": "3"
+    },
+    {
+      "id": "rec",
+      "type": "text",
+      "text": "## Context and repository access\n\nSection → conversation context.\nShared repo → all agent chats may read.\nClosed repo → same-section reads only.\nProject membership → read/write, no per-edit prompts.\nProjects cannot move sections.",
+      "x": 0,
+      "y": 980,
+      "width": 400,
+      "height": 300,
+      "color": "6"
+    },
+    {
+      "id": "agent_skills",
+      "type": "text",
+      "text": "## tools/skills/ — D-065\n\nUser may ask the agent to install an existing package here.\nKeep SKILL.md + resources together.\nImport does not execute scripts or grant tools.\n\n[[Skills & MCP Policy]]",
+      "x": 0,
+      "y": 1480,
+      "width": 460,
+      "height": 340,
+      "color": "6"
+    },
+    {
+      "id": "container_delete",
+      "type": "text",
+      "text": "## Delete a container — D-059\n\nStop/settle descendant work.\nDelete actual folder tree + DB chats.\nCode physically inside is deleted too.\nExternal linked folders survive.\n\n[[Container & Settings.canvas]]",
+      "x": 540,
+      "y": 1480,
+      "width": 460,
+      "height": 340,
+      "color": "1"
+    }
+  ],
+  "edges": [
+    {
+      "id": "a1",
+      "fromNode": "identity",
+      "fromSide": "right",
+      "toNode": "agent",
+      "toSide": "left",
+      "label": "Personality"
+    },
+    {
+      "id": "a2",
+      "fromNode": "memory",
+      "fromSide": "right",
+      "toNode": "agent",
+      "toSide": "left",
+      "label": "User facts"
+    },
+    {
+      "id": "a3",
+      "fromNode": "notes",
+      "fromSide": "right",
+      "toNode": "agent",
+      "toSide": "left",
+      "label": "Reusable knowledge"
+    },
+    {
+      "id": "a4",
+      "fromNode": "agent",
+      "fromSide": "right",
+      "toNode": "general",
+      "toSide": "left",
+      "label": "Built in"
+    },
+    {
+      "id": "a6",
+      "fromNode": "agent",
+      "fromSide": "right",
+      "toNode": "club",
+      "toSide": "left",
+      "label": "Custom section"
+    },
+    {
+      "id": "a7",
+      "fromNode": "general",
+      "fromSide": "right",
+      "toNode": "generalchats",
+      "toSide": "left",
+      "label": "Contains"
+    },
+    {
+      "id": "a8",
+      "fromNode": "general",
+      "fromSide": "right",
+      "toNode": "tempchat",
+      "toSide": "left",
+      "label": "Temporary chats"
+    },
+    {
+      "id": "a9",
+      "fromNode": "club",
+      "fromSide": "right",
+      "toNode": "direct",
+      "toSide": "left",
+      "label": "Contains"
+    },
+    {
+      "id": "a10",
+      "fromNode": "club",
+      "fromSide": "right",
+      "toNode": "website",
+      "toSide": "left",
+      "label": "Contains"
+    },
+    {
+      "id": "a11",
+      "fromNode": "club",
+      "fromSide": "right",
+      "toNode": "planning",
+      "toSide": "left",
+      "label": "Contains"
+    },
+    {
+      "id": "a12",
+      "fromNode": "website",
+      "fromSide": "right",
+      "toNode": "codechats",
+      "toSide": "left",
+      "label": "Contains"
+    },
+    {
+      "id": "a13",
+      "fromNode": "planning",
+      "fromSide": "right",
+      "toNode": "planchats",
+      "toSide": "left",
+      "label": "Contains"
+    }
+  ]
+}

@@ -1,0 +1,215 @@
+{
+  "nodes": [
+    {
+      "id": "intro",
+      "type": "text",
+      "text": "## Temporary Chat Flow — agreed\n\nSection-level chats; Keep then move before editing.\n\n[[Harness Design]]\n[[Run Lifecycle - Temporary Expiry.canvas]]\nTimer revised in D-048; cleanup proposed.",
+      "x": 0,
+      "y": -500,
+      "width": 440,
+      "height": 300,
+      "color": "5"
+    },
+    {
+      "id": "temp",
+      "type": "text",
+      "text": "## Temporary section-level chat\n\nReads permitted section/project context.\nNo durable memory or repo edits.\nTimer held full while working; one-hour countdown when idle/waiting.",
+      "x": 0,
+      "y": 0,
+      "width": 360,
+      "height": 250,
+      "color": "4"
+    },
+    {
+      "id": "request",
+      "type": "text",
+      "text": "## User requests repository edits\n\nTemporary cannot enter projects or edit the repo.\nEnd the active run with a transition-needed response before Keep/move approvals.",
+      "x": 480,
+      "y": 0,
+      "width": 360,
+      "height": 250,
+      "color": "2"
+    },
+    {
+      "id": "keep",
+      "type": "text",
+      "text": "## Approval 1: Keep chat?\n\nBetween runs, ask to make this chat permanent.\nWait for a decision.\nKeeping alone grants no repository editing access.",
+      "x": 960,
+      "y": 0,
+      "width": 360,
+      "height": 250,
+      "color": "2"
+    },
+    {
+      "id": "kept",
+      "type": "text",
+      "text": "## Keep accepted\n\nRemove expiry in place.\nPreserve transcript under the same section.\nNormal memory eligibility begins.\nStill outside the project; repo remains read-only.",
+      "x": 1440,
+      "y": 0,
+      "width": 360,
+      "height": 250,
+      "color": "4"
+    },
+    {
+      "id": "rules",
+      "type": "text",
+      "text": "## Check normal movement rules\n\nDifferent source Closed section must become Shared first.\nCannot leave a repo-bound project.\nKeep approval does not bypass these rules.",
+      "x": 1440,
+      "y": 450,
+      "width": 360,
+      "height": 250,
+      "color": "2"
+    },
+    {
+      "id": "move",
+      "type": "text",
+      "text": "## Approval 2: Move into project?\n\nAsk to move permanently into the target repo project.\nMake clear that this chat cannot leave that project afterward.",
+      "x": 960,
+      "y": 450,
+      "width": 360,
+      "height": 250,
+      "color": "2"
+    },
+    {
+      "id": "inside",
+      "type": "text",
+      "text": "## Move accepted and completed\n\nChat belongs to the project and fixed section.\nStart a new run with refreshed context.\nMembership grants repo read/write access without per-edit approval.",
+      "x": 480,
+      "y": 450,
+      "width": 360,
+      "height": 250,
+      "color": "3"
+    },
+    {
+      "id": "edit",
+      "type": "text",
+      "text": "## Edit and show changes\n\nNo prompt for each repository edit.\nShow files changed and +/− line counts.\nOne run per repo project; its other chats queue.\nBoth approvals and move must succeed first.",
+      "x": 0,
+      "y": 450,
+      "width": 360,
+      "height": 250,
+      "color": "3"
+    },
+    {
+      "id": "declinekeep",
+      "type": "text",
+      "text": "## Keep declined\n\nRemain temporary in the section.\nRepository stays read-only.\nInactivity expiry still applies.",
+      "x": 960,
+      "y": -420,
+      "width": 360,
+      "height": 220,
+      "color": "1"
+    },
+    {
+      "id": "declinemove",
+      "type": "text",
+      "text": "## Move declined\n\nKeep already succeeded: remain a permanent section-level chat.\nRepository stays read-only.\nDo not silently restore temporary expiry.",
+      "x": 960,
+      "y": 900,
+      "width": 360,
+      "height": 260,
+      "color": "1"
+    },
+    {
+      "id": "blocked",
+      "type": "text",
+      "text": "## Movement not currently allowed\n\nDo not edit the target repository.\nExplain which section/project rule blocks entry.\nOpening a Closed section is a separate user action.",
+      "x": 1440,
+      "y": 900,
+      "width": 360,
+      "height": 260,
+      "color": "1"
+    }
+  ],
+  "edges": [
+    {
+      "id": "t1",
+      "fromNode": "temp",
+      "fromSide": "right",
+      "toNode": "request",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "t2",
+      "fromNode": "request",
+      "fromSide": "right",
+      "toNode": "keep",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "t3",
+      "fromNode": "keep",
+      "fromSide": "right",
+      "toNode": "kept",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Accept"
+    },
+    {
+      "id": "t4",
+      "fromNode": "keep",
+      "fromSide": "top",
+      "toNode": "declinekeep",
+      "toSide": "bottom",
+      "toEnd": "arrow",
+      "label": "Decline",
+      "color": "1"
+    },
+    {
+      "id": "t5",
+      "fromNode": "kept",
+      "fromSide": "bottom",
+      "toNode": "rules",
+      "toSide": "top",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "t6",
+      "fromNode": "rules",
+      "fromSide": "left",
+      "toNode": "move",
+      "toSide": "right",
+      "toEnd": "arrow",
+      "label": "Eligible"
+    },
+    {
+      "id": "t7",
+      "fromNode": "rules",
+      "fromSide": "bottom",
+      "toNode": "blocked",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "Blocked",
+      "color": "1"
+    },
+    {
+      "id": "t8",
+      "fromNode": "move",
+      "fromSide": "left",
+      "toNode": "inside",
+      "toSide": "right",
+      "toEnd": "arrow",
+      "label": "Accept + move succeeds"
+    },
+    {
+      "id": "t9",
+      "fromNode": "move",
+      "fromSide": "bottom",
+      "toNode": "declinemove",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "Decline",
+      "color": "1"
+    },
+    {
+      "id": "t10",
+      "fromNode": "inside",
+      "fromSide": "left",
+      "toNode": "edit",
+      "toSide": "right",
+      "toEnd": "arrow"
+    }
+  ]
+}

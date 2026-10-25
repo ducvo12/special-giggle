@@ -54,13 +54,12 @@ export async function runHarness(options: {
         : (item.tool_calls ?? []).map((call: any) => call.id)
     )
   )
-  let callCount = 0
   let hadText = false
   let completedTools = 0
   let failedTools = 0
 
   try {
-    for (let step = 0; step < 40; step++) {
+    while (true) {
       signal.throwIfAborted()
 
       if (Buffer.byteLength(JSON.stringify(input)) + Buffer.byteLength(instructions) > 2_000_000) {
@@ -104,14 +103,7 @@ export async function runHarness(options: {
           )
         }
 
-        if (callCount >= 40) {
-          throw new HarnessError(
-            'The agent reached its tool limit. Try a smaller task. Completed changes are kept.'
-          )
-        }
-
         calls.add(call.id)
-        callCount++
         const result = await registry.execute(call)
 
         if (result.success) {
@@ -123,8 +115,6 @@ export async function runHarness(options: {
         input.push(adapter.toolResult(call, result.output))
       }
     }
-
-    throw new HarnessError('The agent reached its step limit. Completed changes are kept.')
   } finally {
     await registry.close()
   }

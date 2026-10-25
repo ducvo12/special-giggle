@@ -1,0 +1,232 @@
+{
+  "nodes": [
+    {
+      "id": "intro",
+      "type": "text",
+      "text": "## Final container & settings choices\n\nD-059–D-066 · Agreed October 25, 2026.\nTarget behavior, not implemented functionality.\nNo subagents; no whole-run budgets.\n\n[[Container & Settings Rules]] · [[Remaining Harness Decisions]]",
+      "x": 0,
+      "y": -450,
+      "width": 980,
+      "height": 300,
+      "color": "6"
+    },
+    {
+      "id": "delete",
+      "type": "text",
+      "text": "## Delete project / section / agent\n\nDelete its actual Granite-owned folder tree and all descendant database chats.\nGeneral cannot be deleted individually.",
+      "x": 0,
+      "y": 0,
+      "width": 440,
+      "height": 320,
+      "color": "1"
+    },
+    {
+      "id": "settle",
+      "type": "text",
+      "text": "## Stop and settle first\n\nCancel descendant queues/approvals.\nStop active work using guarded restoration.\nKeep unresolved recovery records.\nDo not report incomplete deletion as success.",
+      "x": 540,
+      "y": 0,
+      "width": 440,
+      "height": 320,
+      "color": "2"
+    },
+    {
+      "id": "physical",
+      "type": "text",
+      "text": "## Physical contents are deleted\n\nInternal repository code inside the deleted tree is removed too.\nRemove owned summaries/index state.\nOther surviving chats are not rewritten.",
+      "x": 1080,
+      "y": 0,
+      "width": 440,
+      "height": 320,
+      "color": "1"
+    },
+    {
+      "id": "external",
+      "type": "text",
+      "text": "## External link targets survive\n\nRemove attachment metadata, not the linked folder.\nExisting completed external code remains.\nAnother link to deleted internal code becomes unavailable.",
+      "x": 1620,
+      "y": 0,
+      "width": 440,
+      "height": 320,
+      "color": "3"
+    },
+    {
+      "id": "missing",
+      "type": "text",
+      "text": "## Linked folder unavailable\n\nShow a warning: folder cannot be found.\nOffer Relink folder.\nNo silent empty replacement.\nChat can still answer without the files.",
+      "x": 0,
+      "y": 500,
+      "width": 440,
+      "height": 320,
+      "color": "1"
+    },
+    {
+      "id": "relink",
+      "type": "text",
+      "text": "## User chooses a folder\n\nSame repo at a new path, or different codebase.\nOne current attachment; no detach to chat-only.\nSettle active work before retargeting.",
+      "x": 540,
+      "y": 500,
+      "width": 440,
+      "height": 320,
+      "color": "4"
+    },
+    {
+      "id": "reorient",
+      "type": "text",
+      "text": "## Refresh before editing\n\nOld undo stays with the old resource.\nInvalidate repository caches/indexes.\nNotify model; inspect current files.\nKeep the existing chat history.",
+      "x": 1080,
+      "y": 500,
+      "width": 440,
+      "height": 320,
+      "color": "2"
+    },
+    {
+      "id": "duplicate",
+      "type": "text",
+      "text": "## Duplicate links allowed\n\nStore links and warn about independent edits.\nSerialize runs within each project.\nNo global unique-owner lock.\nAdvanced coordination comes later.",
+      "x": 1620,
+      "y": 500,
+      "width": 440,
+      "height": 320,
+      "color": "5"
+    },
+    {
+      "id": "memory",
+      "type": "text",
+      "text": "## Edit memory / notes\n\nManual and agent edits have equal standing.\nCurrent eligible contents are saved truth.\nDo not favor an old cached copy.\nHistorical chats remain separate.",
+      "x": 0,
+      "y": 1000,
+      "width": 440,
+      "height": 320,
+      "color": "3"
+    },
+    {
+      "id": "refresh",
+      "type": "text",
+      "text": "## Next model request\n\nRefresh eligible file versions.\nKeep scope and context bounds.\nUse current notes when retrieving.\nNo cancellation to inject edits.",
+      "x": 540,
+      "y": 1000,
+      "width": 440,
+      "height": 320,
+      "color": "4"
+    },
+    {
+      "id": "settings",
+      "type": "text",
+      "text": "## User changes permission\n\nDo not automatically Stop generation or an executing action.\nUser can Stop if immediate interruption is wanted.",
+      "x": 1080,
+      "y": 1000,
+      "width": 440,
+      "height": 320,
+      "color": "5"
+    },
+    {
+      "id": "authorize",
+      "type": "text",
+      "text": "## Next request / tool action\n\nRefresh context and tool definitions.\nCheck each tool against current permission before execution.\nOld schemas cannot authorize a new denied action.",
+      "x": 1620,
+      "y": 1000,
+      "width": 440,
+      "height": 320,
+      "color": "2"
+    },
+    {
+      "id": "model",
+      "type": "text",
+      "text": "## Fixed session model\n\nModel/provider stays fixed for this chat/model session.\nDifferent model → separate session.\nCross-provider session migration deferred.",
+      "x": 0,
+      "y": 1500,
+      "width": 440,
+      "height": 320,
+      "color": "6"
+    },
+    {
+      "id": "skills",
+      "type": "text",
+      "text": "## Requested skill import\n\nInstall existing package under agent/tools/skills/.\nKeep SKILL.md + resources.\nNo redundant install confirmation.\nImport does not run scripts or enable MCP.",
+      "x": 540,
+      "y": 1500,
+      "width": 440,
+      "height": 320,
+      "color": "6"
+    },
+    {
+      "id": "lookup",
+      "type": "text",
+      "text": "## Codex-style tool exposure\n\nCompact direct core.\nDiscover optional integrations as needed.\nPortable lookup for other compatible hosts.\nOptimize ranking/caching later.",
+      "x": 1080,
+      "y": 1500,
+      "width": 440,
+      "height": 320,
+      "color": "6"
+    },
+    {
+      "id": "handoff",
+      "type": "text",
+      "text": "## Behavior review complete\n\nConsolidate the implementation plan and acceptance cases.\nBuild text → reads → edits → recovery → context → containers.\n\n[[Remaining Harness Decisions]]",
+      "x": 1620,
+      "y": 1500,
+      "width": 440,
+      "height": 320,
+      "color": "3"
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow_1",
+      "fromNode": "delete",
+      "fromSide": "right",
+      "toNode": "settle",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "flow_2",
+      "fromNode": "settle",
+      "fromSide": "right",
+      "toNode": "physical",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "flow_3",
+      "fromNode": "physical",
+      "fromSide": "right",
+      "toNode": "external",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "flow_4",
+      "fromNode": "missing",
+      "fromSide": "right",
+      "toNode": "relink",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "flow_5",
+      "fromNode": "relink",
+      "fromSide": "right",
+      "toNode": "reorient",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "flow_6",
+      "fromNode": "memory",
+      "fromSide": "right",
+      "toNode": "refresh",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "flow_7",
+      "fromNode": "settings",
+      "fromSide": "right",
+      "toNode": "authorize",
+      "toSide": "left",
+      "toEnd": "arrow"
+    }
+  ]
+}

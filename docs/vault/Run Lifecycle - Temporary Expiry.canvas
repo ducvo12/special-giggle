@@ -1,0 +1,247 @@
+{
+  "nodes": [
+    {
+      "id": "intro",
+      "type": "text",
+      "text": "## Temporary expiry — revised\n\nD-048 / D-054: active or queued work holds a full hour.\nReplies/actions reset it; no activity log.\nApproval-only waiting still counts down.\nCleanup details remain proposed.\n[[Run Lifecycle Design]]",
+      "x": 0,
+      "y": -450,
+      "width": 460,
+      "height": 310,
+      "color": "5"
+    },
+    {
+      "id": "start",
+      "type": "text",
+      "text": "## 1 · Live temporary chat\n\nInitialize expiry at creation.\nAgent replies and qualifying chat actions refresh a full hour.\nStore only the current timer value for inactivity tracking.",
+      "x": 0,
+      "y": 0,
+      "width": 380,
+      "height": 280,
+      "color": "4"
+    },
+    {
+      "id": "timer",
+      "type": "text",
+      "text": "## 2 · Active or queued work?\n\nModel/tool work or a pending queued message/request → hold 1:00:00.\nIdle or approval-only wait → countdown.\nFresh hour when no active/queued work remains.",
+      "x": 500,
+      "y": 0,
+      "width": 380,
+      "height": 280,
+      "color": "4"
+    },
+    {
+      "id": "check",
+      "type": "text",
+      "text": "## 3 · Countdown actually due?\n\nNo active/queued work may remain.\nCheck latest timer, retention and run/queue state atomically.\nProtect queued/refreshed/working/kept chats.",
+      "x": 1000,
+      "y": 0,
+      "width": 380,
+      "height": 280,
+      "color": "2"
+    },
+    {
+      "id": "expired",
+      "type": "text",
+      "text": "## 4 · Mark expiring\n\nMake the chat unavailable immediately.\nBlock new runs, actions, approvals, Keep and retrieval.\nCleanup may complete afterward.",
+      "x": 1500,
+      "y": 0,
+      "width": 380,
+      "height": 280,
+      "color": "1"
+    },
+    {
+      "id": "cancel",
+      "type": "text",
+      "text": "## 5 · Cancel and settle\n\nCancel pending approvals and residual callbacks/resources.\nManual deletion can stop active/queued work.\nAutomatic expiry reaches only eligible idle or approval-only waits.",
+      "x": 2000,
+      "y": 0,
+      "width": 380,
+      "height": 280,
+      "color": "1"
+    },
+    {
+      "id": "cleanup",
+      "type": "text",
+      "text": "## 6 · Remove local chat state\n\nTranscript, temporary summary and local provider continuation state.\nNo model call needed for cleanup.\nKeep only necessary cleanup markers if retry is needed.",
+      "x": 2500,
+      "y": 0,
+      "width": 380,
+      "height": 280,
+      "color": "4"
+    },
+    {
+      "id": "gone",
+      "type": "text",
+      "text": "## 7 · Chat removed\n\nRemove it from the list.\nIf open, return to the section with a short expiry notice.\nNo late callback may recreate it.",
+      "x": 3000,
+      "y": 0,
+      "width": 380,
+      "height": 280,
+      "color": "3"
+    },
+    {
+      "id": "live",
+      "type": "text",
+      "text": "## Active / queued: full hour\n\nHold at 1:00:00 during work and repository/model queues.\nA wait over an hour cannot expire.\nStart a fresh countdown after the last work ends or is cancelled.",
+      "x": 500,
+      "y": -450,
+      "width": 400,
+      "height": 300,
+      "color": "3"
+    },
+    {
+      "id": "keep",
+      "type": "text",
+      "text": "## Keep before expiry\n\nOnly while live and between runs.\nKeep committed first removes expiry.\nAlready expired → cannot Keep.\nIf active, Stop first, then Keep.",
+      "x": 1000,
+      "y": -450,
+      "width": 430,
+      "height": 300,
+      "color": "6"
+    },
+    {
+      "id": "activity",
+      "type": "text",
+      "text": "## Replies/actions refresh the hour\n\nPrompt or steering message.\nAgent response or qualifying action.\nValid approval/denial, Continue or user Stop.\n\nPassive viewing/typing classification remains proposed.",
+      "x": 0,
+      "y": 550,
+      "width": 430,
+      "height": 320,
+      "color": "6"
+    },
+    {
+      "id": "scope",
+      "type": "text",
+      "text": "## Temporary retention limits\n\nNo repository edits, durable memory or cross-chat search contributions.\nNo repository rollback in this branch.\nKeep other chats, shared notes and original source files.",
+      "x": 1000,
+      "y": 550,
+      "width": 430,
+      "height": 320,
+      "color": "6"
+    },
+    {
+      "id": "late",
+      "type": "text",
+      "text": "## Expired means unavailable\n\nLate prompts/decisions cannot revive it.\nReject late model/tool output and approval clicks.\nCleanup retries must not recreate chat content.",
+      "x": 2000,
+      "y": 550,
+      "width": 430,
+      "height": 300,
+      "color": "6"
+    },
+    {
+      "id": "offline",
+      "type": "text",
+      "text": "## Granite was closed\n\nA saved countdown still expires offline.\nCheck it before loading chats again.\nHeld running/queued states need actual recovery.\nQueue persistence/resumption remains R-03.",
+      "x": 2500,
+      "y": 550,
+      "width": 430,
+      "height": 300,
+      "color": "6"
+    },
+    {
+      "id": "manual",
+      "type": "text",
+      "text": "## Manual temporary deletion\n\nCancel/clean up immediately; no repo edits to undo.\nPermanent coding-chat deletion uses its agreed Stop/restoration flow:\n[[Run Lifecycle - Chat Deletion.canvas]]",
+      "x": 3000,
+      "y": 550,
+      "width": 430,
+      "height": 300,
+      "color": "6"
+    },
+    {
+      "id": "stale_timer",
+      "type": "text",
+      "text": "## Deadline changed / chat kept\n\nIgnore an obsolete timer.\nUse the latest live countdown.\nKept chats have no expiry.\nExpired chats cannot be revived by a late action.",
+      "x": 1500,
+      "y": -450,
+      "width": 430,
+      "height": 300,
+      "color": "3"
+    },
+    {
+      "id": "minimal_timer",
+      "type": "text",
+      "text": "## Minimal inactivity state\n\nKeep one current expiry value.\nUse existing run/queue state to hold/display the hour.\nResponses/actions refresh the value.\nNo activity log or per-second writes.",
+      "x": 500,
+      "y": 550,
+      "width": 430,
+      "height": 300,
+      "color": "6"
+    }
+  ],
+  "edges": [
+    {
+      "id": "x1",
+      "fromNode": "start",
+      "fromSide": "right",
+      "toNode": "timer",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "x2",
+      "fromNode": "timer",
+      "fromSide": "right",
+      "toNode": "check",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Idle / approval-only wait"
+    },
+    {
+      "id": "x3",
+      "fromNode": "check",
+      "fromSide": "right",
+      "toNode": "expired",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Countdown due"
+    },
+    {
+      "id": "x4",
+      "fromNode": "expired",
+      "fromSide": "right",
+      "toNode": "cancel",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "x5",
+      "fromNode": "cancel",
+      "fromSide": "right",
+      "toNode": "cleanup",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Safe cleanup"
+    },
+    {
+      "id": "x6",
+      "fromNode": "cleanup",
+      "fromSide": "right",
+      "toNode": "gone",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "x7",
+      "fromNode": "check",
+      "fromSide": "top",
+      "toNode": "stale_timer",
+      "toSide": "bottom",
+      "toEnd": "arrow",
+      "label": "No longer due",
+      "color": "3"
+    },
+    {
+      "id": "x8",
+      "fromNode": "timer",
+      "fromSide": "top",
+      "toNode": "live",
+      "toSide": "bottom",
+      "toEnd": "arrow",
+      "label": "Active / queued work",
+      "color": "3"
+    }
+  ]
+}

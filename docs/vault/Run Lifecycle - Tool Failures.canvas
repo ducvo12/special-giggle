@@ -1,0 +1,226 @@
+{
+  "nodes": [
+    {
+      "id": "intro",
+      "type": "text",
+      "text": "## Model / tool failures — agreed\n\nD-057 · Accepted from P-015.\nKnown no execution differs from unknown effects.\nNever repeat a possible completed action blindly.\n\n[[Model & Tool Failures]]",
+      "x": 0,
+      "y": -500,
+      "width": 460,
+      "height": 320,
+      "color": "5"
+    },
+    {
+      "id": "response",
+      "type": "text",
+      "text": "## Model response arrives\n\nValidate complete structured response/call data.\nVisible prose alone cannot execute a tool.\nDo not invent missing call IDs or arguments.",
+      "x": 0,
+      "y": 0,
+      "width": 400,
+      "height": 300,
+      "color": "4"
+    },
+    {
+      "id": "invalid_reply",
+      "type": "text",
+      "text": "## Empty / incomplete reply\n\nShow a harness error or interrupted status.\nExecute no incomplete tool calls.\nKeep valid partial text and offer Continue.\nNo extra automatic regeneration loop.",
+      "x": 540,
+      "y": -500,
+      "width": 420,
+      "height": 320,
+      "color": "2"
+    },
+    {
+      "id": "validate",
+      "type": "text",
+      "text": "## Validate proposed action\n\nCheck tool, arguments, call ID and scope.\nApply required authorization.\nA denied action cannot be retried through another tool to evade the decision.",
+      "x": 540,
+      "y": 0,
+      "width": 420,
+      "height": 320,
+      "color": "4"
+    },
+    {
+      "id": "correction",
+      "type": "text",
+      "text": "## Invalid proposal: no action ran\n\nReturn a linked tool error.\nAllow one corrected technical proposal.\nRepeated invalid request → report incomplete work.\nNo guessed arguments or new permissions.",
+      "x": 1100,
+      "y": -500,
+      "width": 440,
+      "height": 320,
+      "color": "2"
+    },
+    {
+      "id": "execute",
+      "type": "text",
+      "text": "## Execute permitted action\n\nRecord actual execution/outcome.\nTimeout/cancellation alone does not prove no effect.\nKeep remaining work from compounding uncertainty.",
+      "x": 1100,
+      "y": 0,
+      "width": 420,
+      "height": 320,
+      "color": "4"
+    },
+    {
+      "id": "reconcile",
+      "type": "text",
+      "text": "## Determine actual outcome\n\nRead operation/undo records, files or available service status.\nKnown success, no effect, partial effect, or still unknown?\nDo not ask the model to guess.",
+      "x": 1660,
+      "y": 0,
+      "width": 440,
+      "height": 320,
+      "color": "2"
+    },
+    {
+      "id": "success",
+      "type": "text",
+      "text": "## Verified success\n\nRecord/return what actually happened.\nDo not perform the action again to recreate a lost response.\nContinue the normal model/tool loop.",
+      "x": 2240,
+      "y": -500,
+      "width": 420,
+      "height": 300,
+      "color": "3"
+    },
+    {
+      "id": "failure",
+      "type": "text",
+      "text": "## Verified no / partial effect\n\nReturn the actual failure/changes.\nA corrected action retains normal permissions and recovery limits.\nNever silently undo unrelated successful edits.",
+      "x": 2240,
+      "y": 0,
+      "width": 420,
+      "height": 320,
+      "color": "2"
+    },
+    {
+      "id": "unknown",
+      "type": "text",
+      "text": "## Still unknown: needs attention\n\nShow the uncertainty.\nDo not automatically repeat the action.\nKeep recovery data and block affected repository writes.\nRead-only inspection can help resolve it.",
+      "x": 2240,
+      "y": 520,
+      "width": 440,
+      "height": 340,
+      "color": "6"
+    },
+    {
+      "id": "continue",
+      "type": "text",
+      "text": "## Continue after ordinary failure\n\nNew run, context and undo boundary.\nUse actual completed/reverted outcomes.\nUnresolved repository recovery must be resolved before more editing.\n\n[[Run Lifecycle - Model Request Failures.canvas]]",
+      "x": 2820,
+      "y": 0,
+      "width": 460,
+      "height": 340,
+      "color": "3"
+    },
+    {
+      "id": "records",
+      "type": "text",
+      "text": "## Keep necessary recovery data\n\nRetain full records while unresolved.\nAfter durable resolution, release unneeded undo snapshots.\nKeep normal chat/tool/diff history.\nDeleting a chat cannot erase unresolved recovery.",
+      "x": 0,
+      "y": 520,
+      "width": 440,
+      "height": 340,
+      "color": "6"
+    },
+    {
+      "id": "boundaries",
+      "type": "text",
+      "text": "## Preserve the agreed distinction\n\nOrdinary failures retain successful edits.\nUser Stop / application crash restore tracked interrupted-run changes.\nSteering preserves the same undo boundary.\n\n[[Unexpected Closure Recovery]]",
+      "x": 540,
+      "y": 520,
+      "width": 440,
+      "height": 340,
+      "color": "6"
+    },
+    {
+      "id": "old_undo",
+      "type": "text",
+      "text": "## First-version deferral — agreed\n\nNo dedicated Undo-an-earlier-run interface.\nLive Stop/crash restoration remains.\nNo whole-run time/step/tool budgets are added.\n\n[[Model & Tool Failures]]",
+      "x": 1100,
+      "y": 520,
+      "width": 440,
+      "height": 320,
+      "color": "6"
+    }
+  ],
+  "edges": [
+    {
+      "id": "f1",
+      "fromNode": "response",
+      "fromSide": "right",
+      "toNode": "validate",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Usable tool proposal"
+    },
+    {
+      "id": "f2",
+      "fromNode": "response",
+      "fromSide": "top",
+      "toNode": "invalid_reply",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Unusable reply"
+    },
+    {
+      "id": "f3",
+      "fromNode": "validate",
+      "fromSide": "top",
+      "toNode": "correction",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Known validation failure"
+    },
+    {
+      "id": "f4",
+      "fromNode": "validate",
+      "fromSide": "right",
+      "toNode": "execute",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Valid and permitted"
+    },
+    {
+      "id": "f5",
+      "fromNode": "execute",
+      "fromSide": "right",
+      "toNode": "reconcile",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "f6",
+      "fromNode": "reconcile",
+      "fromSide": "top",
+      "toNode": "success",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Verified success"
+    },
+    {
+      "id": "f7",
+      "fromNode": "reconcile",
+      "fromSide": "right",
+      "toNode": "failure",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Known effect"
+    },
+    {
+      "id": "f8",
+      "fromNode": "reconcile",
+      "fromSide": "bottom",
+      "toNode": "unknown",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Cannot establish outcome"
+    },
+    {
+      "id": "f9",
+      "fromNode": "failure",
+      "fromSide": "right",
+      "toNode": "continue",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "If run cannot complete"
+    }
+  ]
+}

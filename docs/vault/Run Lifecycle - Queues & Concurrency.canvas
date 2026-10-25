@@ -1,0 +1,227 @@
+{
+  "nodes": [
+    {
+      "id": "intro",
+      "type": "text",
+      "text": "## Queues & concurrency — agreed\n\nD-052 / D-053 / D-054 / D-062.\nOne run per chat; serialize within a repo project.\nDuplicate links across projects allowed with warning.\nNo whole-run budgets.\n\n[[Concurrency & Limits]]",
+      "x": 0,
+      "y": -450,
+      "width": 460,
+      "height": 320,
+      "color": "5"
+    },
+    {
+      "id": "submit",
+      "type": "text",
+      "text": "## 1 · Save user message\n\nRefresh temporary inactivity on submission.\nDoes this chat already have an active run?\n\nNo duplicate jobs for the same chat.",
+      "x": 0,
+      "y": 0,
+      "width": 380,
+      "height": 280,
+      "color": "4"
+    },
+    {
+      "id": "steer",
+      "type": "text",
+      "text": "## Steer existing work\n\nRetain original task/history.\nAppend messages in order.\nStop/cleanup takes precedence.\n\n[[Run Lifecycle - Steering.canvas]]",
+      "x": 0,
+      "y": 500,
+      "width": 400,
+      "height": 300,
+      "color": "2"
+    },
+    {
+      "id": "queue",
+      "type": "text",
+      "text": "## 2 · Queue when busy\n\nWait for project/model capacity.\nFIFO among eligible work.\nShow reason + live position + Cancel.\nKeep pending messages in order.\nDo not hold model capacity for a busy project.",
+      "x": 520,
+      "y": 0,
+      "width": 420,
+      "height": 320,
+      "color": "2"
+    },
+    {
+      "id": "start",
+      "type": "text",
+      "text": "## 3 · Validate and start\n\nRecheck current location/context/access.\nKeep stable run/location/undo identity.\nReserve within the repository project.\nRefresh permissions on each request/action.\nAcquire model capacity for each request.",
+      "x": 1080,
+      "y": 0,
+      "width": 420,
+      "height": 320,
+      "color": "4"
+    },
+    {
+      "id": "work",
+      "type": "text",
+      "text": "## 4 · Model → tools → model\n\nOne active run in this chat.\nSequential tool calls initially.\nRelease model capacity during tools.\nOther eligible chats can work concurrently.",
+      "x": 1660,
+      "y": 0,
+      "width": 420,
+      "height": 320,
+      "color": "4"
+    },
+    {
+      "id": "approval",
+      "type": "text",
+      "text": "## Waiting for approval\n\nRetain chat/project reservation.\nFree model-request capacity.\nApproval never becomes automatic consent.\nApproval-only temporary waits count down.\n\n[[Run Lifecycle - Approvals.canvas]]",
+      "x": 1660,
+      "y": 500,
+      "width": 440,
+      "height": 340,
+      "color": "2"
+    },
+    {
+      "id": "settle",
+      "type": "text",
+      "text": "## 5 · Settle before release\n\nCommit the actual outcome.\nStop uses existing tracked-file restoration.\nWait for writers and restoration.\nUncertainty/conflicts keep editing blocked.\n\n[[Run Lifecycle - Stop & Rollback.canvas]]",
+      "x": 2240,
+      "y": 0,
+      "width": 440,
+      "height": 340,
+      "color": "3"
+    },
+    {
+      "id": "advance",
+      "type": "text",
+      "text": "## 6 · Advance eligible queue\n\nRelease ownership after safe settlement.\nStart the next eligible chat.\nRevalidate before it starts.\nCancelled/deleted chats cannot restart.",
+      "x": 2840,
+      "y": 0,
+      "width": 420,
+      "height": 300,
+      "color": "3"
+    },
+    {
+      "id": "cancel",
+      "type": "text",
+      "text": "## Cancel before starting\n\nRemove the queue entry.\nKeep saved messages marked unprocessed.\nNo repository edits to restore.\nEligible Keep/move is available before a run starts.",
+      "x": 520,
+      "y": 500,
+      "width": 420,
+      "height": 320,
+      "color": "6"
+    },
+    {
+      "id": "expiry",
+      "type": "text",
+      "text": "## Temporary queued work\n\nQueued messages/model requests hold 1:00:00.\nActive model/tool work also holds it.\nIdle or approval-only waits count down.\nCancel last job → fresh idle hour.\n\n[[Run Lifecycle - Temporary Expiry.canvas]]",
+      "x": 1080,
+      "y": 500,
+      "width": 440,
+      "height": 340,
+      "color": "6"
+    },
+    {
+      "id": "limits",
+      "type": "text",
+      "text": "## No whole-run budgets\n\nFirst iteration: no fixed or optional total time, step or tool-call caps.\nWork finishes or encounters actual model/provider constraints or user Stop.\nOperation/context/output boundaries remain.",
+      "x": 2240,
+      "y": 500,
+      "width": 440,
+      "height": 340,
+      "color": "6"
+    },
+    {
+      "id": "shared",
+      "type": "text",
+      "text": "## Concurrent shared updates\n\nSerialize memory/notes changes per resource.\nCheck revisions; preserve other writers.\nNo whole-file overwrite from an old copy.\n\n[[Memory & Context Policy]]",
+      "x": 2840,
+      "y": 500,
+      "width": 420,
+      "height": 320,
+      "color": "6"
+    },
+    {
+      "id": "queue_position",
+      "type": "text",
+      "text": "## Live queue positions\n\n“Queued for local model — 2nd in line.”\nPosition 1 = next waiting entry.\nUpdate when work starts/cancels.\nLabel the queue; no invented host rank.",
+      "x": 520,
+      "y": -450,
+      "width": 440,
+      "height": 320,
+      "color": "2"
+    },
+    {
+      "id": "host_capacity",
+      "type": "text",
+      "text": "## Respect host/model capacity\n\nNo parallel support → one request at a time.\nSeveral chats can wait in the queue.\nShare capacity across chats/agents.\nUnknown host rank → show unavailable.",
+      "x": 1080,
+      "y": -450,
+      "width": 440,
+      "height": 320,
+      "color": "2"
+    }
+  ],
+  "edges": [
+    {
+      "id": "q1",
+      "fromNode": "submit",
+      "fromSide": "right",
+      "toNode": "queue",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "New work"
+    },
+    {
+      "id": "q2",
+      "fromNode": "submit",
+      "fromSide": "bottom",
+      "toNode": "steer",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "Already active"
+    },
+    {
+      "id": "q3",
+      "fromNode": "queue",
+      "fromSide": "right",
+      "toNode": "start",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Eligible capacity"
+    },
+    {
+      "id": "q4",
+      "fromNode": "start",
+      "fromSide": "right",
+      "toNode": "work",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "q5",
+      "fromNode": "work",
+      "fromSide": "right",
+      "toNode": "settle",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Finish / Stop / failure"
+    },
+    {
+      "id": "q6",
+      "fromNode": "settle",
+      "fromSide": "right",
+      "toNode": "advance",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Safe to release"
+    },
+    {
+      "id": "q7",
+      "fromNode": "queue",
+      "fromSide": "bottom",
+      "toNode": "cancel",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "Cancel queued work"
+    },
+    {
+      "id": "q8",
+      "fromNode": "work",
+      "fromSide": "bottom",
+      "toNode": "approval",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "Action needs a decision"
+    }
+  ]
+}

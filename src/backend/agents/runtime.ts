@@ -227,7 +227,7 @@ export class AgentRuntime {
     }
 
     const controller = new AbortController()
-    const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(300_000)])
+    const signal = controller.signal
     this.active = { id: requestId, controller }
     let turn: ReturnType<AgentStore['begin']> | undefined
     let lastSave = 0
@@ -332,11 +332,9 @@ export class AgentRuntime {
       return { stopped: false }
     } catch (error) {
       const safe =
-        signal.aborted && !controller.signal.aborted
-          ? 'The agent reached its five-minute run limit. Completed file changes are kept.'
-          : error instanceof HarnessError
-            ? error.message
-            : 'The agent could not finish this reply. Check the connection and model, then try again.'
+        error instanceof HarnessError
+          ? error.message
+          : 'The agent could not finish this reply. Check the connection and model, then try again.'
 
       if (turn) {
         if (!controller.signal.aborted) {

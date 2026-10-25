@@ -62,6 +62,15 @@ async function fixture() {
         }
       ])
 
+    if (user === 'Long task') {
+      const completed = body.input.filter((item: any) => item.type === 'function_call_output').length
+      if (completed < 45) {
+        return tool('read_file', { file_path: '/memory.md' })
+      }
+      answer('Completed all 45 tool steps.')
+      return
+    }
+
     if (user === 'Fail') {
       event({ type: 'response.failed', response: { error: { message: 'secret-provider-token' } } })
       res.end()
@@ -307,3 +316,28 @@ test(
     }
   }
 )
+
+
+test('long tasks complete beyond 40 model steps and tool calls', { timeout: 30_000 }, async () => {
+  const mock = await fixture()
+  const directory = await mkdtemp(join(tmpdir(), 'granite-long-task-'))
+  const runtime = await AgentRuntime.open(directory)
+  try {
+    const agent = await runtime.createAgent('Nova')
+    const conversation = await runtime.createConversation(agent.id)
+    await runtime.run('long-task', agent.id, conversation.id, {
+      baseUrl: mock.baseUrl,
+      apiKey: 'mock',
+      model: 'mock-reasoning',
+      protocol: 'responses'
+    }, 'Long task', () => {})
+    assert.equal(mock.requests.length, 46)
+    const message = runtime.store.get(agent.id, conversation.id).messages.at(-1)!
+    assert.equal(message.content, 'Completed all 45 tool steps.')
+    assert.equal(message.error, undefined)
+  } finally {
+    runtime.close()
+    await mock.close()
+    await rm(directory, { recursive: true, force: true })
+  }
+})

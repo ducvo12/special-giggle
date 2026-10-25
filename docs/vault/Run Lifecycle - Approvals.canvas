@@ -1,0 +1,210 @@
+{
+  "nodes": [
+    {
+      "id": "intro",
+      "type": "text",
+      "text": "## Approval lifecycle — agreed\n\nAccepted in D-047.\nIdentity edit: exact preview, wait, approve once or deny.\nNo per-edit code approval.\n\n[[Run Lifecycle Design]]\n[[Run Lifecycle - Temporary Expiry.canvas]]",
+      "x": 0,
+      "y": -450,
+      "width": 460,
+      "height": 310,
+      "color": "5"
+    },
+    {
+      "id": "propose",
+      "type": "text",
+      "text": "## 1 · Agent proposes identity edit\n\nStructured action and exact change.\nExample: a personality/tone adjustment.\nNo file write has happened.",
+      "x": 0,
+      "y": 0,
+      "width": 380,
+      "height": 280,
+      "color": "4"
+    },
+    {
+      "id": "check",
+      "type": "text",
+      "text": "## 2 · Check eligibility\n\nPermanent Shared chat may request approval.\nClosed and temporary chats cannot edit identity or bypass the restriction by asking.",
+      "x": 500,
+      "y": 0,
+      "width": 380,
+      "height": 280,
+      "color": "2"
+    },
+    {
+      "id": "wait",
+      "type": "text",
+      "text": "## 4 · Waiting for approval\n\nPause this run for a user decision.\nNo repeated model calls or other tools while waiting.\nNothing changes merely because time passes.",
+      "x": 1500,
+      "y": 0,
+      "width": 380,
+      "height": 280,
+      "color": "2"
+    },
+    {
+      "id": "apply",
+      "type": "text",
+      "text": "## 5 · Approve and apply once\n\nRecheck active request and current file.\nApply exactly the approved change once.\nStale revision → fresh review, no overwrite.\nRecord the actual outcome.",
+      "x": 2000,
+      "y": 0,
+      "width": 380,
+      "height": 280,
+      "color": "4"
+    },
+    {
+      "id": "resume",
+      "type": "text",
+      "text": "## 6 · Return result and resume\n\nReturn success, denial or actual failure to the model.\nContinue the same run.\nFinish through the normal no-tool response gate.",
+      "x": 2500,
+      "y": 0,
+      "width": 380,
+      "height": 280,
+      "color": "3"
+    },
+    {
+      "id": "blocked",
+      "type": "text",
+      "text": "## Request prohibited\n\nReject before offering approval.\nFile remains unchanged.\nA permission prompt cannot open a Closed/temporary identity-write boundary.",
+      "x": 500,
+      "y": 550,
+      "width": 380,
+      "height": 300,
+      "color": "1"
+    },
+    {
+      "id": "deny",
+      "type": "text",
+      "text": "## User denies\n\nLeave the file unchanged.\nReturn denial as the tool result.\nModel can explain or choose a permitted alternative.\nDo not repeatedly ask for the same rejected change.",
+      "x": 1500,
+      "y": 550,
+      "width": 380,
+      "height": 300,
+      "color": "1"
+    },
+    {
+      "id": "cancel",
+      "type": "text",
+      "text": "## Request withdrawn/cancelled\n\nSteering: record not applied; reconsider with the new message.\nStop/deletion/expiry: invalidate request without restarting the cancelled run.\nLate clicks cannot execute it.",
+      "x": 1000,
+      "y": 1000,
+      "width": 430,
+      "height": 320,
+      "color": "1"
+    },
+    {
+      "id": "scope",
+      "type": "text",
+      "text": "## Ordinary repository edits\n\nOwning-project membership already grants read/write access.\nNo per-edit approval prompts.\nKeep/move approvals remain between runs.\n[[Repository Access.canvas]]",
+      "x": 0,
+      "y": 550,
+      "width": 430,
+      "height": 300,
+      "color": "6"
+    },
+    {
+      "id": "grant",
+      "type": "text",
+      "text": "## One exact action\n\nNo reusable blanket approval.\nNo double application on duplicate clicks.\nNo self-approval or bypass via another tool.\nNo automatic approval after waiting.",
+      "x": 2000,
+      "y": 1000,
+      "width": 430,
+      "height": 300,
+      "color": "6"
+    },
+    {
+      "id": "identity",
+      "type": "text",
+      "text": "## Personality timing — agreed\n\nSave the approved file change now.\nLoad the new personality next run.\nCurrent instruction snapshot stays stable.\nPersonality never grants tool permissions.",
+      "x": 2500,
+      "y": 550,
+      "width": 430,
+      "height": 300,
+      "color": "6"
+    },
+    {
+      "id": "preview",
+      "type": "text",
+      "text": "## 3 · Show exact preview\n\nExplain why; show old/new diff.\nBind request to this run, action and file revision.\nReuse existing valid approval for this exact unperformed action.",
+      "x": 1000,
+      "y": 0,
+      "width": 380,
+      "height": 280,
+      "color": "4"
+    }
+  ],
+  "edges": [
+    {
+      "id": "a1",
+      "fromNode": "propose",
+      "fromSide": "right",
+      "toNode": "check",
+      "toSide": "left"
+    },
+    {
+      "id": "a2",
+      "fromNode": "check",
+      "fromSide": "right",
+      "toNode": "preview",
+      "toSide": "left",
+      "label": "Permitted"
+    },
+    {
+      "id": "a3",
+      "fromNode": "preview",
+      "fromSide": "right",
+      "toNode": "wait",
+      "toSide": "left",
+      "label": "Needs a decision"
+    },
+    {
+      "id": "a4",
+      "fromNode": "wait",
+      "fromSide": "right",
+      "toNode": "apply",
+      "toSide": "left",
+      "label": "Approve"
+    },
+    {
+      "id": "a5",
+      "fromNode": "apply",
+      "fromSide": "right",
+      "toNode": "resume",
+      "toSide": "left",
+      "label": "Actual result recorded"
+    },
+    {
+      "id": "a6",
+      "fromNode": "check",
+      "fromSide": "bottom",
+      "toNode": "blocked",
+      "toSide": "top",
+      "color": "1",
+      "label": "Disallowed"
+    },
+    {
+      "id": "a7",
+      "fromNode": "wait",
+      "fromSide": "bottom",
+      "toNode": "deny",
+      "toSide": "top",
+      "color": "1",
+      "label": "Deny"
+    },
+    {
+      "id": "a8",
+      "fromNode": "deny",
+      "fromSide": "right",
+      "toNode": "resume",
+      "toSide": "bottom",
+      "label": "No-change result"
+    },
+    {
+      "id": "a9",
+      "fromNode": "wait",
+      "fromSide": "left",
+      "toNode": "cancel",
+      "toSide": "top",
+      "color": "1",
+      "label": "Steer / cancel / expire"
+    }
+  ]
+}

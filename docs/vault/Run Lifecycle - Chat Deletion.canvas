@@ -1,0 +1,225 @@
+{
+  "nodes": [
+    {
+      "id": "intro",
+      "type": "text",
+      "text": "## Permanent-chat deletion — agreed\n\nAccepted in D-049.\nStop and restore the active coding run, then delete its chat.\nEarlier-run code remains.\n\n[[Run Lifecycle Design]]\n[[Remaining Harness Decisions]]",
+      "x": 0,
+      "y": -450,
+      "width": 460,
+      "height": 310,
+      "color": "5"
+    },
+    {
+      "id": "delete",
+      "type": "text",
+      "text": "## 1 · User requests Delete\n\nMake the active-run consequence clear: this includes undoing its tracked edits.\nDeleting an idle chat keeps existing code.",
+      "x": 0,
+      "y": 0,
+      "width": 380,
+      "height": 280,
+      "color": "4"
+    },
+    {
+      "id": "block",
+      "type": "text",
+      "text": "## 2 · Mark deleting\n\nCapture any active run.\nBlock new prompts, tools, approvals, moves and retrieval.\nNo late completion can revive the chat.",
+      "x": 500,
+      "y": 0,
+      "width": 380,
+      "height": 280,
+      "color": "4"
+    },
+    {
+      "id": "active",
+      "type": "text",
+      "text": "## 3 · Active tracked repo edits?\n\nCheck actual run state when Delete is accepted.\nOnly the active run is eligible for this Stop-style restoration.",
+      "x": 1000,
+      "y": 0,
+      "width": 380,
+      "height": 280,
+      "color": "2"
+    },
+    {
+      "id": "stop",
+      "type": "text",
+      "text": "## 4 · Cancel and settle\n\nCancel generation, retries and approvals.\nSettle writers safely.\nKeep other repo editing runs queued.\nNo model-written farewell needed.",
+      "x": 1500,
+      "y": 0,
+      "width": 380,
+      "height": 280,
+      "color": "4"
+    },
+    {
+      "id": "restore",
+      "type": "text",
+      "text": "## 5 · Restore that run\n\nReuse guarded Stop rollback.\nPreserve earlier/user changes.\nVerify actual filesystem state.\nKeep recovery data until settled.",
+      "x": 2000,
+      "y": 0,
+      "width": 380,
+      "height": 280,
+      "color": "4"
+    },
+    {
+      "id": "cleanup",
+      "type": "text",
+      "text": "## 6 · Delete chat data\n\nAfter safe cancellation/restoration, remove transcript, local provider state and chat-only derived data.\nApply the agreed source/memory boundary.",
+      "x": 2500,
+      "y": 0,
+      "width": 380,
+      "height": 280,
+      "color": "4"
+    },
+    {
+      "id": "done",
+      "type": "text",
+      "text": "## 7 · Chat removed\n\nDiscard late callbacks and memory writes.\nDo not recreate chat records.\nRelease repository editing once recovery is settled.",
+      "x": 3000,
+      "y": 0,
+      "width": 380,
+      "height": 280,
+      "color": "3"
+    },
+    {
+      "id": "no_restore",
+      "type": "text",
+      "text": "## No active edits to restore\n\nCancel/settle an active text/read-only run, if any.\nAn idle chat has no run to cancel.\nKeep existing repository changes and proceed to chat cleanup.",
+      "x": 1000,
+      "y": 550,
+      "width": 430,
+      "height": 300,
+      "color": "3"
+    },
+    {
+      "id": "attention",
+      "type": "text",
+      "text": "## Deletion paused\n\nRestoration incomplete or effects uncertain.\nRetain recovery state and show remaining changes/conflicts.\nResolve recovery or explicitly keep the remaining state before finishing deletion.",
+      "x": 2000,
+      "y": 550,
+      "width": 430,
+      "height": 320,
+      "color": "1"
+    },
+    {
+      "id": "earlier",
+      "type": "text",
+      "text": "## Preserve earlier work\n\nEarlier finished/failed-run edits remain.\nDo not remove the project or repo folder.\nThe chat’s permanent project binding does not prohibit deleting the chat.",
+      "x": 0,
+      "y": 550,
+      "width": 430,
+      "height": 300,
+      "color": "6"
+    },
+    {
+      "id": "approval",
+      "type": "text",
+      "text": "## Cancel pending permissions\n\nLate approval clicks cannot run the deleted chat’s action.\nDo not start another model request to finish or summarize a deleting chat.",
+      "x": 500,
+      "y": 550,
+      "width": 430,
+      "height": 300,
+      "color": "6"
+    },
+    {
+      "id": "memory",
+      "type": "text",
+      "text": "## D-029 memory boundary\n\nDelete this source and its references.\nKeep other chats and facts supported elsewhere.\nInvalidate unsupported managed memory/caches.\n[[Memory & Context Policy]]",
+      "x": 2500,
+      "y": 550,
+      "width": 430,
+      "height": 300,
+      "color": "6"
+    },
+    {
+      "id": "scope",
+      "type": "text",
+      "text": "## Remaining boundaries\n\nTracked repository-file rollback only.\nCommands/external effects need separate recovery guarantees.\nWhole-project/section deletion is a later choice.",
+      "x": 3000,
+      "y": 550,
+      "width": 430,
+      "height": 300,
+      "color": "6"
+    }
+  ],
+  "edges": [
+    {
+      "id": "d1",
+      "fromNode": "delete",
+      "fromSide": "right",
+      "toNode": "block",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "d2",
+      "fromNode": "block",
+      "fromSide": "right",
+      "toNode": "active",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "d3",
+      "fromNode": "active",
+      "fromSide": "right",
+      "toNode": "stop",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Yes"
+    },
+    {
+      "id": "d4",
+      "fromNode": "stop",
+      "fromSide": "right",
+      "toNode": "restore",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Writers settled"
+    },
+    {
+      "id": "d5",
+      "fromNode": "restore",
+      "fromSide": "right",
+      "toNode": "cleanup",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Verified / recovery resolved"
+    },
+    {
+      "id": "d6",
+      "fromNode": "cleanup",
+      "fromSide": "right",
+      "toNode": "done",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "d7",
+      "fromNode": "active",
+      "fromSide": "bottom",
+      "toNode": "no_restore",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "No"
+    },
+    {
+      "id": "d8",
+      "fromNode": "no_restore",
+      "fromSide": "right",
+      "toNode": "cleanup",
+      "toSide": "bottom",
+      "toEnd": "arrow",
+      "label": "Safe cancellation complete"
+    },
+    {
+      "id": "d9",
+      "fromNode": "restore",
+      "fromSide": "bottom",
+      "toNode": "attention",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "Needs attention",
+      "color": "1"
+    }
+  ]
+}

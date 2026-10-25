@@ -1,0 +1,25 @@
+{
+  "nodes": [
+    {"id":"intro","type":"text","text":"## Core + tool lookup — agreed\n\nD-066 · Accepted from P-016.\nCodex-style core + optional discovery.\nPortable lookup for compatible other hosts.\nOptimize routing later.\n\n[[Tool Selection & Context]]","x":0,"y":-450,"width":460,"height":300,"color":"5"},
+    {"id":"prompt","type":"text","text":"## User task\n\nPrepare permitted context.\nInclude a compact appropriate core and lookup_tools when optional tools exist.\nDo not send every integration schema.","x":0,"y":0,"width":420,"height":300,"color":"4"},
+    {"id":"model","type":"text","text":"## Model chooses an action\n\nUse an already-visible core tool, or look for an optional capability.\nSame pattern for compatible small- and large-context models.","x":560,"y":0,"width":420,"height":300,"color":"4"},
+    {"id":"core","type":"text","text":"## Ordinary core work\n\nRead/search/edit definitions are already visible where appropriate.\nNo lookup round trip for every file read.\nNormal permissions still apply.","x":1120,"y":-450,"width":420,"height":300,"color":"3"},
+    {"id":"lookup","type":"text","text":"## 1 · Lookup optional tools\n\nExample: lookup_tools(“GitHub pull requests”).\nGranite searches only this run's eligible enabled catalog.\nNo second model needed for basic matching.","x":1120,"y":0,"width":440,"height":320,"color":"2"},
+    {"id":"definitions","type":"text","text":"## 2 · Load selected definitions\n\nReturn a small set of matches.\nMake full argument schemas available on the next model request.\nNames alone are insufficient.\nCheck actual context headroom.","x":1700,"y":0,"width":440,"height":320,"color":"2"},
+    {"id":"call","type":"text","text":"## 3 · Model requests the tool\n\nThe next response can call a discovered typed tool with concrete arguments.\nDiscovery itself has executed no external action.","x":2280,"y":0,"width":420,"height":300,"color":"4"},
+    {"id":"execute","type":"text","text":"## 4 · Validate and execute\n\nApply schema, scope and authorization checks.\nRecord actual effects/results.\nContinue the normal model/tool loop.\n\n[[Run Lifecycle Design]]","x":2840,"y":0,"width":440,"height":320,"color":"3"},
+    {"id":"permissions","type":"text","text":"## Lookup grants no access\n\nNo disabled tools, new server connections or expanded memory/repo scope.\nDiscovered writes/remote actions retain their normal approval rules.\n\n[[Tool Permissions]]","x":1700,"y":520,"width":440,"height":320,"color":"6"},
+    {"id":"local","type":"text","text":"## Ordinary function-tool design\n\nGranite can own lookup_tools.\nDoes not require a provider-native search feature.\nLocal-model compatibility/reliability still needs checking.","x":1120,"y":520,"width":440,"height":300,"color":"6"},
+    {"id":"phases","type":"text","text":"## Build in stages\n\nCore native tools first.\nSimple lookup with optional integrations.\nLater: ranking, caching/eviction and per-model tuning.\n\n[[Things to Optimize]]","x":0,"y":520,"width":440,"height":320,"color":"6"},
+    {"id":"small_catalog","type":"text","text":"## Small catalogs stay simple\n\nIf only the compact core is available, pass that core directly.\nDo not create an extra discovery step for every ordinary action.\nNo 100k/500k cutoff.","x":560,"y":520,"width":440,"height":300,"color":"6"}
+  ],
+  "edges": [
+    {"id":"t1","fromNode":"prompt","fromSide":"right","toNode":"model","toSide":"left","toEnd":"arrow"},
+    {"id":"t2","fromNode":"model","fromSide":"top","toNode":"core","toSide":"left","toEnd":"arrow","label":"Core tool already visible"},
+    {"id":"t3","fromNode":"model","fromSide":"right","toNode":"lookup","toSide":"left","toEnd":"arrow","label":"Optional capability needed"},
+    {"id":"t4","fromNode":"lookup","fromSide":"right","toNode":"definitions","toSide":"left","toEnd":"arrow"},
+    {"id":"t5","fromNode":"definitions","fromSide":"right","toNode":"call","toSide":"left","toEnd":"arrow","label":"Next model request"},
+    {"id":"t6","fromNode":"call","fromSide":"right","toNode":"execute","toSide":"left","toEnd":"arrow"},
+    {"id":"t7","fromNode":"core","fromSide":"right","toNode":"execute","toSide":"top","toEnd":"arrow","label":"Normal core call"}
+  ]
+}

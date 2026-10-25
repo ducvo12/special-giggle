@@ -1,0 +1,418 @@
+{
+  "nodes": [
+    {
+      "id": "title",
+      "type": "text",
+      "text": "## Memory & Context — accepted baseline\n\nContext: section’s Shared/Closed policy.\nRetention: permanent or temporary.\nTemporary chats stay under sections, never projects.\n\n[[Harness Design]]\n[[Temporary Chat Flow.canvas]]",
+      "x": 0,
+      "y": -530,
+      "width": 490,
+      "height": 290,
+      "color": "5"
+    },
+    {
+      "id": "choose",
+      "type": "text",
+      "text": "## Resolve current location\n\nSection → context scope.\nRepository project → edit capability.\n\nAfter a move, rebuild context and tool access before continuing (recommended).",
+      "x": -550,
+      "y": 420,
+      "width": 380,
+      "height": 250,
+      "color": "5"
+    },
+    {
+      "id": "shared",
+      "type": "text",
+      "text": "## Shared\n\nAgreed: may retrieve from other Shared sections of the same agent, plus agent-wide user memory and notes.\n\nClosed and Temporary content stay excluded.",
+      "x": 0,
+      "y": -80,
+      "width": 390,
+      "height": 280,
+      "color": "4"
+    },
+    {
+      "id": "sharedread",
+      "type": "text",
+      "text": "## May read / retrieve\n\nRicher current-section context.\nBrief summaries of other Shared sections/chats, with lookup for details.\nUser memory and relevant notes.\n\nSame agent; no Closed/Temporary lookup.",
+      "x": 540,
+      "y": -100,
+      "width": 360,
+      "height": 270,
+      "color": "4"
+    },
+    {
+      "id": "sharedwrite",
+      "type": "text",
+      "text": "## Automatic saving\n\nDurable user facts → user memory.\nUseful knowledge → notes.\nDecisions/open work → section context.\n\nIncremental, source-referenced.\nIdentity edits still need approval.",
+      "x": 1540,
+      "y": -100,
+      "width": 380,
+      "height": 270,
+      "color": "4"
+    },
+    {
+      "id": "section",
+      "type": "text",
+      "text": "## Closed\n\nPreviously called Section only.\nChats and projects share within this section.\nNo outside-chat context or user memory.\n\nMay convert to Shared.",
+      "x": 0,
+      "y": 420,
+      "width": 390,
+      "height": 290,
+      "color": "3"
+    },
+    {
+      "id": "sectionread",
+      "type": "text",
+      "text": "## May read / retrieve\n\nOwn history and local section context.\nNo outside conversation lookup or agent-wide memory/notes.\nPersonality still loads.\n\nShared repo files remain readable; other Closed repos do not.",
+      "x": 540,
+      "y": 420,
+      "width": 360,
+      "height": 290,
+      "color": "3"
+    },
+    {
+      "id": "sectionwrite",
+      "type": "text",
+      "text": "## May save\n\nAutomatic scoped updates to this section’s context/notes.\n\nCannot edit agent-wide identity, memory or notes.\nNo other-section retrieval of this content.",
+      "x": 1540,
+      "y": 420,
+      "width": 380,
+      "height": 290,
+      "color": "3"
+    },
+    {
+      "id": "temp",
+      "type": "text",
+      "text": "## Temporary retention overlay\n\nDirect section chat; permitted read context.\nNo durable memory writes.\nActive/queued work holds a full hour.\nReplies/actions reset it; idle/approval-only waits count down unless kept.",
+      "x": 0,
+      "y": 970,
+      "width": 390,
+      "height": 280,
+      "color": "1"
+    },
+    {
+      "id": "tempread",
+      "type": "text",
+      "text": "## Temporary may read\n\nOwn history and personality.\nParent section’s permitted context, including its projects.\n\nShared/Closed scope still applies. No access to other temporary chats.",
+      "x": 540,
+      "y": 970,
+      "width": 360,
+      "height": 230,
+      "color": "1"
+    },
+    {
+      "id": "tempwrite",
+      "type": "text",
+      "text": "## Temporary may retain\n\nOnly own expiring transcript/context.\nNo durable memory/notes, shared summaries, cross-chat search, identity edits or repository writes.",
+      "x": 1540,
+      "y": 970,
+      "width": 380,
+      "height": 270,
+      "color": "1"
+    },
+    {
+      "id": "model",
+      "type": "text",
+      "text": "## Model call\n\nCurrent request + personality/policy.\nRecent chat + older-chat summary.\nRicher local context.\nBrief eligible remote directory + scoped lookup.\n\nModel-aware budget; compact before full.",
+      "x": 1050,
+      "y": 420,
+      "width": 350,
+      "height": 320,
+      "color": "5"
+    },
+    {
+      "id": "identity",
+      "type": "text",
+      "text": "## Personality in every mode\n\nAgreed: load identity in Shared, Closed and Temporary.\n\nPersonality only; user-specific facts belong in scoped memory.",
+      "x": 1040,
+      "y": -490,
+      "width": 400,
+      "height": 250,
+      "color": "2"
+    },
+    {
+      "id": "history",
+      "type": "text",
+      "text": "## Transcripts ≠ user memory\n\nMessages stay in the database. Other-chat continuity needs summaries or explicit retrieval.\n\nDo not inject every chat into each call or copy all chat summaries to memory.md.",
+      "x": 0,
+      "y": 1420,
+      "width": 430,
+      "height": 300,
+      "color": "6"
+    },
+    {
+      "id": "toggle",
+      "type": "text",
+      "text": "## One-way conversion\n\nClosed → Shared only.\n\nExisting section content joins Shared retrieval scope. The section gains Shared context access.\n\nCannot switch back to Closed.",
+      "x": 540,
+      "y": 1420,
+      "width": 420,
+      "height": 300,
+      "color": "2"
+    },
+    {
+      "id": "reclaim",
+      "type": "text",
+      "text": "## Keep chat in its section\n\nAsk user; retain transcript and remove expiry in place.\nNormal memory eligibility begins.\n\nRepository edits still require a separate approved permanent move into its project.",
+      "x": 1050,
+      "y": 1420,
+      "width": 410,
+      "height": 300,
+      "color": "6"
+    },
+    {
+      "id": "tools",
+      "type": "text",
+      "text": "## Repository access\n\nShared repo: all same-agent chats read.\nClosed repo: same-section reads only.\nInside owning project: read/write, no per-edit prompts.\nTemporary: Keep, then approve project entry before editing.\n[[Repository Access.canvas]]",
+      "x": 1540,
+      "y": 1420,
+      "width": 410,
+      "height": 300,
+      "color": "2"
+    },
+    {
+      "id": "moves",
+      "type": "text",
+      "text": "## Moving chats\n\nClosed source section: open the whole section first.\nShared source: ordinary chats may move.\nRepository-project chats cannot leave.\nProjects never move sections.\n\nExisting transcript travels with an eligible chat.",
+      "x": 2080,
+      "y": 420,
+      "width": 420,
+      "height": 340,
+      "color": "6"
+    },
+    {
+      "id": "memory_policy",
+      "type": "text",
+      "text": "## When to save\n\nExplicit remember/correction, durable user facts, meaningful decisions or outcomes.\n\nRefresh summaries after materially changed completed turns. Skip greetings/repetition.\n\n[[Memory & Context Policy]]",
+      "x": 0,
+      "y": 2100,
+      "width": 430,
+      "height": 300,
+      "color": "4"
+    },
+    {
+      "id": "provenance",
+      "type": "text",
+      "text": "## Delete source, preserve other chats\n\nRemove deleted chat and its memory support links.\nKeep facts supported by surviving eligible content.\nDo not delete or rewrite other chats.\n\nGenerated caches are not independent evidence.\n[[Memory & Context Policy]]",
+      "x": 540,
+      "y": 2100,
+      "width": 430,
+      "height": 300,
+      "color": "2"
+    },
+    {
+      "id": "budget",
+      "type": "text",
+      "text": "## Context budget\n\nReserve at least 25% for reply/tool headroom.\nCompact at 80% of remaining input budget; target 60%.\n\nKeep full transcript. Preserve policy/current request. Tune defaults during implementation.",
+      "x": 1050,
+      "y": 2100,
+      "width": 430,
+      "height": 300,
+      "color": "5"
+    },
+    {
+      "id": "temporary_proposal",
+      "type": "text",
+      "text": "## Keep → move → edit — AGREED\n\n1. User agrees to keep the chat.\n2. User separately agrees to move it permanently into the repo project.\n3. Move succeeds; normal edit tools may run.\n\nNo temporary chats inside projects.\n[[Temporary Chat Flow.canvas]]",
+      "x": 2080,
+      "y": 970,
+      "width": 420,
+      "height": 350,
+      "color": "6"
+    },
+    {
+      "id": "deletion_example",
+      "type": "text",
+      "text": "## Example: “I like coding”\n\nOne remembered fact.\nSources: chats A, B, C, D, E.\n\nDelete chat A → remove its source link.\nSources B, C, D, E remain.\nThe preference stays known.\nOther chats stay unchanged.",
+      "x": 540,
+      "y": 2520,
+      "width": 430,
+      "height": 300,
+      "color": "3"
+    },
+    {
+      "id": "context_tools_proposal",
+      "type": "text",
+      "text": "## Context tool APIs — agreed\n\nD-058: native context listing, search and reads.\nScope before matching; source-linked snippets and bounded detail reads.\nExact names remain illustrative.\n\n[[Repository & Context Tools]]\n[[Context Retrieval.canvas]]",
+      "x": 1050,
+      "y": 2520,
+      "width": 430,
+      "height": 340,
+      "color": "5"
+    },
+    {
+      "id": "repo_tools_proposal",
+      "type": "text",
+      "text": "## Repository tool exposure — agreed\n\nD-058 · Outside owning project: omit repo-write schemas, including from tool lookup.\nKeep eligible repo reads and separately scoped memory updates.\nBackend checks remain mandatory.\n\n[[Repository & Context Tools]]",
+      "x": 1540,
+      "y": 2520,
+      "width": 430,
+      "height": 340,
+      "color": "2"
+    },
+    {
+      "id": "current_files",
+      "type": "text",
+      "text": "## Current files — D-060\n\nManual and agent edits have equal standing.\nRefresh eligible file versions each request.\nScope/context limits still apply.\nA stale cache cannot restore a removed line.\n\n[[Container & Settings Rules]]",
+      "x": 0,
+      "y": 3040,
+      "width": 460,
+      "height": 340,
+      "color": "3"
+    },
+    {
+      "id": "permission_timing",
+      "type": "text",
+      "text": "## Changed permissions — D-064\n\nDo not auto-stop a run.\nRefresh context/tool definitions next request.\nCheck current authorization before each tool action.\nAn already-started action is not cancelled.\nUser can Stop.",
+      "x": 540,
+      "y": 3040,
+      "width": 460,
+      "height": 340,
+      "color": "2"
+    }
+  ],
+  "edges": [
+    {
+      "id": "m1",
+      "fromNode": "choose",
+      "fromSide": "right",
+      "toNode": "shared",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Context: Shared"
+    },
+    {
+      "id": "m2",
+      "fromNode": "choose",
+      "fromSide": "right",
+      "toNode": "section",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Context: Closed"
+    },
+    {
+      "id": "m3",
+      "fromNode": "choose",
+      "fromSide": "right",
+      "toNode": "temp",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Retention: temporary"
+    },
+    {
+      "id": "m4",
+      "fromNode": "shared",
+      "fromSide": "right",
+      "toNode": "sharedread",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "m5",
+      "fromNode": "section",
+      "fromSide": "right",
+      "toNode": "sectionread",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "m6",
+      "fromNode": "temp",
+      "fromSide": "right",
+      "toNode": "tempread",
+      "toSide": "left",
+      "toEnd": "arrow"
+    },
+    {
+      "id": "m7",
+      "fromNode": "sharedread",
+      "fromSide": "right",
+      "toNode": "model",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Allowed context"
+    },
+    {
+      "id": "m8",
+      "fromNode": "sectionread",
+      "fromSide": "right",
+      "toNode": "model",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Allowed context"
+    },
+    {
+      "id": "m9",
+      "fromNode": "tempread",
+      "fromSide": "right",
+      "toNode": "model",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Allowed context"
+    },
+    {
+      "id": "m10",
+      "fromNode": "model",
+      "fromSide": "right",
+      "toNode": "sharedwrite",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Permanent Shared only"
+    },
+    {
+      "id": "m11",
+      "fromNode": "model",
+      "fromSide": "right",
+      "toNode": "sectionwrite",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Permanent Closed only"
+    },
+    {
+      "id": "m12",
+      "fromNode": "model",
+      "fromSide": "right",
+      "toNode": "tempwrite",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Temporary only"
+    },
+    {
+      "id": "m13",
+      "fromNode": "identity",
+      "fromSide": "bottom",
+      "toNode": "model",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "Personality in every chat"
+    },
+    {
+      "id": "m14",
+      "fromNode": "section",
+      "fromSide": "top",
+      "toNode": "shared",
+      "toSide": "bottom",
+      "toEnd": "arrow",
+      "label": "Convert entire section; no reverse",
+      "color": "4"
+    },
+    {
+      "id": "m15",
+      "fromNode": "memory_policy",
+      "fromSide": "right",
+      "toNode": "provenance",
+      "toSide": "left",
+      "toEnd": "arrow",
+      "label": "Track where saved information came from"
+    },
+    {
+      "id": "m16",
+      "fromNode": "provenance",
+      "fromSide": "bottom",
+      "toNode": "deletion_example",
+      "toSide": "top",
+      "toEnd": "arrow",
+      "label": "Multiple surviving sources"
+    }
+  ]
+}
