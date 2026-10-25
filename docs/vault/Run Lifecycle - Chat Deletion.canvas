@@ -3,7 +3,7 @@
     {
       "id": "intro",
       "type": "text",
-      "text": "## Permanent-chat deletion — agreed\n\nAccepted in D-049.\nStop and restore the active coding run, then delete its chat.\nEarlier-run code remains.\n\n[[Run Lifecycle Design]]\n[[Remaining Harness Decisions]]",
+      "text": "## Chat deletion — revised D-067\n\nCancel and settle active work, then delete chat data.\nKeep completed repository edits.\n\n[[Run Lifecycle Design]]\n[[Container & Settings Rules]]",
       "x": 0,
       "y": -450,
       "width": 460,
@@ -13,7 +13,7 @@
     {
       "id": "delete",
       "type": "text",
-      "text": "## 1 · User requests Delete\n\nMake the active-run consequence clear: this includes undoing its tracked edits.\nDeleting an idle chat keeps existing code.",
+      "text": "## 1 · User requests Delete\n\nDeleting a chat keeps existing repository files, including its latest completed edits.\nActive work is cancelled before cleanup.",
       "x": 0,
       "y": 0,
       "width": 380,
@@ -33,7 +33,7 @@
     {
       "id": "active",
       "type": "text",
-      "text": "## 3 · Active tracked repo edits?\n\nCheck actual run state when Delete is accepted.\nOnly the active run is eligible for this Stop-style restoration.",
+      "text": "## 3 · Any active work?\n\nCheck actual run/process state.\nActive runs need cancellation/settlement.\nIdle or never-started work needs no file rollback.",
       "x": 1000,
       "y": 0,
       "width": 380,
@@ -43,7 +43,7 @@
     {
       "id": "stop",
       "type": "text",
-      "text": "## 4 · Cancel and settle\n\nCancel generation, retries and approvals.\nSettle writers safely.\nKeep other repo editing runs queued.\nNo model-written farewell needed.",
+      "text": "## 4 · Cancel and settle\n\nCancel generation, retries and approvals.\nSettle owned writers safely.\nRetain this project’s reservation during cleanup.\nNo model-written farewell needed.",
       "x": 1500,
       "y": 0,
       "width": 380,
@@ -53,7 +53,7 @@
     {
       "id": "restore",
       "type": "text",
-      "text": "## 5 · Restore that run\n\nReuse guarded Stop rollback.\nPreserve earlier/user changes.\nVerify actual filesystem state.\nKeep recovery data until settled.",
+      "text": "## 5 · Preserve actual edits\n\nKeep current repository files.\nResolve genuinely unknown effects.\nNo automatic rollback or undo journal.\nKnown retained edits do not pause deletion.",
       "x": 2000,
       "y": 0,
       "width": 380,
@@ -63,7 +63,7 @@
     {
       "id": "cleanup",
       "type": "text",
-      "text": "## 6 · Delete chat data\n\nAfter safe cancellation/restoration, remove transcript, local provider state and chat-only derived data.\nApply the agreed source/memory boundary.",
+      "text": "## 6 · Delete chat data\n\nAfter safe cancellation/settlement, remove transcript, provider state and chat-owned derived data.\nApply source/memory cleanup.",
       "x": 2500,
       "y": 0,
       "width": 380,
@@ -73,7 +73,7 @@
     {
       "id": "done",
       "type": "text",
-      "text": "## 7 · Chat removed\n\nDiscard late callbacks and memory writes.\nDo not recreate chat records.\nRelease repository editing once recovery is settled.",
+      "text": "## 7 · Chat removed\n\nDiscard late callbacks and memory writes.\nDo not recreate chat records.\nRelease scheduling after cleanup settles.",
       "x": 3000,
       "y": 0,
       "width": 380,
@@ -83,7 +83,7 @@
     {
       "id": "no_restore",
       "type": "text",
-      "text": "## No active edits to restore\n\nCancel/settle an active text/read-only run, if any.\nAn idle chat has no run to cancel.\nKeep existing repository changes and proceed to chat cleanup.",
+      "text": "## No active work\n\nCancel a never-started queue entry if present.\nKeep repository changes.\nProceed to chat-owned data cleanup.",
       "x": 1000,
       "y": 550,
       "width": 430,
@@ -93,7 +93,7 @@
     {
       "id": "attention",
       "type": "text",
-      "text": "## Deletion paused\n\nRestoration incomplete or effects uncertain.\nRetain recovery state and show remaining changes/conflicts.\nResolve recovery or explicitly keep the remaining state before finishing deletion.",
+      "text": "## Cleanup needs attention\n\nA process/action outcome is genuinely unknown.\nRetain necessary reconciliation records.\nKnown retained edits alone do not block deletion.",
       "x": 2000,
       "y": 550,
       "width": 430,
@@ -133,7 +133,7 @@
     {
       "id": "scope",
       "type": "text",
-      "text": "## Remaining boundaries\n\nTracked repository-file rollback only.\nCommands/external effects need separate recovery guarantees.\nWhole-project/section deletion is a later choice.",
+      "text": "## Container deletion differs\n\nDeleting a chat keeps code.\nDeleting a physical project/section/agent folder deletes code inside it.\nExternal linked folders survive.\nD-059 / D-067.",
       "x": 3000,
       "y": 550,
       "width": 430,
@@ -183,7 +183,7 @@
       "toNode": "cleanup",
       "toSide": "left",
       "toEnd": "arrow",
-      "label": "Verified / recovery resolved"
+      "label": "Outcomes settled"
     },
     {
       "id": "d6",

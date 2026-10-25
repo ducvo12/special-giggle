@@ -4,6 +4,14 @@
 
 Related: [[Harness Design]] · [[Run Lifecycle Design]] · [[Memory & Context Policy]] · [[Decisions & Questions]]
 
+## Automatic file restoration — deferred by D-067
+
+- [ ] Evaluate restoring only the interrupted run’s repository edits after Stop or unexpected closure, preserving pre-existing and concurrent changes. The first version cancels/settles work and keeps completed edits, including when deleting a chat.
+- [ ] Evaluate the necessary durable before/write records, guarded restoration, conflict handling, command-generated edits, duplicate-project links, restart recovery and snapshot cleanup. Avoid promising reversal of Git history, installations or remote effects.
+- [ ] Decide whether automatic Stop restoration or an explicit user-driven Undo interface is preferable after the basic lifecycle is working. Retain visible diffs, stale-edit checks and genuine uncertain-outcome handling in the first version.
+
+Earlier design material: [[Deferred File Restoration]] · [[Deferred File Restoration.canvas]]. This feature is outside step 3 of the initial implementation plan; ordinary repository tools, change visibility and cancellation remain included.
+
 ## Large-repository work
 
 - [ ] Measure searches, file reads, latency, context use, and task success on repositories with hundreds or thousands of files.
@@ -13,9 +21,9 @@ Related: [[Harness Design]] · [[Run Lifecycle Design]] · [[Memory & Context Po
 
 ## Repository concurrency
 
-- [ ] Allow genuinely read-only runs inside a repository project to run concurrently where safe. The first iteration reserves the repository for every run in that project, including questions that make no edits. Evaluate explicit read-only capability enforcement, access to in-progress changes and transition into an editing run while preserving per-project scheduling and the guarded Stop/undo boundary. D-062 allows separate projects to link/edit the same folder concurrently, so global single-editor exclusion is no longer a guarantee. Do not rely only on the model predicting it will not write. See [[Concurrency & Limits]].
+- [ ] Allow genuinely read-only runs inside a repository project to run concurrently where safe. The first iteration reserves the repository for every run in that project, including questions that make no edits. Evaluate explicit read-only capability enforcement, access to in-progress changes and transition into an editing run while preserving per-project scheduling, cancellation and conflict checks. Automatic Stop restoration is deferred by D-067. D-062 allows separate projects to link/edit the same folder concurrently, so global single-editor exclusion is no longer a guarantee. Do not rely only on the model predicting it will not write. See [[Concurrency & Limits]].
 
-- [ ] Evaluate cross-project coordination when multiple projects/agents link the same folder: stronger overlap/worktree detection, optional isolation and collision-aware scheduling. D-062 allows these links now with stored paths and a warning; do not reintroduce a mandatory unique owner as an unreviewed optimization. Keep conflict protection and report incomplete Stop restoration honestly.
+- [ ] Evaluate cross-project coordination when multiple projects/agents link the same folder: stronger overlap/worktree detection, optional isolation and collision-aware scheduling. D-062 allows these links now with stored paths and a warning; do not reintroduce a mandatory unique owner as an unreviewed optimization. Keep edit conflict protection and report actual outcomes; automatic restoration is deferred under D-067.
 - [ ] If subagents are introduced later, design explicit delegated repository coordination. Relationship alone does not prevent simultaneous same-file conflicts; there are no subagents in version one.
 
 ## Model context

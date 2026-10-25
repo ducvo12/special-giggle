@@ -6,9 +6,13 @@ import type { SavedConnection, StreamActivity } from '../../../../shared/chat'
 import MessageList from './MessageList'
 import ChatModelPicker from './ChatModelPicker'
 import type { ModelSelection } from './useConnectionModel'
+import type { Project, Section } from '../../../../shared/organization'
 
 type Props = {
   conversationId: string
+  conversationTitle?: string
+  section?: Section
+  project?: Project
   messageInput: RefObject<HTMLTextAreaElement | null>
   agent: Agent | undefined
   connections: SavedConnection[]
@@ -27,6 +31,7 @@ type Props = {
   draft: string
   elapsed: number
   stopping: boolean
+  runUnavailable?: string
   onSelectConnection: (id: string) => void
   onOpenSettings: () => void
   onCreateAgent: () => void
@@ -38,6 +43,9 @@ type Props = {
 
 export default function ChatView({
   conversationId,
+  conversationTitle,
+  section,
+  project,
   messageInput,
   agent,
   connections,
@@ -56,6 +64,7 @@ export default function ChatView({
   draft,
   elapsed,
   stopping,
+  runUnavailable,
   onSelectConnection,
   onOpenSettings,
   onCreateAgent,
@@ -72,6 +81,18 @@ export default function ChatView({
 
   return (
     <main className="chat-main">
+      {section && (
+        <header className="chat-heading">
+          <nav className="chat-breadcrumb" aria-label="Chat location">
+            <ol>
+              <li title={section.name}>{section.name}</li>
+              {project && <li title={project.name}>{project.name}</li>}
+              <li aria-current="page" title={conversationTitle}>{conversationId ? conversationTitle ?? 'Chat' : 'New chat'}</li>
+            </ol>
+          </nav>
+          <span className="chat-heading-status">{conversationId ? section.mode === 'closed' ? 'Closed' : 'Shared' : 'Unsaved draft'}</span>
+        </header>
+      )}
       <MessageList
         key={conversationId || 'new-chat'}
         agent={agent}
@@ -86,6 +107,7 @@ export default function ChatView({
       />
 
       <div className="composer-area">
+        {runUnavailable && <p className="organization-notice" role="status">{runUnavailable}</p>}
         {requestPending && !busy && (
           <div className="background-response" role="status">
             <span>Another chat is responding</span>
@@ -119,7 +141,7 @@ export default function ChatView({
             ref={messageInput}
             aria-label="Message"
             value={draft}
-            disabled={!connection || !agent || !loaded}
+            disabled={!connection || !agent || !loaded || Boolean(runUnavailable)}
             placeholder={
               connection
                 ? `Message ${agent?.name ?? 'your agent'}…`
@@ -186,7 +208,7 @@ export default function ChatView({
                   className="send-button"
                   aria-label="Send message"
                   title="Send message"
-                  disabled={requestPending || !draft.trim() || !modelSelection.ready || !agent || !loaded}
+                  disabled={requestPending || !draft.trim() || !modelSelection.ready || !agent || !loaded || Boolean(runUnavailable)}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M12 19V5m-6 6 6-6 6 6" />

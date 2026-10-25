@@ -1,6 +1,7 @@
 import { AgentRuntime } from './runtime.ts'
 import type { Connection, StreamDelta } from '../../shared/chat.ts'
 import type { HarnessSettings } from '../../shared/harness.ts'
+import type { ConversationLocation, SectionMode } from '../../shared/organization.ts'
 
 type Request = { id: string; action: string; args: unknown[] }
 
@@ -62,7 +63,31 @@ port.on('message', async ({ data }: { data: Request }) => {
         value = agent.store.list(args[0] as string)
         break
       case 'create':
-        value = await agent.createConversation(args[0] as string)
+        value = await agent.createConversation(args[0] as string, args[1] as Partial<ConversationLocation> | undefined)
+        break
+      case 'move':
+        value = await agent.moveConversation(args[0] as string, args[1] as string, args[2] as ConversationLocation)
+        break
+      case 'organization:get':
+        value = await agent.organization(args[0] as string)
+        break
+      case 'organization:createSection':
+        value = await agent.createSection(args[0] as string, args[1] as string, args[2] as SectionMode)
+        break
+      case 'organization:renameSection':
+        value = await agent.renameSection(args[0] as string, args[1] as string, args[2] as string)
+        break
+      case 'organization:shareSection':
+        value = await agent.shareSection(args[0] as string, args[1] as string)
+        break
+      case 'organization:createProject':
+        value = await agent.createProject(args[0] as string, args[1] as string, args[2] as string)
+        break
+      case 'organization:renameProject':
+        value = await agent.renameProject(args[0] as string, args[1] as string, args[2] as string)
+        break
+      case 'organization:attachRepository':
+        value = await agent.attachRepository(args[0] as string, args[1] as string, args[2] as string)
         break
       case 'rename':
         value = await agent.renameConversation(args[0] as string, args[1] as string, args[2] as string)
@@ -81,6 +106,12 @@ port.on('message', async ({ data }: { data: Request }) => {
         break
       case 'read':
         value = await agent.read(args[0] as string, args[1] as string)
+        break
+      case 'workspace:save':
+        value = await agent.saveMarkdown(args[0] as string, args[1] as string, args[2] as string, args[3] as string | null)
+        break
+      case 'workspace:renameNote':
+        value = await agent.renameNote(args[0] as string, args[1] as string, args[2] as string)
         break
       case 'stop':
         stopped.add(args[0] as string)

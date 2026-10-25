@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { lstat, mkdir, readdir, rename, rm, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { link, lstat, mkdir, readdir, rename, rm, unlink, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { defaultIdentity, type Agent } from '../../shared/agent.ts'
 import { AgentFilesystem } from '../workspace/filesystem.ts'
 import { createWorkspace, workspaceText } from '../workspace/workspace.ts'
@@ -177,5 +177,72 @@ export class AgentRegistry {
     }
 
     return identity
+  }
+
+  async saveMarkdown(id: string, path: string, content: string, expected: string | null) {
+    if (path === '/identity.md' && typeof expected === 'string') return this.saveIdentity(id, content, expected)
+    if (typeof path !== 'string' || !/^\/(memory\.md|notes\/.+\.md)$/.test(path) ||
+        typeof content !== 'string' || content.length > 100_000 || content.includes('\0') ||
+        !(expected === null || typeof expected === 'string')) {
+      throw new Error('Choose a Markdown file in memory or notes (up to 100,000 characters).')
+    }
+    const workspace = await this.workspace(id)
+    await workspace.check(path)
+    const destination = join(workspace.root, path.slice(1))
+    if (expected === null) {
+      if (!path.startsWith('/notes/')) throw new Error('New files belong in notes.')
+      // Exclusive creation cannot replace an existing note, even if another
+      // local process created it after the user opened the dialog.
+      await writeFile(destination, content, { flag: 'wx', mode: 0o600 })
+    } else {
+      if (await workspaceText(workspace, path) !== expected) {
+        throw new Error('This file changed. Reload it before saving your edits.')
+      }
+      const temporary = join(dirname(destination), `.edit-${randomUUID()}.tmp`)
+      try {
+        await writeFile(temporary, content, { flag: 'wx', mode: 0o600 })
+        await rename(temporary, destination)
+      } finally { await rm(temporary, { force: true }) }
+    }
+    return content
+  }
+
+  async renameNote(id: string, path: string, value: string) {
+    if (typeof path !== 'string' || !path.startsWith('/notes/') || !path.endsWith('.md') ||
+        typeof value !== 'string' || !value.trim() || value.trim().length > 120 || /[\\/\u0000-\u001f\u007f]/.test(value)) {
+      throw new Error('Choose a note name without slashes or control characters.')
+    }
+    const filename = value.trim().endsWith('.md') ? value.trim() : `${value.trim()}.md`
+    if (filename === '.md' || filename === '..md') throw new Error('Choose a descriptive note name.')
+    const next = path.slice(0, path.lastIndexOf('/') + 1) + filename
+    const workspace = await this.workspace(id)
+    await workspace.check(path)
+    await workspace.check(next)
+    const source = join(workspace.root, path.slice(1))
+    const destination = join(workspace.root, next.slice(1))
+    const info = await lstat(source)
+    if (!info.isFile()) throw new Error('Choose a note file, not a folder.')
+    if (path === next) return next
+    try {
+      // Unlike rename(), link() cannot replace an existing destination. Keep
+      // the original bytes/inode, then remove the old directory entry.
+      await link(source, destination)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
+      const target = await lstat(destination)
+      const entries = await readdir(dirname(source))
+      if (info.ino === target.ino && info.dev === target.dev && !entries.includes(filename)) {
+        // Case-only name change on a case-insensitive filesystem.
+        await rename(source, destination)
+        return next
+      }
+      throw new Error('A note with that name already exists. Choose another name.')
+    }
+    try { await unlink(source) }
+    catch (error) {
+      await unlink(destination)
+      throw error
+    }
+    return next
   }
 }

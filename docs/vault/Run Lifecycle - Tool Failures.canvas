@@ -63,7 +63,7 @@
     {
       "id": "reconcile",
       "type": "text",
-      "text": "## Determine actual outcome\n\nRead operation/undo records, files or available service status.\nKnown success, no effect, partial effect, or still unknown?\nDo not ask the model to guess.",
+      "text": "## Determine actual outcome\n\nRead operation/outcome records, files or available service status.\nKnown success, no effect, partial effect, or still unknown?\nNever guess or blindly replay.",
       "x": 1660,
       "y": 0,
       "width": 440,
@@ -103,7 +103,7 @@
     {
       "id": "continue",
       "type": "text",
-      "text": "## Continue after ordinary failure\n\nNew run, context and undo boundary.\nUse actual completed/reverted outcomes.\nUnresolved repository recovery must be resolved before more editing.\n\n[[Run Lifecycle - Model Request Failures.canvas]]",
+      "text": "## Continue after failure\n\nNew run and fresh permissions/context.\nUse actual tool outcomes and current files.\nResolve genuine action uncertainty before more affected writes.\nNo automatic undo boundary.",
       "x": 2820,
       "y": 0,
       "width": 460,
@@ -113,7 +113,7 @@
     {
       "id": "records",
       "type": "text",
-      "text": "## Keep necessary recovery data\n\nRetain full records while unresolved.\nAfter durable resolution, release unneeded undo snapshots.\nKeep normal chat/tool/diff history.\nDeleting a chat cannot erase unresolved recovery.",
+      "text": "## Keep necessary outcome data\n\nRetain records while an outcome is unknown.\nRelease unneeded records after resolution.\nKeep normal history/diffs.\nFull automatic-undo snapshots are deferred.",
       "x": 0,
       "y": 520,
       "width": 440,
@@ -123,7 +123,7 @@
     {
       "id": "boundaries",
       "type": "text",
-      "text": "## Preserve the agreed distinction\n\nOrdinary failures retain successful edits.\nUser Stop / application crash restore tracked interrupted-run changes.\nSteering preserves the same undo boundary.\n\n[[Unexpected Closure Recovery]]",
+      "text": "## Completed edits remain\n\nOrdinary failures, Stop and crash keep completed edits.\nSteering preserves the same run.\nCancel/settle work and report actual outcomes.\n\n[[Unexpected Closure Recovery]]",
       "x": 540,
       "y": 520,
       "width": 440,
@@ -133,7 +133,7 @@
     {
       "id": "old_undo",
       "type": "text",
-      "text": "## First-version deferral — agreed\n\nNo dedicated Undo-an-earlier-run interface.\nLive Stop/crash restoration remains.\nNo whole-run time/step/tool budgets are added.\n\n[[Model & Tool Failures]]",
+      "text": "## Restoration deferred — D-067\n\nNo automatic Stop/crash rollback or earlier-run Undo interface.\nKeep cancellation, diffs and uncertainty checks.\n\n[[Deferred File Restoration]]",
       "x": 1100,
       "y": 520,
       "width": 440,

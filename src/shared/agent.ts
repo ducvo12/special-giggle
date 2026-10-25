@@ -1,4 +1,5 @@
 import type { ContextUsage, Message } from './chat'
+import type { ChatRetention, ConversationLocation } from './organization'
 
 export type RunStatus = 'running' | 'complete' | 'stopped' | 'interrupted' | 'error'
 
@@ -28,11 +29,15 @@ export interface Agent {
   name: string
 }
 
-export interface Conversation {
+export interface Conversation extends ConversationLocation {
   id: string
   agentId: string
   title: string
   updatedAt: number
+  createdAt: number
+  lastChattedAt: number | null
+  retention: ChatRetention
+  expiresAt: number | null
 }
 
 export interface ConversationDetail extends Conversation {

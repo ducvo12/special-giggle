@@ -1,10 +1,11 @@
-import { app, BrowserWindow, ipcMain, safeStorage, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, safeStorage, shell } from 'electron'
 import { listModels, listModelCatalog, safely } from '../backend/models/api'
 import { ConnectionStore } from '../backend/connections/store'
 import { AgentClient } from './agent-client'
 import type { ConnectionDraft } from '../shared/chat'
 import { ChatGPTAccounts } from '../backend/auth/chatgpt'
 import type { HarnessSettings } from '../shared/harness'
+import type { ConversationLocation } from '../shared/organization'
 
 export function registerIpc(directory: string) {
   const protection = {
@@ -162,7 +163,23 @@ export function registerIpc(directory: string) {
     return agents.call('responseDuration', agentId, id, messageId, durationMs)
   })
 
+  ipcMain.handle('workspace:save', (event, agentId, path, content, expected) => {
+    trusted(event)
+    if (typeof agentId !== 'string' || agentId.length > 64 || typeof path !== 'string' || path.length > 1024 ||
+        typeof content !== 'string' || content.length > 100_000 ||
+        !(expected === null || typeof expected === 'string' && expected.length <= 100_000)) {
+      return { ok: false, error: 'Invalid file edit.' }
+    }
+    return agents.call('workspace:save', agentId, path, content, expected)
+  })
+
   const routes: Record<string, { action: string; limits: number[] }> = {
+    'organization:get': { action: 'organization:get', limits: [64] },
+    'organization:createSection': { action: 'organization:createSection', limits: [64, 80, 6] },
+    'organization:renameSection': { action: 'organization:renameSection', limits: [64, 100, 80] },
+    'organization:shareSection': { action: 'organization:shareSection', limits: [64, 100] },
+    'organization:createProject': { action: 'organization:createProject', limits: [64, 100, 80] },
+    'organization:renameProject': { action: 'organization:renameProject', limits: [64, 100, 80] },
     'harness:get': { action: 'harness:get', limits: [64] },
     'harness:skills': { action: 'harness:skills', limits: [64] },
     'harness:saveSkill': { action: 'harness:saveSkill', limits: [64, 64, 32_000] },
@@ -171,13 +188,43 @@ export function registerIpc(directory: string) {
     'agents:delete': { action: 'agents:delete', limits: [64] },
     'agents:saveIdentity': { action: 'agents:saveIdentity', limits: [64, 32_000, 100_000] },
     'conversations:list': { action: 'list', limits: [64] },
-    'conversations:create': { action: 'create', limits: [64] },
     'conversations:rename': { action: 'rename', limits: [64, 100, 200] },
     'conversations:delete': { action: 'delete', limits: [64, 100] },
     'conversations:get': { action: 'get', limits: [64, 100] },
     'workspace:entries': { action: 'entries', limits: [64, 1024] },
+    'workspace:renameNote': { action: 'workspace:renameNote', limits: [64, 1024, 120] },
     'workspace:read': { action: 'read', limits: [64, 1024] }
   }
+
+  function validLocation(value: unknown, optional = false): value is Partial<ConversationLocation> {
+    if (value === undefined) return optional
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+    const location = value as Record<string, unknown>
+    return Object.keys(location).every(key => key === 'sectionId' || key === 'projectId') &&
+      (location.sectionId === undefined ? optional : typeof location.sectionId === 'string' && location.sectionId.length <= 100) &&
+      (location.projectId === undefined ? optional : location.projectId === null || typeof location.projectId === 'string' && location.projectId.length <= 100)
+  }
+  ipcMain.handle('conversations:create', (event, agentId, location) => {
+    trusted(event)
+    if (typeof agentId !== 'string' || agentId.length > 64 || !validLocation(location, true)) return { ok: false, error: 'Invalid chat location.' }
+    return agents.call('create', agentId, location)
+  })
+  ipcMain.handle('conversations:move', (event, agentId, id, location) => {
+    trusted(event)
+    if (typeof agentId !== 'string' || agentId.length > 64 || typeof id !== 'string' || id.length > 100 || !validLocation(location)) return { ok: false, error: 'Invalid chat location.' }
+    return agents.call('move', agentId, id, location)
+  })
+  ipcMain.handle('organization:chooseRepository', async (event, agentId, projectId) => {
+    trusted(event)
+    if (active.size || typeof agentId !== 'string' || agentId.length > 64 || typeof projectId !== 'string' || projectId.length > 100) {
+      return { ok: false, error: 'Finish the current operation before linking a folder.' }
+    }
+    const selected = await dialog.showOpenDialog(BrowserWindow.fromWebContents(event.sender)!, {
+      title: 'Link a repository folder', properties: ['openDirectory'], buttonLabel: 'Link folder'
+    })
+    if (selected.canceled || !selected.filePaths[0]) return { ok: true, value: null }
+    return agents.call('organization:attachRepository', agentId, projectId, selected.filePaths[0])
+  })
 
   for (const [channel, { action, limits }] of Object.entries(routes)) {
     ipcMain.handle(channel, (event, ...args: unknown[]) => {

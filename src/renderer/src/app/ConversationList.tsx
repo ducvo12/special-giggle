@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { Conversation } from '../../../shared/agent'
+import { chatMoveProblem, type AgentOrganization, type ConversationLocation } from '../../../shared/organization'
 
 type Props = {
   conversations: Conversation[]
@@ -9,17 +10,28 @@ type Props = {
   onSelect: (id: string) => void
   onRename: (id: string, title: string) => Promise<boolean>
   onDelete: (id: string) => Promise<boolean>
+  organization: AgentOrganization
+  onMove: (id: string, location: ConversationLocation) => Promise<boolean>
 }
 
-type Menu = { id: string; x: number; y: number; mode: 'options' | 'rename' | 'delete' }
+type Menu = { id: string; x: number; y: number; mode: 'options' | 'rename' | 'delete' | 'move' }
 
-export default function ConversationList({ conversations, selectedId, disabled, actionsDisabled = disabled, onSelect, onRename, onDelete }: Props) {
+export default function ConversationList({ conversations, selectedId, disabled, actionsDisabled = disabled, organization, onSelect, onRename, onDelete, onMove }: Props) {
   const [menu, setMenu] = useState<Menu | null>(null)
   const [title, setTitle] = useState('')
   const [saving, setSaving] = useState(false)
+  const [destination, setDestination] = useState('')
   const popup = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement | null>(null)
   const chat = conversations.find(chat => chat.id === menu?.id)
+  const destinations = chat ? organization.sections.flatMap(section => [
+    { location: { sectionId: section.id, projectId: null }, label: section.name },
+    ...organization.projects.filter(project => project.sectionId === section.id).map(project => ({
+      location: { sectionId: section.id, projectId: project.id },
+      label: `${section.name} / ${project.name}${project.repositoryPath ? ' (repository)' : ''}`
+    }))
+  ]).filter(item => !(item.location.sectionId === chat.sectionId && item.location.projectId === chat.projectId) &&
+    !chatMoveProblem(chat, item.location, organization)) : []
 
   function close() {
     setMenu(null)
@@ -36,7 +48,7 @@ export default function ConversationList({ conversations, selectedId, disabled, 
       input.focus()
       input.select()
     } else {
-      popup.current.querySelector('button')?.focus()
+      popup.current.querySelector<HTMLElement>('select, button')?.focus()
     }
   }, [menu])
 
@@ -64,7 +76,9 @@ export default function ConversationList({ conversations, selectedId, disabled, 
     if (!menu || saving || disabled || actionsDisabled) return
     setSaving(true)
     try {
-      const success = menu.mode === 'rename'
+      const success = menu.mode === 'move'
+        ? Boolean(destination) && await onMove(menu.id, JSON.parse(destination))
+        : menu.mode === 'rename'
         ? await onRename(menu.id, title)
         : await onDelete(menu.id)
       if (success) close()
@@ -127,7 +141,7 @@ export default function ConversationList({ conversations, selectedId, disabled, 
           className="chat-context-menu"
           style={{ left: menu.x, top: menu.y }}
           role={menu.mode === 'options' ? 'menu' : 'dialog'}
-          aria-label={menu.mode === 'options' ? 'Chat options' : menu.mode === 'rename' ? 'Rename chat' : 'Delete chat'}
+          aria-label={menu.mode === 'options' ? 'Chat options' : menu.mode === 'rename' ? 'Rename chat' : menu.mode === 'move' ? 'Move chat' : 'Delete chat'}
           onContextMenu={event => event.preventDefault()}
           onBlur={event => {
             if (!saving && !event.currentTarget.contains(event.relatedTarget as Node | null)) setMenu(null)
@@ -145,17 +159,25 @@ export default function ConversationList({ conversations, selectedId, disabled, 
         >
           {menu.mode === 'options' ? <>
             <button role="menuitem" onClick={() => { setTitle(chat.title); setMenu({ ...menu, mode: 'rename' }) }}>Rename chat</button>
+            <button role="menuitem" disabled={!destinations.length} onClick={() => { setDestination(''); setMenu({ ...menu, mode: 'move' }) }}>Move chat…</button>
             <button role="menuitem" onClick={() => setMenu({ ...menu, mode: 'delete' })}>Delete chat</button>
           </> : (
             <form onSubmit={event => { event.preventDefault(); void submit() }}>
               {menu.mode === 'rename' ? <>
                 <label htmlFor="chat-name">Rename chat</label>
                 <input id="chat-name" value={title} maxLength={200} disabled={saving} onChange={event => setTitle(event.target.value)} />
+              </> : menu.mode === 'move' ? <>
+                <label htmlFor="chat-destination">Move chat to</label>
+                <select id="chat-destination" value={destination} required disabled={saving} onChange={event => setDestination(event.target.value)}>
+                  <option value="" disabled>Choose a location</option>
+                  {destinations.map(item => <option key={JSON.stringify(item.location)} value={JSON.stringify(item.location)}>{item.label}</option>)}
+                </select>
+                <p>Moving changes future context. Entering a repository project is permanent and enables editing when repository tools are available.</p>
               </> : <p>Permanently delete this chat?</p>}
               <div className="chat-menu-actions">
                 <button type="button" disabled={saving} onClick={close}>Cancel</button>
-                <button type="submit" disabled={saving || disabled || (menu.mode === 'rename' && !title.trim())}>
-                  {saving ? 'Saving…' : menu.mode === 'rename' ? 'Save' : 'Delete'}
+                <button type="submit" disabled={saving || disabled || (menu.mode === 'rename' && !title.trim()) || (menu.mode === 'move' && !destination)}>
+                  {saving ? 'Saving…' : menu.mode === 'rename' ? 'Save' : menu.mode === 'move' ? 'Move' : 'Delete'}
                 </button>
               </div>
             </form>

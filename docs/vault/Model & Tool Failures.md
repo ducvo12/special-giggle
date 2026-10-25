@@ -1,6 +1,6 @@
 # Model & Tool Failures
 
-> Agreed October 24, 2026, as D-057 from P-015. This is a target specification, not implemented functionality. Ordinary model-connection failure, stale-edit recovery, user Stop and unexpected-closure recovery remain agreed under D-042/D-043/D-046/D-055.
+> Agreed October 24, 2026, as D-057 from P-015. This is a target specification, not implemented functionality. Ordinary model-connection failure, stale-edit recovery, user Stop and unexpected-closure recovery follow D-067: keep completed edits and defer automatic restoration.
 
 Start visually: [[Run Lifecycle - Tool Failures.canvas]]
 
@@ -25,22 +25,22 @@ The single correction is a local failure-recovery rule, like D-042's corrected e
 Distinguish **known success**, **known no effect**, **known partial effect** and **unknown effect**. A connection timeout, cancellation or missing tool response alone does not establish which one occurred.
 
 1. Stop starting actions that would compound the uncertain operation. If repository writes may be affected, hold that repository's editing ownership and block further writes; independent unaffected chats can continue.
-2. Inspect the durable operation/undo record, actual files and any available read-only service status/receipt. Use tools under the existing access rules. Do not ask the model to guess whether the operation happened or treat missing confirmation as proof it did not.
+2. Inspect the durable operation/outcome record, actual files and any available read-only service status/receipt. Use tools under the existing access rules. Do not ask the model to guess whether the operation happened or treat missing confirmation as proof it did not.
 3. If success is verified, record and return the actual result without replaying the action. If no effect is verified, return a known no-change failure; any corrected proposal remains subject to the ordinary permission and failure rules. Record verified partial effects honestly.
 4. If the result remains unknown or unsafe to reconcile, show **Action outcome unknown — needs attention**, retain the recovery information and end normal automatic work on that affected branch. Do not report success, automatically repeat the action or silently undo unrelated completed edits. Any affected repository remains blocked until recovery resolves the condition or the user makes the existing explicit decision about the remaining state.
 
 Example: an approved deployment request loses its response. Check an available deployment receipt/status first. If Granite cannot verify the result, tell the user it may have happened; do not send another deployment merely because the response was lost. A follow-up that might duplicate an external action needs clear user direction, and the existing scope/authorization rules still apply.
 
-Stop and unexpected closure continue to request restoration of tracked repository edits under the established guarded policy. They do not turn an unknown external effect into a guaranteed reversible one. Ordinary model/tool failures preserve completed edits, matching D-042/D-046; show the actual remaining diff and interruption state.
+D-067 makes Stop, unexpected closure and ordinary model/tool failures all preserve completed file edits. Cancel/settle work, show the actual remaining diff and interruption state, and reconcile genuine unknown outcomes. Automatic file restoration is deferred; no cancellation guarantees reversal of an external effect.
 
 ## Continue and recovery records
 
-- Continue starts a new run with fresh permissions/context and a new undo boundary under D-046. Include the original task/steering, actual completed or reverted outcomes, and unresolved-action markers. Never replay tools simply because they appear in old history.
+- Continue starts a new run with fresh permissions/context and a new execution/change record under D-046/D-067. Include the original task/steering, actual completed or reverted outcomes, and unresolved-action markers. Never replay tools simply because they appear in old history.
 - A repository whose write effects remain unresolved is not released for editing by pressing Continue. Resolve that recovery condition first; a fresh model request is not evidence that its files are safe.
-- Keep full undo/reconciliation data while any active operation, restoration, deletion or uncertainty still needs it. Do not automatically purge unresolved recovery information or discard it to finish deleting a chat.
-- Once all effects/restoration are known and the final run/recovery outcome is durably saved, release full undo snapshots no longer needed for recovery. Keep ordinary messages, tool outcomes, diffs and the restoration/error summary under the existing chat-retention policy. A failed run can be resolved with its successful edits retained; resolved does not mean those edits were undone.
-- Defer a dedicated **Undo an earlier finished/failed run** interface in the first iteration. User Stop/crash restoration remains supported for the interrupted run; this deferral must not remove its live recovery data. No extra timed backup policy or long-term undo promise is added.
-- No model call is required merely to display an error, release verified recovery data or apply the user's already-approved Stop restoration.
+- Keep necessary operation/reconciliation data while an action, process, deletion or uncertainty still needs it. Do not discard the only unresolved outcome record to finish deleting a chat. Full before-file snapshots solely for automatic restoration are not required.
+- Once effects are known and the final outcome is saved, release unneeded reconciliation data. Keep ordinary messages, tool outcomes, diffs and the interruption/error summary under normal retention. Completed edits are retained; their presence alone does not imply unresolved recovery.
+- Defer both automatic Stop/crash file restoration and a dedicated **Undo an earlier finished/failed run** interface. Preserve necessary outcome records, but do not build a full rollback journal solely for the deferred feature. See [[Deferred File Restoration]].
+- No model call is needed merely to display an error, cancel/settle work or release resolved reconciliation data.
 
 ## Observable acceptance cases
 
@@ -48,6 +48,6 @@ Stop and unexpected closure continue to request restoration of tracked repositor
 2. The model proposes a malformed edit. Nothing changes; a structured error reaches the model, which can correct it once. A repeated invalid proposal reports partial work without undoing earlier successful edits.
 3. A file edit succeeds but confirmation is lost. Reconciliation verifies the file/operation record and records success without applying the replacement twice.
 4. An external write times out and no status is available. Granite reports uncertainty and does not repeat the action automatically.
-5. A tracked-write recovery remains unresolved. Closing/reopening or deleting the chat cannot erase its only recovery record; affected repository editing remains blocked.
+5. A write/action outcome remains genuinely unknown. Closing/reopening or deleting the chat cannot erase its only recovery record; affected repository editing remains blocked.
 
-These agreed defaults finish R-03's behavior choices. Durable storage/transaction details, exact diagnostics and connector-specific reconciliation mechanisms remain implementation work. The next behavior group is deleting projects, sections and agents (R-04).
+These agreed defaults finish R-03's behavior choices. Durable storage/transaction details, exact diagnostics and connector-specific reconciliation mechanisms remain implementation work. Container/settings review is also complete; D-067 revises restoration requirements across those flows.

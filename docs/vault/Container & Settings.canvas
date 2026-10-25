@@ -23,7 +23,7 @@
     {
       "id": "settle",
       "type": "text",
-      "text": "## Stop and settle first\n\nCancel descendant queues/approvals.\nStop active work using guarded restoration.\nKeep unresolved recovery records.\nDo not report incomplete deletion as success.",
+      "text": "## Stop and settle first\n\nCancel descendant queues/approvals.\nStop active work; keep completed edits.\nRetain genuine unresolved outcome records.\nThen delete the physical container/data.",
       "x": 540,
       "y": 0,
       "width": 440,
@@ -73,7 +73,7 @@
     {
       "id": "reorient",
       "type": "text",
-      "text": "## Refresh before editing\n\nOld undo stays with the old resource.\nInvalidate repository caches/indexes.\nNotify model; inspect current files.\nKeep the existing chat history.",
+      "text": "## Refresh before editing\n\nOld operation records stay with old resources.\nInvalidate repository caches/indexes.\nNotify model; inspect current files.\nKeep chat history; no old-action replay.",
       "x": 1080,
       "y": 500,
       "width": 440,

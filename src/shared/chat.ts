@@ -1,5 +1,6 @@
 import type { Agent, Conversation, ConversationDetail, ToolActivity, WorkspaceEntry } from './agent'
 import type { ApprovalRequest, ChatGPTAccount, HarnessSettings } from './harness'
+import type { AgentOrganization, ConversationLocation, Project, Section, SectionMode } from './organization'
 
 export interface Connection {
   connectionId?: string
@@ -102,14 +103,26 @@ export interface GraniteBridge {
   conversations: {
     saveResponseDuration: (agentId: string, id: string, messageId: string, durationMs: number) => Promise<Result<void>>
     list: (agentId: string) => Promise<Result<Conversation[]>>
-    create: (agentId: string) => Promise<Result<ConversationDetail>>
+    create: (agentId: string, location?: Partial<ConversationLocation>) => Promise<Result<ConversationDetail>>
+    move: (agentId: string, id: string, location: ConversationLocation) => Promise<Result<ConversationDetail>>
     rename: (agentId: string, id: string, title: string) => Promise<Result<void>>
     delete: (agentId: string, id: string) => Promise<Result<void>>
     get: (agentId: string, id: string) => Promise<Result<ConversationDetail>>
   }
+  organization: {
+    get: (agentId: string) => Promise<Result<AgentOrganization>>
+    createSection: (agentId: string, name: string, mode: SectionMode) => Promise<Result<Section>>
+    renameSection: (agentId: string, id: string, name: string) => Promise<Result<Section>>
+    shareSection: (agentId: string, id: string) => Promise<Result<Section>>
+    createProject: (agentId: string, sectionId: string, name: string) => Promise<Result<Project>>
+    renameProject: (agentId: string, id: string, name: string) => Promise<Result<Project>>
+    chooseRepository: (agentId: string, projectId: string) => Promise<Result<Project | null>>
+  }
   workspace: {
     entries: (agentId: string, path: string) => Promise<Result<WorkspaceEntry[]>>
     read: (agentId: string, path: string) => Promise<Result<string>>
+    save: (agentId: string, path: string, content: string, expected: string | null) => Promise<Result<string>>
+    renameNote: (agentId: string, path: string, name: string) => Promise<Result<string>>
   }
   stream: (
     requestId: string,

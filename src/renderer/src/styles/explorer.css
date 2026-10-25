@@ -1,0 +1,62 @@
+.file-sidebar { width: 280px; padding: 20px 12px 16px; }
+.file-sidebar .new-chat-button { margin-bottom: 20px; }
+.agent-tree-header { display: flex; align-items: center; gap: 2px; margin-bottom: 8px; }
+.agent-tree-header .agent-dropdown { flex: 1; }
+.agent-tree-header .agent-dropdown-trigger { padding: 7px 6px; background: transparent; border-color: transparent; font-size: 13px; font-weight: 550; }
+.agent-tree-header .agent-dropdown-trigger:hover:not(:disabled) { background: var(--surface-hover); }
+.agent-file-tree { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding-bottom: 12px; }
+.agent-files { padding-left: 5px; }
+.tree-row { display: flex; align-items: center; gap: 1px; min-width: 0; }
+.tree-entry { display: flex; align-items: center; gap: 6px; width: 100%; min-width: 0; border: 0; padding: 6px 5px; background: transparent; color: var(--text-secondary); font-size: 12px; text-align: left; border-radius: 4px; }
+.tree-row > .tree-entry { flex: 1; width: auto; }
+.tree-entry > span:not(.tree-chevron):not(.tree-file-icon) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tree-entry.selected { background: var(--surface-hover); color: var(--text-strong); }
+.tree-entry:hover:not(:disabled) { background: var(--surface-hover); color: var(--text-strong); }
+.tree-file-icon, .tree-chevron { display: inline-block; flex: 0 0 13px; width: 13px; color: var(--text-muted); text-align: center; }
+.tree-entry > .tree-chevron { display: inline-flex; align-items: center; justify-content: center; height: 14px; line-height: 1; }
+.chevron-icon { display: block; flex-shrink: 0; }
+.tree-action { flex: 0 0 22px; display: grid; place-items: center; width: 22px; height: 24px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--text-muted); font-size: 15px; }
+.tree-action:hover:not(:disabled) { background: var(--surface-hover); color: var(--text-strong); }
+.tree-row, .agent-tree-header { border-radius: 5px; }
+.tree-row:hover,
+.tree-row:focus-within,
+.tree-row:has(> .tree-entry.selected),
+.tree-row:has(> .tree-action[aria-haspopup="menu"][aria-expanded="true"]),
+.agent-tree-header:hover,
+.agent-tree-header:focus-within,
+.agent-tree-header:has(.agent-dropdown-trigger[aria-expanded="true"]),
+.agent-tree-header:has(> .tree-action[aria-haspopup="menu"][aria-expanded="true"]),
+.file-sidebar .conversation-row.selected,
+.file-sidebar .conversation-row:hover,
+.file-sidebar .conversation-row:focus-within,
+.file-sidebar .conversation-row.menu-open { background: var(--surface-hover); }
+/* The row owns its highlight; labels and action buttons share that surface. */
+.file-sidebar .tree-row > .tree-entry,
+.file-sidebar .tree-row > .tree-entry:hover:not(:disabled),
+.file-sidebar .tree-row > .tree-action:hover:not(:disabled),
+.file-sidebar .agent-tree-header > .tree-action:hover:not(:disabled),
+.file-sidebar .agent-tree-header .agent-dropdown-trigger:hover:not(:disabled),
+.file-sidebar .conversation-list .conversation-more:hover:not(:disabled) { background: transparent; }
+.tree-row > .tree-chevron { flex-basis: 13px; width: 13px; font-size: 14px; }
+.tree-empty { padding: 6px 5px; color: var(--text-faint); font-size: 11px; line-height: 1.6; }
+.file-sidebar .organization-navigation { flex: initial; overflow: visible; margin-top: 4px; margin-bottom: 0; }
+.file-sidebar .organization-section-group + .organization-section-group { margin-top: 3px; }
+.file-sidebar .organization-children { margin: 2px 0 0 6px; padding-left: 6px; border-color: var(--border); }
+.file-sidebar .organization-project-group + .organization-project-group { margin-top: 3px; }
+.file-sidebar .sidebar-footer { margin-top: auto; padding: 14px 6px 0; font-size: 10px; }
+.file-sidebar .sidebar-footer .live-dot { margin-left: 0; }
+.sections-tree-header { margin-top: 3px; }
+.tree-menu { position: fixed; z-index: 120; min-width: 215px; max-width: calc(100vw - 12px); padding: 5px; border: 1px solid var(--border-strong); border-radius: 7px; background: var(--surface-sidebar); color: var(--text); box-shadow: 0 8px 30px #0006; }
+.tree-menu > button { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; padding: 6px 9px; border: 0; border-radius: 4px; background: transparent; color: var(--text); text-align: left; }
+.tree-menu > button:hover:not(:disabled), .tree-menu > button:focus-visible { background: var(--surface-hover); }
+.tree-menu-label { padding: 7px 9px 4px; font-size: 10px; color: var(--text-muted); }
+.tree-dialog-backdrop { position: fixed; z-index: 150; inset: 0; display: grid; place-items: center; padding: 24px; background: #0007; }
+.tree-dialog { width: 440px; max-width: 100%; max-height: 85vh; overflow: auto; padding: 24px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface); box-shadow: 0 20px 80px #0008; }
+.tree-dialog h2 { margin: 0 0 20px; font-size: 18px; font-weight: 500; }
+.tree-dialog label { display: block; margin: 14px 0; font-size: 12px; color: var(--text-secondary); }
+.tree-dialog input, .tree-dialog select { display: block; width: 100%; margin-top: 7px; padding: 8px 10px; }
+.tree-dialog p { font-size: 12px; line-height: 1.7; color: var(--text-secondary); }
+.tree-dialog code { display: block; font-size: 12px; overflow-wrap: anywhere; }
+.tree-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.tree-dialog-extra { margin-top: 20px; }
+@media (max-width: 900px) { .file-sidebar { width: 240px; padding: 18px 10px 14px; } }

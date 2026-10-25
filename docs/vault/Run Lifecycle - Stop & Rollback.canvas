@@ -3,7 +3,7 @@
     {
       "id": "intro",
       "type": "text",
-      "text": "## Stop and rollback — initial design\n\nAccepted in D-043; used by Delete in D-049.\nConcurrent-edit defaults remain revisable.\nNo implementation claim.\n\n[[Run Lifecycle Design]]\n[[Run Lifecycle - Chat Deletion.canvas]]",
+      "text": "## Stop — keep completed edits\n\nD-067 · Automatic restoration deferred.\nCancel/settle work; preserve current files.\n\n[[Run Lifecycle Design]]\n[[Things to Optimize]]",
       "x": 0,
       "y": -450,
       "width": 460,
@@ -13,7 +13,7 @@
     {
       "id": "distinctions",
       "type": "text",
-      "text": "## Three different events\n\nFailed edit: preserve earlier successful edits.\nUser Stop: restore tracked run changes.\nSteering restart: continue the same run; no automatic rollback.",
+      "text": "## Three events, retained edits\n\nFailed edit: preserve earlier successful edits.\nStop: cancel remaining work; keep edits.\nSteering: continue the same run with new guidance.",
       "x": 500,
       "y": -450,
       "width": 430,
@@ -23,7 +23,7 @@
     {
       "id": "scope",
       "type": "text",
-      "text": "## First rollback scope — initial design\n\nTracked repository file edits.\nPreserve existing and concurrent user work.\n\nArbitrary commands and external effects need a separate recovery design.",
+      "text": "## Restoration is later work\n\nNo automatic inverse patch or Git reset.\nNo full before-file journal solely for undo.\nKeep edit conflict checks and visible changes.\n\n[[Deferred File Restoration]]",
       "x": 1000,
       "y": -450,
       "width": 430,
@@ -53,7 +53,7 @@
     {
       "id": "settle",
       "type": "text",
-      "text": "## 3 · Settle writers\n\nWait for writes to stop safely and determine actual outcomes.\nDo not restore while tools can still write.\nKeep other repository editing runs queued.",
+      "text": "## 3 · Settle writers\n\nCancel/settle owned processes and writes.\nDetermine actual outcomes.\nRetain project reservation during cleanup.\nKnown retained edits do not require rollback.",
       "x": 1000,
       "y": 0,
       "width": 380,
@@ -63,7 +63,7 @@
     {
       "id": "restore",
       "type": "text",
-      "text": "## 4 · Restore tracked edits\n\nUse the run’s undo record.\nRestore only where the current state matches the recorded write.\nPreserve another writer’s changes.\nShow Restoring changes.",
+      "text": "## 4 · Keep current files\n\nLeave completed and known partial edits in place.\nSave actual execution/change outcomes.\nNo automatic restoration runs.",
       "x": 1500,
       "y": 0,
       "width": 380,
@@ -73,7 +73,7 @@
     {
       "id": "verify",
       "type": "text",
-      "text": "## 5 · Verify the result\n\nCheck actual restored state.\nRefresh changes and +/− counts.\nRetain chat/tool history and mark reverted edits.\nNo model-generated undo needed.",
+      "text": "## 5 · Refresh the result\n\nUpdate visible changes and +/− counts.\nRetain partial chat/tool history.\nReport actual outcomes and uncertainty.\nDo not claim files were restored.",
       "x": 2000,
       "y": 0,
       "width": 380,
@@ -83,7 +83,7 @@
     {
       "id": "done",
       "type": "text",
-      "text": "## Stopped — changes restored\n\nRestoration is verified.\nEnd the run and release the editing queue.\nPrior user changes remain.\n\nDo not describe undone edits as still applied.",
+      "text": "## Stopped — completed changes kept\n\nWriters and outcomes are settled.\nEnd the run and release its project reservation.\nUser may review edits and start new work.",
       "x": 2500,
       "y": 0,
       "width": 380,
@@ -93,7 +93,7 @@
     {
       "id": "record",
       "type": "text",
-      "text": "## Local undo record — initial design\n\nRecord managed edits before mutation, then their actual written state.\nInclude original contents/existence, creations, deletions and renames.\nPreserve uncommitted/untracked work.\nNot a reset to the last Git commit.",
+      "text": "## Change/outcome records\n\nTrack tools, actual changes and diffs.\nKeep records needed for unknown outcomes.\nAutomatic undo snapshots/journal are deferred.\n\n[[Deferred File Restoration]]",
       "x": 0,
       "y": 550,
       "width": 430,
@@ -103,7 +103,7 @@
     {
       "id": "queue",
       "type": "text",
-      "text": "## Restoration needs attention\n\nKeep undo data and remaining changes.\nBlock new repository editing until recovery is resolved or the user explicitly keeps the remaining state.\nRead-only inspection may continue.",
+      "text": "## Genuinely unknown outcome\n\nRetain outcome information.\nBlock affected writes until uncertainty resolves.\nRead-only inspection may continue.\nKnown retained edits alone do not block work.",
       "x": 500,
       "y": 550,
       "width": 430,
@@ -113,7 +113,7 @@
     {
       "id": "text_only",
       "type": "text",
-      "text": "## No repository edits\n\nText/read-only work has nothing to restore.\nAfter cancellation settles, mark the run stopped and retain the partial conversation.",
+      "text": "## Text / read-only work\n\nSettle cancellation, retain partial conversation and mark stopped.\nThe same Stop principle applies to coding work: keep completed effects.",
       "x": 1000,
       "y": 550,
       "width": 380,
@@ -123,7 +123,7 @@
     {
       "id": "conflict",
       "type": "text",
-      "text": "## File changed meanwhile\n\nPreserve the current user version.\nFlag the conflicting file; continue safe restores.\nNo automatic merge initially.\n\nSafe default; revisit after experience.",
+      "text": "## Another writer changed a file\n\nDo not overwrite it.\nFresh-read/revision checks still apply.\nStop leaves the current version in place.\nNo automatic merge or restoration.",
       "x": 1500,
       "y": 550,
       "width": 380,
@@ -133,7 +133,7 @@
     {
       "id": "attention",
       "type": "text",
-      "text": "## Stopped — needs attention\n\nRestoration is incomplete or unverified.\nShow the remaining diff/conflicts.\nKeep recovery data and the repository editing block.\nNever claim full restoration.",
+      "text": "## Stopped — needs attention\n\nA writer/action outcome remains unknown.\nShow actual partial changes and uncertainty.\nKeep relevant records and affected write blocks.\nThis is not deferred rollback recovery.",
       "x": 2000,
       "y": 550,
       "width": 380,
@@ -174,7 +174,7 @@
       "toNode": "verify",
       "toSide": "left",
       "toEnd": "arrow",
-      "label": "Safe restores applied"
+      "label": "Current edits retained"
     },
     {
       "id": "q5",
@@ -183,7 +183,7 @@
       "toNode": "done",
       "toSide": "left",
       "toEnd": "arrow",
-      "label": "Verified"
+      "label": "Outcomes settled"
     },
     {
       "id": "q6",
@@ -201,7 +201,7 @@
       "toNode": "conflict",
       "toSide": "top",
       "toEnd": "arrow",
-      "label": "Concurrent change",
+      "label": "Concurrent edit observed",
       "color": "1"
     },
     {
@@ -211,7 +211,7 @@
       "toNode": "attention",
       "toSide": "left",
       "toEnd": "arrow",
-      "label": "Preserve and flag",
+      "label": "Preserve current file",
       "color": "1"
     },
     {
@@ -221,7 +221,7 @@
       "toNode": "attention",
       "toSide": "top",
       "toEnd": "arrow",
-      "label": "Incomplete / unverified",
+      "label": "Outcome still unknown",
       "color": "1"
     }
   ]

@@ -3,7 +3,7 @@
     {
       "id": "intro",
       "type": "text",
-      "text": "## Unexpected closure — agreed\n\nD-055 · October 24, 2026.\nInterrupted active run = user Stop.\nRecover on reopening; show error popup.\n\n[[Unexpected Closure Recovery]]\n[[Run Lifecycle Design]]",
+      "text": "## Unexpected closure — D-067 revision\n\nInterrupted active run = Stop.\nKeep current file edits.\nReconcile on reopening; show error popup.\n\n[[Unexpected Closure Recovery]]",
       "x": 0,
       "y": -450,
       "width": 460,
@@ -13,7 +13,7 @@
     {
       "id": "reopen",
       "type": "text",
-      "text": "## 1 · Granite reopens\n\nFind durable unfinished run/undo records.\nAn already-committed completed run stays completed.\nNo automatic restart of interrupted model work.",
+      "text": "## 1 · Granite reopens\n\nFind durable unfinished run/outcome records.\nCompleted runs stay completed.\nNo automatic restart or tool replay.",
       "x": 0,
       "y": 0,
       "width": 400,
@@ -33,7 +33,7 @@
     {
       "id": "popup",
       "type": "text",
-      "text": "## 3 · Error popup\n\n“Granite closed unexpectedly. Interrupted work has been stopped.”\n\nShow recovery progress and update the result.\nOne popup can summarize affected chats.",
+      "text": "## 3 · Error popup\n\n“Granite closed unexpectedly. Interrupted work stopped; existing changes were kept.”\n\nReport settlement and real uncertainty.\nNo restoration progress.",
       "x": 1080,
       "y": 0,
       "width": 420,
@@ -43,7 +43,7 @@
     {
       "id": "settle",
       "type": "text",
-      "text": "## 4 · Settle surviving writers\n\nApp closure does not prove every child process ended.\nCancel/settle harness-owned work.\nDetermine actual file/action outcomes before undo.",
+      "text": "## 4 · Settle surviving writers\n\nClosure does not prove every child process ended.\nCancel/settle owned work.\nDetermine actual action/file outcomes.",
       "x": 1640,
       "y": 0,
       "width": 420,
@@ -53,7 +53,7 @@
     {
       "id": "restore",
       "type": "text",
-      "text": "## 5 · Coding run: restore\n\nUse this run's durable undo record.\nPreserve pre-existing/newer user work.\nKeep earlier completed runs.\nNo model-generated undo or whole-tree Git reset.\n\n[[Run Lifecycle - Stop & Rollback.canvas]]",
+      "text": "## 5 · Keep current files\n\nPreserve completed and known partial edits.\nDo not restore pre-run versions or reset Git.\nAutomatic restoration is deferred.\n\n[[Things to Optimize]]",
       "x": 2200,
       "y": 0,
       "width": 440,
@@ -63,7 +63,7 @@
     {
       "id": "verify",
       "type": "text",
-      "text": "## 6 · Verify recovery\n\nReconcile partially finished restoration.\nSave the stopped outcome and actual restored state.\nAnother crash must not undo twice.",
+      "text": "## 6 · Save stopped outcome\n\nReconcile execution/status records.\nKeep available diffs and interruption details.\nRepeated closure must not replay tools.",
       "x": 2780,
       "y": 0,
       "width": 420,
@@ -73,7 +73,7 @@
     {
       "id": "done",
       "type": "text",
-      "text": "## Restored and stopped\n\nPopup reports verified restoration.\nRetain conversation/history.\nRelease affected editing ownership.\nUser may start new work; no automatic continuation of the interrupted run.",
+      "text": "## Stopped — changes kept\n\nWriters/outcomes are settled.\nRetain history and release affected scheduling.\nUser may start new work; no automatic continuation.",
       "x": 3340,
       "y": 0,
       "width": 440,
@@ -83,7 +83,7 @@
     {
       "id": "text_only",
       "type": "text",
-      "text": "## Text / read-only interruption\n\nNo repository changes to restore.\nSettle and mark the run stopped.\nPopup reports the unexpected closure and interruption.",
+      "text": "## Text / read-only interruption\n\nSettle and mark the run stopped.\nKeep partial chat history.\nPopup reports the interruption.\nNo repository reset occurs.",
       "x": 2200,
       "y": 520,
       "width": 440,
@@ -93,7 +93,7 @@
     {
       "id": "attention",
       "type": "text",
-      "text": "## Restoration needs attention\n\nPreserve current files and recovery data.\nIdentify conflicts/unknown effects.\nKeep repository editing blocked.\nPopup must not claim everything was restored.",
+      "text": "## Outcome needs attention\n\nKeep actual files and outcome records.\nIdentify unresolved process/action effects.\nBlock affected writes for genuine uncertainty.\nNo automatic restoration is pending.",
       "x": 3340,
       "y": 520,
       "width": 440,
@@ -103,7 +103,7 @@
     {
       "id": "completed",
       "type": "text",
-      "text": "## Completed earlier work stays\n\nA committed terminal success is not interrupted.\nDo not undo completed runs merely because the app later crashed.\nRestore only the interrupted run's tracked edits.",
+      "text": "## Completed work stays\n\nEarlier completed runs stay completed.\nInterrupted runs retain completed edits too.\nNo pre-run file reset.",
       "x": 540,
       "y": 520,
       "width": 420,
@@ -123,7 +123,7 @@
     {
       "id": "journal",
       "type": "text",
-      "text": "## Durable undo before mutation\n\nRecord before/actual written state.\nKeep recovery data outside model-editable repository content.\nRecover without asking the model to reconstruct lost changes.",
+      "text": "## Necessary durable run state\n\nRecord execution, outcomes and pending work.\nRetain genuine uncertainty for reconciliation.\nNo full before-file snapshots solely for undo.",
       "x": 1640,
       "y": 520,
       "width": 420,
@@ -214,7 +214,7 @@
       "toNode": "restore",
       "toSide": "left",
       "toEnd": "arrow",
-      "label": "Tracked code changes"
+      "label": "Repository work"
     },
     {
       "id": "u5",
@@ -231,7 +231,7 @@
       "toNode": "done",
       "toSide": "left",
       "toEnd": "arrow",
-      "label": "Verified"
+      "label": "Outcomes known"
     },
     {
       "id": "u7",
@@ -240,7 +240,7 @@
       "toNode": "attention",
       "toSide": "left",
       "toEnd": "arrow",
-      "label": "Incomplete / uncertain"
+      "label": "Uncertain outcome"
     },
     {
       "id": "u8",

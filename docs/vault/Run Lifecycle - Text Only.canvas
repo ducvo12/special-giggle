@@ -83,7 +83,7 @@
     {
       "id": "scope",
       "type": "text",
-      "text": "## Stable run, refreshed request\n\nKeep location/retention/model/undo identity.\nPersonality still changes next run.\nRefresh eligible memory and permissions each request.\nHistory grows through steering/tool outcomes.\nD-060 / D-064.",
+      "text": "## Stable run, refreshed request\n\nKeep location/retention/model/run identity.\nPersonality changes next run.\nRefresh eligible memory and permissions.\nHistory grows through steering/tool results.\nD-060 / D-064 / D-067.",
       "x": 0,
       "y": 470,
       "width": 360,

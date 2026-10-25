@@ -10,7 +10,7 @@ Agreed scheduling/limits: [[Concurrency & Limits]] · [[Run Lifecycle - Queues &
 
 Final behavior revisions: [[Container & Settings Rules]] · [[Container & Settings.canvas]] (D-059–D-066). Duplicate folder links are allowed with warnings and serialization within each project. Current eligible memory refreshes each request, and changed permissions apply to the next model request/tool execution without automatically stopping active work.
 
-Unexpected closure: [[Unexpected Closure Recovery]] · [[Run Lifecycle - Unexpected Closure.canvas]] (D-055). Stop interrupted runs, restore their tracked coding changes on reopening and show an error popup.
+Unexpected closure: [[Unexpected Closure Recovery]] · [[Run Lifecycle - Unexpected Closure.canvas]] (D-055). Stop interrupted runs, retain current files, settle/reconcile work on reopening and show an error popup. D-067 defers automatic restoration.
 
 Restarted queues/timers: [[Restarted Queues & Timers]] (D-056) preserves pending messages but requires explicit restart. Held temporary timers get a fresh hour after recovery; real idle deadlines continue offline. Malformed/uncertain-outcome defaults are agreed in [[Model & Tool Failures]] · [[Run Lifecycle - Tool Failures.canvas]] (D-057).
 
@@ -18,7 +18,7 @@ Restarted queues/timers: [[Restarted Queues & Timers]] (D-056) preserves pending
 
 - **Run:** the harness work started by a user prompt, ending in completion, Stop, failure or deletion. Steering messages may update the same active run.
 - **Model request / step:** one request to the selected model. A tool-using run may make several requests.
-- **Run state and request context:** keep agent, chat location, retention, session model/provider and undo identity stable. Personality retains its next-run timing. Conversation input grows with steering/tool results; D-060 refreshes eligible memory/notes on every request, and D-064 refreshes permissions/context/tools before new requests and checks permissions again before each tool action. A run snapshot does not freeze authorization for the entire run.
+- **Run state and request context:** keep agent, chat location, retention, session model/provider and run identity stable. Personality retains its next-run timing. Conversation input grows with steering/tool results; D-060 refreshes eligible memory/notes on every request, and D-064 refreshes permissions/context/tools before new requests and checks permissions again before each tool action. A run snapshot does not freeze authorization for the entire run. D-067 removes automatic rollback from this version.
 
 ## First path: one prompt, one text-only answer
 
@@ -77,7 +77,7 @@ The user accepted this path after the read-only loop. The chat is already perman
 | Stage | Harness behavior | User-visible behavior |
 | --- | --- | --- |
 | 1. Submit and validate | Save the request, validate chat/project membership and the target repository, and start the run with the normal context snapshot. | The requested change appears and the chat starts working. |
-| 2. Record starting state | Establish the repository baseline needed for actual change tracking and Stop rollback. Preserve existing user work. The initial undo design is agreed below; exact checkpoint implementation remains to design. | Preparing may appear briefly. |
+| 2. Record starting state | Establish a baseline for actual change tracking and preserve existing user work. D-067 defers automatic restoration; no durable undo checkpoint is required solely for that feature. | Preparing may appear briefly. |
 | 3. Read relevant code | The model requests bounded file reads/searches. The harness checks file scope and returns the results linked to their calls. | File-reading activity appears. |
 | 4. Apply the edit | The model proposes a structured edit. The harness validates its arguments, current target and membership, applies the permitted change, and records the actual outcome. Project membership supplies read/write permission without a prompt for each edit. | Editing activity appears without another approval dialog. |
 | 5. Return the result | Refresh actual file changes and added/removed line counts, append the edit result to conversation input, then make the next model request. | Changes and counts update; the agent continues working. |
@@ -95,7 +95,7 @@ The model proposes tool calls; the harness performs the operations and supplies 
 4. Allow one corrected edit attempt for that failed operation. A supporting read does not consume the edit attempt. If the corrected edit succeeds, update the visible changes and continue the normal success path.
 5. If it fails again, end automatic editing for this recovery branch and report what succeeded, what failed, and which changes remain. Do not loop indefinitely or claim that the requested task is complete.
 
-**Agreed failure boundary:** rejecting this one edit does not automatically undo earlier successful edits in the run. Earlier changes remain visible while the model recovers; if it gives up, describe the partial result. User Stop follows the coding-rollback policy. Ordinary model-request failure preserves changes under the next branch; uncertain tool effects now follow D-057 / [[Model & Tool Failures]], while unexpected application closure follows D-055.
+**Agreed failure boundary:** rejecting this one edit does not automatically undo earlier successful edits in the run. Earlier changes remain visible while the model recovers; if it gives up, describe the partial result. User Stop cancels/settles work and keeps completed edits under D-067. Ordinary model-request failure preserves changes under the next branch; uncertain tool effects now follow D-057 / [[Model & Tool Failures]], while unexpected application closure follows D-055.
 
 This simple recovery applies only when the harness knows the failed call changed nothing. A membership/path denial must not be retried through a different tool to bypass the rule. A failed operation with partial or unknown effects needs inspection/reconciliation before another write under D-057 / [[Model & Tool Failures]], rather than blindly replaying the edit. The agreed one-attempt limit is a local failure-recovery rule, not a whole-run budget or performance optimization.
 
@@ -111,11 +111,11 @@ This simple recovery applies only when the harness knows the failed call changed
 
 Granite displays the connection/failure message itself; reporting the error must not require another successful model call. Example: **“Connection lost. This reply is incomplete.”** In a coding run, also show that completed file changes remain and keep the actual diff/counts visible.
 
-**Agreed repository boundary:** an ordinary model-request failure preserves earlier completed repository edits, as the failed-edit branch does. It does not automatically invoke Stop rollback. Never repeat a previous write merely because the later explanatory model request failed. Stop during reconnecting still uses the established cancellation/rollback path. There are no whole-run budgets in the first iteration (D-053); existing operation/context/output boundaries remain. Temporary retention is held at a full hour during active or queued work, including a bounded reconnect attempt, and starts counting down when no active/pending work remains or when waiting solely for user input/approval.
+**Agreed repository boundary:** an ordinary model-request failure preserves earlier completed repository edits, as the failed-edit branch does. It keeps actual edits, as Stop also does under D-067. Never repeat a previous write merely because the later explanatory model request failed. Stop during reconnecting uses cancellation/settlement and retains completed edits. There are no whole-run budgets in the first iteration (D-053); existing operation/context/output boundaries remain. Temporary retention is held at a full hour during active or queued work, including a bounded reconnect attempt, and starts counting down when no active/pending work remains or when waiting solely for user input/approval.
 
-**Agreed Continue behavior:** after the connection is usable, Continue starts a new run in the same chat. Revalidate the current location, retention and permissions, then include the original task, subsequent steering, relevant history, failure/interruption marker and actual completed tool outcomes. Inspect current files before making further edits. Keep partial tool arguments out of valid provider state; do not invent a completed call or successful action. The new run establishes its own undo boundary, so Stop of that new run undoes its new edits rather than automatically erasing the earlier failed run's retained changes.
+**Agreed Continue behavior:** after the connection is usable, Continue starts a new run in the same chat. Revalidate the current location, retention and permissions, then include the original task, subsequent steering, relevant history, failure/interruption marker and actual completed tool outcomes. Inspect current files before making further edits. Keep partial tool arguments out of valid provider state; do not invent a completed call or successful action. The new run has its own execution/change record. Under D-067, Stop keeps both earlier and new completed edits; it does not create an undo boundary.
 
-Keep the failed run's ordinary change/outcome history for inspection. D-057 retains full recovery data while unresolved and releases unnecessary full snapshots only after durable resolution; a dedicated earlier-run Undo interface is deferred. Continue is not an automatic undo request. Uncertain file/tool effects need reconciliation before more writes under [[Model & Tool Failures]]; the connection-retry rule does not authorize replaying the operation.
+Keep the failed run’s ordinary change/outcome history for inspection and retain reconciliation records for genuinely unknown effects. D-067 defers automatic rollback and its full snapshots; a dedicated earlier-run Undo interface is also deferred. Continue is not an automatic undo request. Uncertain file/tool effects need reconciliation before more writes under [[Model & Tool Failures]]; the connection-retry rule does not authorize replaying the operation.
 
 Pending steering must be incorporated before the retried model request. Explicit Stop, deletion or temporary expiry prevents a scheduled retry from restarting cancelled work. Detailed crash recovery, failed external actions, long rate-limit waits and richer retry policies remain later branches.
 
@@ -178,11 +178,11 @@ Sources checked: [LM Studio Chat Completions](https://lmstudio.ai/docs/developer
 
 The model can then revise its plan and make further permitted edits toward the latest direction without a new per-edit approval. If the button was already made blue, the model sees that actual edit outcome and can change it to green. If the blue edit never started, skip that obsolete proposal. Keep every steering message in arrival order; several pending messages can go into the same next request without silently dropping earlier ones.
 
-**Agreed run boundary:** preserve the run ID, project reservation, undo record, location/retention and existing operation/context/output boundaries. Refresh permitted context/authorization under D-060/D-064 without changing the run’s undo identity. D-053 excludes whole-run time/step/tool-call budgets from the first iteration. A generation restart is not a new run and does not reset the undo baseline. Earlier successful edits remain until the model deliberately revises them or the user presses Stop. A later explicit Stop therefore requests undo of the tracked edits from the whole run, including those before steering.
+**Agreed run boundary:** preserve the run ID, project reservation, execution/change record, location/retention and existing operation/context/output boundaries. Refresh permitted context/authorization under D-060/D-064 without changing the run’s execution identity. D-053 excludes whole-run time/step/tool-call budgets from the first iteration. A generation restart is not a new run and does not reset the run identity. Earlier successful edits remain until the model deliberately revises them or the user presses Stop. A later explicit Stop cancels remaining work and retains completed edits, including those before steering (D-067).
 
 An ordinary message cannot bypass section/project membership, retention or required permission controls; the Keep/move lock still applies. User permission-setting changes do apply to subsequent requests/tool actions under D-064 without automatically cancelling in-progress work. Required approval must match the action actually proposed; steering cannot repurpose an approval for a different action. Ordinary steering withdraws a pending approval under the agreed approval branch above.
 
-Explicit Stop takes precedence. A message arriving after the run has entered stopping/restoring must not restart that cancelled run or interrupt restoration. Save it for a new run after safe cleanup under [[Concurrency & Limits]]; unresolved recovery keeps further editing blocked.
+Explicit Stop takes precedence. A message arriving after the run has entered stopping/settling must not restart that cancelled run or interrupt cleanup. Save it for a new run after safe cleanup under [[Concurrency & Limits]]; unresolved recovery keeps further editing blocked.
 
 Compatibility: a request already sent through Chat Completions cannot have its `messages` body changed in flight. This approach uses a fresh request and a safe tool boundary, so it does not require a provider-specific live prompt-injection feature. In provider input, retain actual tool outcomes and complete call/result pairs; never send partial tool-argument fragments as completed calls or manufacture success for a discarded proposal. Exact adapter bookkeeping remains implementation work.
 
@@ -210,69 +210,34 @@ Keep and move are available once the run has ended. The temporary-to-project flo
 
 Deleting an active chat is different: stop/cancel the run first, prevent later output or writes from resurrecting its records, complete required cleanup, then delete the chat under the agreed deletion policy.
 
-### Stop and coding rollback
+### Stop — keep completed edits (D-067)
 
-**User direction:** ordinary text work stops normally; for a coding run, aim to return the codebase to its pre-run state when Stop is requested. This differs from the current documented behavior, which preserves completed changes.
+**Revised first-version behavior:** Stop cancels generation and prevents new requests, tools and approvals. Cancel/settle owned processes and writes, preserve the actual current files and partial conversation, refresh the visible changes and mark the run stopped. Completed edits remain on disk. Automatic restoration and its durable undo journal are deferred in [[Things to Optimize]] / [[Deferred File Restoration]].
 
-**Accepted initial design:** cancel work, settle writers, then restore tracked repository edits using a local undo record, with conflict protection and verified outcomes. The user accepts the conservative concurrent-edit behavior as a safe starting point while reserving judgment until real experience. It can be revised later; no extra edge-case complexity is required now. This is a planning baseline, not an implemented or fully scoped guarantee for every tool.
+1. Persist Stopping, invalidate unstarted work and pending approvals, and reject late callbacks.
+2. Cancel generation/tools where supported and settle owned writers before releasing the project reservation.
+3. Determine actual outcomes and preserve existing files, including completed edits. No Git reset, inverse patch or model-generated undo runs automatically.
+4. Save the stopped outcome, current diff/counts and partial history; show **Stopped — completed changes kept**.
+5. Release scheduling after writers/outcomes settle. A genuinely unknown action outcome still uses D-057’s needs-attention path; known retained edits alone do not block future work.
 
-#### Stop flow — accepted initial design
+Keep stale-edit revision checks, scope enforcement, visible diffs and process cancellation. Deferring rollback does not permit overwriting another writer or treating an unknown outcome as success. A separately authorized user request to revert files can use ordinary tools; Stop itself is no longer a revert request.
 
-| Stage | Harness behavior | User-visible behavior |
-| --- | --- | --- |
-| 1. Accept Stop | Persist that the run is stopping. Block new model requests, tool actions and pending approvals for that run. Stop does not require an extra confirmation. | Show **Stopping** promptly. |
-| 2. Cancel active work | Cancel the current generation and harness-owned tools where possible. Reject late calls and output from the cancelled generation. Cancellation of generation is not proof that an already-running write has stopped. | Streaming ends; stopping remains visible while tools settle. |
-| 3. Settle writers | Wait for active writes to finish or cancel safely, and determine their actual outcomes. Keep the repository editing queue blocked while writers or restoration are active. If writers cannot be stopped/observed reliably, report that state and do not restore into an actively changing tree. | Do not show the run as fully stopped while its tools may still modify files. |
-| 4. Restore this run's tracked changes | For tracked repository edits, restore the saved state only where it can be done without overwriting another writer's changes. Text/read-only runs have no repository edits to undo. | Show **Restoring changes** when restoration is needed. |
-| 5. Verify and finish | Verify restored contents, update the displayed changes and save the stopped outcome. Retain the conversation and tool history, marking reverted edits as reverted. | Show **Stopped — changes restored**, or **Stopped — restoration needs attention** with the remaining changes/conflicts. Never label an uncertain restore as successful. |
+### Unexpected application closure — revised by D-067
 
-#### Local undo record — initial design
+Treat interrupted runs as stopped on reopening. Invalidate old callbacks/approvals, settle surviving owned processes, reconcile actual outcomes and show the unexpected-closure error popup. Keep code as it exists; do not restore pre-run files or automatically resume/replay the run. See [[Unexpected Closure Recovery]]. Queue/message and temporary-timer recovery remain D-056. Unknown effects can still require attention; an ordinary interrupted run with known retained edits does not wait for rollback.
 
-Use a per-run checkpoint/write journal maintained by the harness, without asking the model to generate an undo patch. Keep it outside the model-editable repository content, scoped to the same agent/project, with no access through unrelated chats.
+### Permanent-chat deletion during a run — revised by D-067
 
-- Preserve pre-existing uncommitted and untracked user work. Restoring the last Git commit or resetting the entire working tree is not the requested undo behavior.
-- For each managed file edit, durably record its before state, whether the path existed, relevant file metadata and the actual written state/revision. Validate the source revision and record the undo information before mutation; reconcile the actual outcome afterward. Record creation, deletion and both sides of a rename, not just text replacements.
-- Reverse this run's operations using those records, checking the current state before each restore. If the user has not edited the touched files meanwhile, this returns them to their pre-run state. If the user changed a file before the agent's first write, preserve that intervening user version as well rather than forcing an older run-start copy over it. The UI's run-start comparison baseline and the undo record serve related but distinct purposes.
-- If a file changed after the agent's recorded write, preserve the current file and flag it for recovery instead of blindly replacing it. For the first version, do not attempt an automatic merge of concurrent user and agent edits. This is a conservative starting default that the user may revisit after experience, rather than a firmly held preference about that edge case. Use a guarded restore; a simple check followed by an unprotected overwrite would still allow a race. Exact filesystem enforcement is implementation work.
-- A file created by the run can be removed on undo only when it still matches the recorded created version. A deleted file can be restored only when its path has not been reused. Renames and metadata need the equivalent conflict checks.
-- Keep the undo data until the stopped outcome is verified or unresolved recovery is handled. If restoration is incomplete, persist that fact and block new repository editing until the conflict is resolved or the user explicitly keeps the remaining state. Read-only inspection can continue. Unexpected closure follows D-055 / [[Unexpected Closure Recovery]]; durable record/reconciliation mechanics remain implementation work.
+Delete first prevents new work and cancels/settles any active run, then removes chat-owned database/provider/context state and applies D-029’s source cleanup. Existing repository edits remain, including those made by the interrupted run. No file restoration is a deletion prerequisite. Do not delete a project or codebase merely because one chat is removed.
 
-**Scope for this first branch:** tracked file edits through the harness. Arbitrary terminal commands can change files outside a managed edit operation, and network/external-service effects cannot be assumed reversible. Command execution needs its own tracking/checkpoint or isolation design before Stop can promise to undo those effects. Permission to edit repository files remains unchanged; this is the boundary of the initial rollback guarantee, not a new per-edit approval rule.
-
-Keep the distinctions clear: failed-edit recovery and ordinary model-request failures preserve earlier successful edits; explicit user Stop requests rollback of tracked changes; an internal generation restart for steering is not whole-run Stop and does not automatically restore files. D-049 applies Stop restoration before active coding-chat deletion. D-055 treats unexpected application closure as Stop, with recovery on reopening. Other unknown/fatal tool effects retain their separate recovery boundary.
-
-Visual design: [[Run Lifecycle - Stop & Rollback.canvas]].
-
-### Unexpected application closure — agreed
-
-**D-055:** treat each interrupted active run as if the user pressed Stop. On the next launch, show an error popup, invalidate old approvals/callbacks, settle surviving writers and use the same guarded undo record to restore that coding run's tracked changes. Do not resume the interrupted model run or undo earlier completed runs. Text/read-only runs stop without a repository reset. The actual recovery occurs on reopening because cleanup cannot be relied on after the process has crashed.
-
-Verify before reporting success. If restoration is incomplete, preserve newer user changes and the recovery record, identify the affected files in the error/recovery details and keep that repository's editing queue blocked. Repeated closure during recovery must reconcile the existing Stop state without replaying original tool actions or applying undo twice. Queue/timer restart behavior is agreed in D-056 / [[Restarted Queues & Timers]]. See [[Unexpected Closure Recovery]] and [[Run Lifecycle - Unexpected Closure.canvas]].
-
-### Permanent-chat deletion during a run — agreed
-
-**Agreed in D-049:** Delete uses the established Stop mechanism before removing a chat whose coding run is active. Only that active run's tracked repository edits are restored. Deleting a transcript does not undo earlier finished or failed runs, delete the project, detach its repository or remove the codebase folder.
-
-| State when Delete is accepted | Harness behavior |
+| Chat state | Behavior |
 | --- | --- |
-| No active run and no unresolved recovery | Delete the chat data under the agreed source/memory boundary. Keep existing repository files, including retained edits from earlier finished/failed runs. |
-| Active text/read-only run, or coding run with no edits yet | Cancel and settle the run, then delete the chat data. There are no tracked repository edits to restore. |
-| Active coding run with tracked edits | Block new work, cancel/settle writers, restore that active run's edits using the existing guarded undo mechanism, verify the result, then delete the chat data. Preserve pre-existing and earlier-run code changes. |
-| Restoration fails, effects remain uncertain, or earlier recovery is still unresolved | Pause final deletion and retain the recovery information. Show the remaining state/conflicts and keep repository editing blocked under the established recovery rule. Resolve recovery or obtain the user's explicit choice to keep the remaining state before completing deletion. |
+| Idle | Remove chat-owned data; preserve repository files. |
+| Queued | Cancel its queue entry, invalidate callbacks and remove chat-owned data. |
+| Active model/tool work | Stop, settle writers, retain actual edits and then delete chat-owned data. |
+| Genuinely unresolved action/process outcome | Retain necessary reconciliation state and hold affected cleanup/writes until that uncertainty is resolved; known retained edits are not an unresolved rollback. |
 
-#### Delete flow — agreed
-
-1. Accept Delete and mark the chat deleting. Atomically capture any active run and prevent new prompts, model calls, tools, approvals, moves and retrieval. Once accepted, a late normal completion cannot start a new phase or turn the deleting chat back into an ordinary live chat. If the run had already finished before acceptance, use the no-active-run rule.
-2. Cancel active generation, pending retries and approvals; settle active tools before proceeding. Keep the repository editing queue blocked while writers or restoration remain active. Do not generate a model-written farewell or another summary as a prerequisite for deletion.
-3. For an active coding run, reuse the agreed tracked-file Stop rollback and its concurrent-edit safeguards. If restoration is incomplete, show **Deletion paused — restoration needs attention** and retain the existing run/recovery state instead of removing information needed to recover. Never overwrite the user's newer file merely to finish deleting the chat.
-4. After safe cancellation/restoration, remove the transcript, local provider continuation state, chat-only summaries/search entries and source references. Apply the agreed D-029 limit: keep other conversations and independently supported facts; remove or invalidate managed memory supported only by this deleted source/derived caches. Detailed editable-note and cleanup transactions remain implementation design work.
-5. Remove the chat from the visible list and reject late model/tool/memory-update callbacks so they cannot recreate it. Persist enough deletion/recovery progress for retries to continue cleanup without replaying tools or undoing a run twice. Release repository editing only when writers and restoration/recovery are settled.
-
-The app should make the active-run consequence clear: Delete during coding includes stopping and undoing that run's tracked edits. Existing code from earlier runs remains. Once the user requests that operation, the normal successful cancellation/restoration path needs no extra approval for each undo edit. Additional user choice is needed only if recovery cannot finish safely and the user wants to keep the unresolved filesystem state.
-
-The rollback scope remains tracked repository file edits. Arbitrary command and external-service effects still require their own recovery guarantees; deletion must not claim to reverse them. It must not erase the only recovery record for an uncertain side effect. D-059 extends this sequence to container deletion: remove the actual project/section/agent folder tree and descendant chats after settlement; physically contained code is deleted, but external linked targets survive. See [[Container & Settings Rules]].
-
-Visual design: [[Run Lifecycle - Chat Deletion.canvas]].
+Container deletion is separate: D-059 still removes its actual physical folder tree and descendant database chats. Repositories physically inside that tree are deleted with it; external linked folders remain with their current edits after work settles. See [[Container & Settings Rules]]. Temporary chats still cannot edit repositories.
 
 ### Temporary activity and expiry
 
@@ -318,7 +283,7 @@ If a countdown deadline was saved before Granite closed, it still applies while 
 
 Keep and expiry must serialize against the latest state: a valid Keep committed first removes expiry; an already-expired chat cannot be kept. A newly submitted prompt or valid action must also pass the live/deadline check before extending the timer. For an active temporary chat the user can Stop first, then Keep once the run has settled.
 
-The agreed permanent-chat deletion policy above reuses Stop rollback for an active coding run and preserves earlier-run changes. This temporary-expiry branch covers only temporary retention and its cancellation/cleanup path.
+The revised permanent-chat deletion policy above cancels/settles an active coding run and keeps all completed file edits. This temporary-expiry branch covers only temporary retention and its cancellation/cleanup path.
 
 Visual policy: [[Run Lifecycle - Temporary Expiry.canvas]] — timer rules revised in D-048/D-054; detailed cleanup remains proposed.
 
@@ -332,12 +297,12 @@ D-052/D-062 select one active run per chat, whole-run reservations within each r
 2. **Agreed:** one read-only tool followed by a final answer.
 3. **Agreed:** one repository edit with implied project permissions and visible changes.
 4. **Agreed:** an edit rejected before changing the file, one corrected attempt, and honest partial-result reporting.
-5. **Accepted initial design:** Stop cancels work, waits for writers, then restores tracked edits with conflict protection and a verified outcome; concurrent-edit defaults can be revisited.
+5. **Revised by D-067:** Stop cancels/settles work and keeps completed edits. Automatic restoration, its undo journal and related recovery UI are in the later backlog.
 6. **Agreed:** steering interrupts generation or waits for a safe tool boundary, then continues the same run with the original request, new messages and actual outcomes; earlier edits are not automatically undone.
 7. **Agreed:** one bounded model-request retry before output for temporary connection errors; preserve interrupted output/completed changes and offer Continue after a failed run.
 8. **Agreed:** preview an approval-required identity edit, wait, apply that exact approved change once or return denial, and invalidate superseded/cancelled requests; new personality loads next run.
 9. **Agreed revision:** hold a full hour during active or queued work; replies/actions reset it; count down when idle or waiting solely for approval; use one current expiry value without an activity log. Cleanup details remain proposed.
-10. **Agreed:** deleting an active coding chat uses Stop/restoration before chat cleanup, preserves earlier-run code and pauses deletion on unresolved recovery.
+10. **Revised by D-067:** deleting an active coding chat uses Stop/settlement before cleanup and keeps completed edits; only genuinely uncertain outcomes require reconciliation.
 11. **Container/settings review complete:** [[Container & Settings Rules]] records D-059–D-066 for deletion, current editable files, relinking/duplicate links, fixed session model, live permission timing, skill imports and optional tool lookup. [[Remaining Harness Decisions]] now tracks specification handoff and explicit deferrals.
 
 Performance and richer context/repository retrieval remain in [[Things to Optimize]] after the basics.

@@ -2,10 +2,11 @@ import { ConversationStream } from './conversation-stream'
 import { responseClock } from '../features/chat/response-clock'
 import { beginTiming, recordDelta, finishTiming, bindTiming } from '../features/chat/devTimings'
 import { useEffect, useRef, useState } from 'react'
-import type { SavedConnection, StreamActivity } from '../../../shared/chat'
+import type { Result, SavedConnection, StreamActivity } from '../../../shared/chat'
 import type { ApprovalRequest } from '../../../shared/harness'
 import type { Agent, AgentMessage, Conversation } from '../../../shared/agent'
 import { useConnectionModel } from '../features/chat/useConnectionModel'
+import type { AgentOrganization, ConversationLocation } from '../../../shared/organization'
 
 const bridgeError = 'Could not communicate with the desktop backend.'
 
@@ -21,6 +22,14 @@ export function useAgentSession() {
   )
 
   const [conversations, setConversations] = useState<Conversation[]>([])
+  const [organization, setOrganization] = useState<AgentOrganization>({ sections: [], projects: [] })
+  const [location, setLocation] = useState<ConversationLocation>({ sectionId: '', projectId: null })
+  const currentLocation = useRef<ConversationLocation>({ sectionId: '', projectId: null })
+
+  function updateLocation(next: ConversationLocation) {
+    currentLocation.current = next
+    setLocation(next)
+  }
   const [conversationId, setConversationId] = useState('')
   const visibleConversation = useRef({ owner: '', id: '' })
   const conversationSelection = useRef(0)
@@ -56,11 +65,20 @@ export function useAgentSession() {
   const connection = connections.find(item => item.id === (locked?.connectionId ?? (locked ? connections.find(item => item.model === locked.model)?.id : undefined) ?? selectedId))
   const modelSelection = useConnectionModel(connection, locked?.model, conversationId, [...messages].reverse().find(message => message.role === 'assistant')?.effort)
   const agent = agents.find(agent => agent.id === agentId)
+  const section = organization.sections.find(item => item.id === location.sectionId)
+  const project = organization.projects.find(item => item.id === location.projectId)
+  const runUnavailable = section?.mode === 'closed'
+    ? 'You can organize chats here, but replies in Closed sections are not available yet.'
+    : project?.repositoryPath
+      ? 'This folder is linked. You can organize chats here, but repository work is not available yet.'
+      : ''
 
   async function loadConversation(id: string, owner = agentId) {
     const token = ++conversationSelection.current
     visibleConversation.current = { owner, id }
     setConversationId(id)
+    const known = conversations.find(chat => chat.id === id && chat.agentId === owner)
+    if (known) updateLocation({ sectionId: known.sectionId, projectId: known.projectId })
     setDraftState(drafts.current.get(JSON.stringify([owner, id])) ?? '')
     setError('')
     follow.current = true
@@ -78,6 +96,7 @@ export function useAgentSession() {
       const result = await window.granite.conversations.get(owner, id)
       if (token !== conversationSelection.current || currentAgent.current !== owner) return
       if (!result.ok) { setError(result.error); return }
+      updateLocation({ sectionId: result.value.sectionId, projectId: result.value.projectId })
       setMessages(result.value.messages)
     } catch {
       if (token === conversationSelection.current) setError(bridgeError)
@@ -113,7 +132,9 @@ export function useAgentSession() {
   }
 
   async function refreshList() {
-    const result = await window.granite.conversations.list(agentId)
+    const owner = currentAgent.current
+    const result = await window.granite.conversations.list(owner)
+    if (currentAgent.current !== owner) return
 
     if (result.ok) {
       setConversations(result.value)
@@ -136,6 +157,8 @@ export function useAgentSession() {
 
     setMessages([])
     setConversations([])
+    setOrganization({ sections: [], projects: [] })
+    updateLocation({ sectionId: '', projectId: null })
     setConversationId('')
     setDraft('')
     setError('')
@@ -148,7 +171,9 @@ export function useAgentSession() {
     }
 
     try {
-      const chats = await window.granite.conversations.list(id)
+      const [chats, layout] = await Promise.all([
+        window.granite.conversations.list(id), window.granite.organization.get(id)
+      ])
 
       if (token !== selection.current) {
         return
@@ -157,8 +182,11 @@ export function useAgentSession() {
       if (!chats.ok) {
         throw new Error(chats.error)
       }
+      if (!layout.ok) throw new Error(layout.error)
 
       setConversations(chats.value)
+      setOrganization(layout.value)
+      updateLocation({ sectionId: layout.value.sections.find(item => item.kind === 'general')?.id ?? '', projectId: null })
 
       const saved =
         localStorage.getItem(`granite.conversation.${id}`) ??
@@ -289,6 +317,7 @@ export function useAgentSession() {
       !connection ||
       !modelSelection.ready ||
       !agent ||
+      runUnavailable ||
       !loaded
     ) {
       return
@@ -296,6 +325,7 @@ export function useAgentSession() {
 
     const requestId = crypto.randomUUID()
     const text = draft.trim()
+    const destination = { ...currentLocation.current }
     responseClock.begin(requestId)
     beginTiming(requestId)
     run.current = requestId
@@ -319,7 +349,7 @@ export function useAgentSession() {
 
     try {
       if (!id) {
-        const created = await window.granite.conversations.create(agent.id)
+        const created = await window.granite.conversations.create(agent.id, destination)
 
         if (!created.ok) {
           throw new Error(created.error)
@@ -493,6 +523,56 @@ export function useAgentSession() {
     }
   }
 
+  async function changeOrganization(action: () => Promise<Result<unknown>>) {
+    if (run.current || agentOperation.current || !loaded || !agentId) return false
+    const owner = agentId
+    agentOperation.current = true
+    setManagingAgents(true)
+    setError('')
+    try {
+      const result = await action()
+      if (!result.ok) throw new Error(result.error)
+      const layout = await window.granite.organization.get(owner)
+      if (!layout.ok) throw new Error(layout.error)
+      if (currentAgent.current !== owner) return false
+      setOrganization(layout.value)
+      await refreshList()
+      return true
+    } catch (error) {
+      setError(error instanceof Error ? error.message : bridgeError)
+      return false
+    } finally {
+      agentOperation.current = false
+      setManagingAgents(false)
+    }
+  }
+
+  async function moveConversation(id: string, destination: ConversationLocation) {
+    return changeOrganization(async () => {
+      const result = await window.granite.conversations.move(agentId, id, destination)
+      if (result.ok && isViewing(agentId, id)) updateLocation(destination)
+      return result
+    })
+  }
+
+  function selectLocation(next: ConversationLocation) {
+    if (!loaded || agentOperation.current) return
+    updateLocation(next)
+    ++conversationSelection.current
+    visibleConversation.current = { owner: currentAgent.current, id: '' }
+    setConversationId('')
+    setMessages([])
+    setError('')
+    setDraft('')
+    follow.current = true
+  }
+
+  function newChat() {
+    if (run.current || agentOperation.current || !loaded || !agentId) return
+    const general = organization.sections.find(section => section.kind === 'general')
+    if (general) selectLocation({ sectionId: general.id, projectId: null })
+  }
+
   return {
     agents,
     managingAgents,
@@ -505,6 +585,12 @@ export function useAgentSession() {
     connection,
     modelSelection,
     conversations,
+    organization,
+    location,
+    runUnavailable,
+    selectLocation,
+    changeOrganization,
+    moveConversation,
     conversationId,
     loaded,
     messages,
@@ -539,14 +625,7 @@ export function useAgentSession() {
     deleteAgent,
     deleteConversation,
     renameConversation,
-    newChat() {
-      ++conversationSelection.current
-      visibleConversation.current = { owner: currentAgent.current, id: '' }
-      setConversationId('')
-      setMessages([])
-      setError('')
-      setDraft('')
-    },
+    newChat,
     async addAgent(created: Agent) {
       setAgents(current => [...current, created])
       await selectAgent(created.id)

@@ -14,7 +14,7 @@ Delete associated summaries, indexes, provider continuation state and other owne
 
 Folder deletion follows physical storage: code physically inside the deleted folder is deleted too. A repository linked to a folder elsewhere is not deleted by removing the attachment/container. Do not traverse a managed reference or symlink to delete an external target. If another project links an internally stored repository that is deleted, its link becomes unavailable and uses the missing-folder warning below.
 
-Reuse the existing deletion sequence: prevent new descendant work, cancel queued work/approvals, Stop active runs and settle their writers before removing files/data. Active external-repository edits get the existing guarded Stop restoration; earlier completed external edits remain. Do not discard an unresolved recovery record or report successful deletion when cleanup is incomplete. Durable transaction/retry mechanics are implementation details.
+Reuse the existing deletion sequence: prevent new descendant work, cancel queued work/approvals, Stop active runs and settle their writers before removing files/data. D-067 preserves completed external-repository edits from both the active and earlier runs; no rollback precedes deletion. Do not discard an unresolved recovery record or report successful deletion when cleanup is incomplete. Durable transaction/retry mechanics are implementation details.
 
 ## Current memory and notes are authoritative saved content
 
@@ -30,7 +30,7 @@ When a linked folder cannot be reached, show a Granite warning that the folder c
 
 The user may select the same codebase at a new path or a different codebase. This explicitly relaxes D-016's immutable-attachment rule for missing-folder recovery. Each project still has at most one current attachment, cannot detach back to chat-only, stays in its section, and keeps its bound chats. Unrestricted switching of a still-reachable attachment is not added by this recovery flow.
 
-Relinking commits after affected active work/writers have settled; it does not retarget an in-flight edit or undo operation. Save a new attachment revision and refresh path permissions, file indexes and repository-specific cached state. Undo records remain bound to the original resource and must never restore old files into the new folder. If old recovery remains unresolved, retain it honestly rather than treating relinking as successful rollback.
+Relinking commits after affected active work/writers have settled; it does not retarget an in-flight edit or process. Save a new attachment revision and refresh path permissions, file indexes and repository-specific cached state. Operation/diff records remain bound to their original resource; never replay old actions into the new folder. Preserve genuine unresolved outcome information. D-067 defers restoration and its undo journal entirely.
 
 Keep chat history, but include an explicit repository-change notice on the next request. Re-orient using current files before editing. Old chat references can remain useful history, but do not establish what exists in the new repository. A mismatched history is a context issue, not permission to invent paths or replay old actions.
 
@@ -40,7 +40,7 @@ For a failed first attachment/creation, report the failure and retain a usable c
 
 Store linked folder paths and project identities. Normalize paths sufficiently to warn when another project already links the same physical folder; link registration must not fail merely because a duplicate exists. Explain that independent agents/runs may conflict when editing together. Apply the same warning to evident overlapping/nested writable folders; sophisticated worktree/alias detection is later optimization.
 
-Keep one active run per chat and serialize repository-capable runs within the same project. The first version does not impose a unique owning project or a global scheduling lock across separately linked projects. This revises D-024/D-052's cross-project ownership guarantee. Conflict checks and guarded rollback remain required, but simultaneous writes can prevent complete automatic restoration. Do not overwrite another writer or claim that a warning guarantees safe concurrent work. D-057's block on known unresolved affected writes still applies through known aliases; linking the same folder elsewhere cannot bypass recovery.
+Keep one active run per chat and serialize repository-capable runs within the same project. The first version does not impose a unique owning project or a global scheduling lock across separately linked projects. This revises D-024/D-052's cross-project ownership guarantee. Conflict checks remain required, but simultaneous writes can still conflict. Stop keeps completed edits under D-067. Do not overwrite another writer or claim that a warning guarantees safe concurrent work. D-057's block on known unresolved affected writes still applies through known aliases; linking the same folder elsewhere cannot bypass recovery.
 
 Each attachment grants access through its own project/section rules. A Closed attachment cannot hide physical files that the user also attached through an eligible Shared project; the same files can be read through that Shared attachment. Conversation/memory privacy remains separate. Generic tools still cannot expose Granite's protected database/configuration/context storage through an attached ancestor folder.
 
@@ -65,7 +65,7 @@ Use the Codex-style pattern of a compact direct core and discovery of optional i
 - Deleting a section removes its project folders and descendant chats; an externally linked repository survives, while an internally stored repository is removed with its folder.
 - Editing permitted memory between two model requests makes the second request use the current version; Closed and Temporary restrictions still apply.
 - A missing folder produces a warning. Relinking to a different codebase retains the chat but refreshes repository state and supplies a change notice before new edits.
-- Two projects can link the same folder after a warning. Runs within one project queue; distinct projects can run concurrently, with conflicts reported rather than overwritten during Stop.
+- Two projects can link the same folder after a warning. Runs within one project queue; distinct projects can run concurrently, with conflicts reported rather than overwritten; Stop retains completed edits.
 - Disabling a write tool while generation is underway does not cancel generation, but blocks that tool if proposed afterward; an already-executing action is not automatically interrupted.
 - A requested skill import preserves its resources under the agent's tools folder and does not execute installation scripts merely by downloading them.
 

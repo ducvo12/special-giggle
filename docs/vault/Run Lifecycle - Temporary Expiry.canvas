@@ -143,7 +143,7 @@
     {
       "id": "manual",
       "type": "text",
-      "text": "## Manual temporary deletion\n\nCancel/clean up immediately; no repo edits to undo.\nPermanent coding-chat deletion uses its agreed Stop/restoration flow:\n[[Run Lifecycle - Chat Deletion.canvas]]",
+      "text": "## Manual temporary deletion\n\nCancel and settle, then clean up.\nNo temporary repository edits exist.\nPermanent coding-chat deletion also keeps edits (D-067).\n[[Run Lifecycle - Chat Deletion.canvas]]",
       "x": 3000,
       "y": 550,
       "width": 430,

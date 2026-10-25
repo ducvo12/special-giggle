@@ -13,7 +13,7 @@
     {
       "id": "start",
       "type": "text",
-      "text": "## 1 · Request and validate\n\nSave the user request.\nValidate chat/project and current repository.\nStart stable run/location/undo state.\nMembership grants read/write access.\nRecheck permissions before each new action.",
+      "text": "## 1 · Request and validate\n\nSave request; validate project and repository.\nStart stable run/location state.\nMembership grants read/write access.\nRecheck permissions before each action.",
       "x": 0,
       "y": 0,
       "width": 380,
@@ -23,7 +23,7 @@
     {
       "id": "baseline",
       "type": "text",
-      "text": "## 2 · Record starting state\n\nEstablish the change-tracking baseline.\nPreserve pre-existing user edits.\nSupport requested Stop rollback.\n\nInitial undo design:\n[[Run Lifecycle - Stop & Rollback.canvas]]",
+      "text": "## 2 · Track visible changes\n\nDistinguish pre-existing edits from run changes.\nShow actual diffs and +/− counts.\nNo automatic undo journal required.\nStop keeps completed edits (D-067).",
       "x": 500,
       "y": 0,
       "width": 380,
@@ -123,7 +123,7 @@
     {
       "id": "boundaries",
       "type": "text",
-      "text": "## Failure boundaries — agreed\n\nA rejected edit does not undo earlier successful edits.\nUser Stop has its separate rollback policy.\n\nScope denial cannot be bypassed.\nUnknown/partial effects need inspection before more writes.",
+      "text": "## Failure boundaries\n\nRejected edits preserve earlier changes.\nStop cancels and retains completed edits.\nScope denials cannot be bypassed.\nUnknown effects need inspection.",
       "x": 1500,
       "y": 1040,
       "width": 430,

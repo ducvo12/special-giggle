@@ -8,16 +8,16 @@ Related: [[Run Lifecycle Design]] · [[Remaining Harness Decisions]] · [[Decisi
 
 ## Chats and independent work
 
-- One active run per chat, including approval waits and settling/restoration. Messages during ordinary active work steer that run under D-045; they do not create parallel runs in the same chat.
+- One active run per chat, including approval waits and settling/outcome reconciliation. Messages during ordinary active work steer that run under D-045; they do not create parallel runs in the same chat.
 - Different chats, including chats under the same agent, may run concurrently when their repository and model-connection capacity permit it. No subagents are introduced.
 - Saving a message while its chat is queued appends it to the pending request in arrival order. There is one queue entry for the chat; extra messages do not create duplicate jobs or move it ahead of others.
-- A message submitted after Stop has begun waits for the old run's cleanup. It can start a new run after safe cleanup, but cannot restart the stopped run. Unresolved restoration keeps new editing blocked.
+- A message submitted after Stop has begun waits for the old run's cleanup. It can start a new run after safe cleanup, but cannot restart the stopped run. Genuinely unresolved action/process outcomes keep affected editing blocked; known retained edits do not.
 
 ## Repository-project reservations and queues
 
 D-062 revises D-024’s global unique-owner rule. Multiple projects may link the same folder, with a warning about conflicting independent edits. Within a repository project, every run reserves that project’s repository access for the whole run because membership gives write capability. This also queues a text/read-only question in that project; parallel read-only runs remain in [[Things to Optimize]]. Outside chats retain permitted reads. Separate projects linked to the same physical folder may run concurrently; there is no global single-editor guarantee in this version.
 
-Use first-in, first-out ordering among eligible chats within a repository project. Acquire its reservation before work starts and retain it during model/tool steps, approval waits, Stop settlement and restoration. Release it after writers settle and the outcome is known. Unresolved effects/restoration still block affected writes under D-057, including known aliases to the same affected resource; duplicate linking is not a recovery bypass. Guarded file revisions must preserve conflicting writes from other projects/agents rather than claiming full rollback. Store canonical links for duplicate warnings; stronger coordination/worktree isolation is deferred.
+Use first-in, first-out ordering among eligible chats within a repository project. Acquire its reservation before work starts and retain it during model/tool steps, approval waits and Stop settlement. Release it after writers settle and the outcome is known. Unresolved effects still block affected writes under D-057, including known aliases to the same affected resource; duplicate linking is not a recovery bypass. Fresh-read/revision checks must preserve conflicting writes from other projects/agents. D-067 defers automatic restoration; stopping retains completed edits. Store canonical links for duplicate warnings; stronger coordination/worktree isolation is deferred.
 
 Provider availability is a separate gate. Do not occupy scarce model-request capacity while waiting for a repository. Revalidate the chat and its current permitted context when queued work actually starts; do not reuse a context snapshot assembled when the message first entered the queue.
 
@@ -33,7 +33,7 @@ Capacity belongs to an individual model request. Release it when that request en
 
 D-063 keeps the model/provider fixed within a chat/model session; never silently switch to avoid a queue. D-064 refreshes changed permissions before the next model request/tool execution without automatically stopping active work. See [[Container & Settings Rules]].
 
-Unexpected closure uses [[Unexpected Closure Recovery]] (D-055): interrupted active runs are stopped and affected repository queues remain blocked until restoration is settled. [[Restarted Queues & Timers]] (D-056) preserves messages from never-started jobs but requires explicit restart with fresh validation/queue positions. Previously held temporary timers get a fresh hour after recovery; old real idle deadlines remain in effect. No old queue entry may bypass startup recovery.
+Unexpected closure uses [[Unexpected Closure Recovery]] (D-055): interrupted active runs are stopped and affected queues remain blocked until writers and actual outcomes are settled. [[Restarted Queues & Timers]] (D-056) preserves messages from never-started jobs but requires explicit restart with fresh validation/queue positions. Previously held temporary timers get a fresh hour after recovery; old real idle deadlines remain in effect. No old queue entry may bypass startup recovery.
 
 ## Tool ordering and shared files
 
@@ -78,7 +78,7 @@ A permanent approval wait has no extra default expiration. Temporary retention f
 1. A runs in repository X; B in the same project queues. C in an independent chat can run if model capacity exists.
 2. A waits for approval. Another chat can use the freed model-request slot; B still cannot edit X.
 3. Several messages arrive in B while queued. When B starts, it receives all pending messages in order, with freshly validated context and only one run.
-4. Stop cancels A; B starts only after A's writers/rollback settle successfully. A recovery conflict keeps B queued.
+4. Stop cancels A; B starts only after A’s writers/outcomes settle. Genuine uncertainty keeps affected work queued; completed retained edits alone do not.
 5. A temporary chat remains queued for over an hour without another interaction. It remains live at 1:00:00 and runs when eligible; cancelling its last pending job starts a fresh idle hour.
 6. A healthy run lasts longer or uses more model/tool steps than a typical task. No first-version harness run budget stops it; genuine operation/provider failures and user Stop still follow their accepted policies.
 7. A local host permits only one request. A generates; B and C show model-queue positions 1 and 2. Cancelling B updates C to position 1 without disturbing A.

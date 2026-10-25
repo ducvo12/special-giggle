@@ -1,16 +1,18 @@
 import { realpath, lstat } from 'node:fs/promises'
 import { join, resolve, relative, sep } from 'node:path'
-import { FilesystemBackend } from 'deepagents'
+import { FilesystemBackend, type GrepResult } from 'deepagents'
 
 // Reject symbolic links, including links into the workspace. This also prevents
 // aliases from bypassing protection of identity.md. The OS filesystem is not a
 // sandbox against other local processes changing paths concurrently.
 export class AgentFilesystem extends FilesystemBackend {
   root: string
+  readonly excludeOrganization: boolean
 
-  constructor(root: string) {
+  constructor(root: string, options: { excludeOrganization?: boolean } = {}) {
     super({ rootDir: root, virtualMode: true, maxFileSizeMb: 1 })
     this.root = root
+    this.excludeOrganization = options.excludeOrganization ?? false
   }
 
   async check(path: string, writing = false) {
@@ -25,9 +27,13 @@ export class AgentFilesystem extends FilesystemBackend {
 
     const parts = path.split('/').filter(Boolean)
 
+    if (this.excludeOrganization && parts[0]?.toLowerCase() === 'sections') {
+      throw new Error('Section files are not available through the current agent-wide tools.')
+    }
+
     if (
       writing &&
-      ['identity.md', 'agent.json', 'harness.json', 'skills'].includes(parts[0]?.toLowerCase())
+      ['identity.md', 'agent.json', 'harness.json', 'skills', 'tools', 'sections'].includes(parts[0]?.toLowerCase())
     ) {
       throw new Error('Identity and agent configuration are read-only to the agent.')
     }
@@ -154,6 +160,20 @@ export class AgentFilesystem extends FilesystemBackend {
 
     await this.check(path)
 
+    if (this.excludeOrganization && path.replaceAll('/', '') === '') {
+      // Do not search protected section contents and filter afterward: their
+      // text must never enter an agent-wide grep result or its match budget.
+      const matches: NonNullable<GrepResult['matches']> = []
+      let truncated = false
+      for (const entry of (await this.ls('/')).files ?? []) {
+        const remaining = maxCount === null ? null : Math.max(0, maxCount - matches.length)
+        if (remaining === 0) { truncated = true; break }
+        const result = await super.grep(pattern, entry.path, glob, remaining)
+        matches.push(...(result.matches ?? []))
+        truncated ||= result.truncated ?? false
+      }
+      return { matches, truncated }
+    }
     return super.grep(pattern, path, glob, maxCount)
   }
 }

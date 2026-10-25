@@ -43,7 +43,7 @@
     {
       "id": "retry",
       "type": "text",
-      "text": "## One automatic retry\n\nShow Reconnecting briefly.\nRetry this model request with valid current context.\nNever replay completed tools.\nKeep same run and undo boundary.",
+      "text": "## One automatic retry\n\nShow Reconnecting briefly.\nRetry with valid current context.\nNever replay completed tools.\nKeep the same run.",
       "x": 1500,
       "y": -450,
       "width": 400,
@@ -93,7 +93,7 @@
     {
       "id": "new_run",
       "type": "text",
-      "text": "## Resume from actual state\n\nOriginal task + steering + relevant history + interruption + actual tool outcomes.\nInspect files before more edits.\nEstablish a new run undo boundary.",
+      "text": "## Resume from actual state\n\nTask + steering + relevant history + interruption + actual outcomes.\nInspect files before more edits.\nEstablish a new run/change record.",
       "x": 3300,
       "y": 0,
       "width": 400,
@@ -103,7 +103,7 @@
     {
       "id": "changes",
       "type": "text",
-      "text": "## Preserve completed edits\n\nA failed explanatory response does not mean a previous edit failed.\nKeep actual changes and outcomes.\nExplicit Stop uses its separate rollback policy.\n[[Run Lifecycle - Stop & Rollback.canvas]]",
+      "text": "## Preserve completed edits\n\nA failed answer does not mean a previous edit failed.\nKeep actual changes and outcomes.\nStop also keeps edits (D-067).",
       "x": 500,
       "y": 550,
       "width": 430,
@@ -133,7 +133,7 @@
     {
       "id": "undo",
       "type": "text",
-      "text": "## Continue starts a new run\n\nLater Stop undoes that new run’s edits.\nEarlier failed-run changes stay unless explicitly undone.\nUndo UI/retention for failed runs remains to design.",
+      "text": "## Continue starts a new run\n\nLater Stop keeps its completed edits too.\nAutomatic restoration and Undo UI are deferred.\n\n[[Deferred File Restoration]]",
       "x": 2700,
       "y": 550,
       "width": 430,

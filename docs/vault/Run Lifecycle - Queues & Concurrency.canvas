@@ -43,7 +43,7 @@
     {
       "id": "start",
       "type": "text",
-      "text": "## 3 · Validate and start\n\nRecheck current location/context/access.\nKeep stable run/location/undo identity.\nReserve within the repository project.\nRefresh permissions on each request/action.\nAcquire model capacity for each request.",
+      "text": "## 3 · Validate and start\n\nRecheck location/context/access.\nKeep stable run/location identity.\nReserve within the repository project.\nRefresh permissions on each request/action.\nAcquire capacity per model request.",
       "x": 1080,
       "y": 0,
       "width": 420,
@@ -73,7 +73,7 @@
     {
       "id": "settle",
       "type": "text",
-      "text": "## 5 · Settle before release\n\nCommit the actual outcome.\nStop uses existing tracked-file restoration.\nWait for writers and restoration.\nUncertainty/conflicts keep editing blocked.\n\n[[Run Lifecycle - Stop & Rollback.canvas]]",
+      "text": "## 5 · Settle before release\n\nStop cancels work and keeps edits.\nWait for owned writers; record actual outcome.\nOnly genuine uncertainty blocks affected writes.\n\n[[Run Lifecycle - Stop & Rollback.canvas]]",
       "x": 2240,
       "y": 0,
       "width": 440,

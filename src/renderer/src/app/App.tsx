@@ -1,14 +1,15 @@
 import { toggleDevTimings, useDevTimings } from '../features/chat/devTimings'
 import { useEffect, useRef, useState } from 'react'
 import Settings from '../features/connections/Settings'
-import Workspace from '../features/workspace/Workspace'
-import AgentSettings from '../features/agents/AgentSettings'
+import FileView from '../features/workspace/FileView'
+import CreateAgent from '../features/agents/CreateAgent'
 import ChatView from '../features/chat/ChatView'
 import Sidebar from './Sidebar'
 import HarnessSettings from '../features/harness/HarnessSettings'
 import ApprovalPrompt from '../features/harness/ApprovalPrompt'
 import type { Page } from './navigation'
 import { useAgentSession } from './useAgentSession'
+import TreeDialog, { type TreeDialogAction } from '../features/organization/TreeDialog'
 
 export default function App() {
   const devTimings = useDevTimings()
@@ -18,6 +19,9 @@ export default function App() {
   const [settingsVisit, setSettingsVisit] = useState(0)
   const [sidebarVisible, setSidebarVisible] = useState(true)
   const [identityDirty, setIdentityDirty] = useState(false)
+  const [selectedFile, setSelectedFile] = useState('/identity.md')
+  const [fileRevision, setFileRevision] = useState(0)
+  const [dialog, setDialog] = useState<TreeDialogAction | null>(null)
   const {
     agents,
     managingAgents,
@@ -30,6 +34,12 @@ export default function App() {
     connection,
     modelSelection,
     conversations,
+    organization,
+    location,
+    runUnavailable,
+    selectLocation,
+    changeOrganization,
+    moveConversation,
     conversationId,
     loaded,
     messages,
@@ -60,7 +70,7 @@ export default function App() {
 
   useEffect(() => {
     const openSettings = (event: KeyboardEvent) => {
-      if (!identityDirty && (event.metaKey || event.ctrlKey) && event.key === ',') {
+      if (!identityDirty && !dialog && (event.metaKey || event.ctrlKey) && event.key === ',') {
         event.preventDefault()
         setPage('settings')
       }
@@ -68,7 +78,7 @@ export default function App() {
     window.addEventListener('keydown', openSettings)
 
     return () => window.removeEventListener('keydown', openSettings)
-  }, [identityDirty])
+  }, [identityDirty, dialog])
 
   useEffect(() => {
     if (follow.current) {
@@ -78,8 +88,8 @@ export default function App() {
 
   function openNewChat() {
     newChat()
-    setPage('chat')
     setNewChatFocus(value => value + 1)
+    setPage('chat')
   }
 
   useEffect(() => {
@@ -106,7 +116,7 @@ export default function App() {
           className="home-button"
           aria-label="Granite home"
           title={identityDirty ? 'Save or discard your changes to return home' : 'Home'}
-          disabled={identityDirty || !loaded || managingAgents}
+          disabled={identityDirty || Boolean(dialog) || !loaded || managingAgents}
           onClick={openNewChat}
         >
           Granite
@@ -121,18 +131,28 @@ export default function App() {
       <div className="app-body">
         {sidebarVisible && (
           <Sidebar
+          key={agentId}
           page={page}
           agents={agents}
           agentId={agentId}
           agent={agent}
           busy={busy}
           loaded={loaded && !managingAgents}
-          identityDirty={identityDirty}
+          identityDirty={identityDirty || Boolean(dialog)}
+          selectedFile={selectedFile}
+          fileRevision={fileRevision}
+          onOpenFile={path => { setSelectedFile(path); setPage('file') }}
+          onDialog={setDialog}
+          onRefreshFiles={() => setFileRevision(value => value + 1)}
           conversations={conversations}
+          organization={organization}
+          location={location}
+          onSelectLocation={next => { selectLocation(next); setPage('chat') }}
+          onMoveConversation={moveConversation}
           conversationId={conversationId}
           onRenameConversation={renameConversation}
           onDeleteConversation={deleteConversation}
-          onSelectAgent={id => void selectAgent(id)}
+          onSelectAgent={id => { setPage('chat'); void selectAgent(id) }}
           onNewChat={openNewChat}
           onDeleteAgent={async id => {
             const deleted = await deleteAgent(id)
@@ -169,17 +189,15 @@ export default function App() {
               }
             }}
           />
-        ) : page === 'create-agent' || (page === 'identity' && agent) ? (
-          <AgentSettings
-            key={`${page}:${agent?.id ?? 'new'}`}
-            agent={agent}
-            creating={page === 'create-agent'}
+        ) : page === 'create-agent' ? (
+          <CreateAgent
             busy={busy}
             onDirty={setIdentityDirty}
             onBack={() => setPage('chat')}
             onCreated={async created => {
               await addAgent(created)
-              setPage('identity')
+              setSelectedFile('/identity.md')
+              setPage('file')
             }}
           />
         ) : page === 'tools' && agent ? (
@@ -193,11 +211,15 @@ export default function App() {
               setPage('chat')
             }}
           />
-        ) : page === 'workspace' && agent ? (
-          <Workspace key={agent.id} agent={agent} busy={busy} />
+        ) : page === 'file' && agent ? (
+          <FileView key={`${agent.id}:${selectedFile}:${fileRevision}`} agent={agent} path={selectedFile}
+            busy={busy || managingAgents} onDirty={setIdentityDirty} onSaved={() => setFileRevision(value => value + 1)} />
         ) : (
           <ChatView
             conversationId={conversationId}
+            conversationTitle={conversations.find(chat => chat.id === conversationId)?.title}
+            section={organization.sections.find(section => section.id === location.sectionId)}
+            project={organization.projects.find(project => project.id === location.projectId)}
             messageInput={messageInput}
             agent={agent}
             connections={connections}
@@ -219,6 +241,7 @@ export default function App() {
             draft={draft}
             elapsed={elapsed}
             stopping={stopping}
+            runUnavailable={runUnavailable}
             onSelectConnection={setSelectedId}
             onOpenSettings={() => setPage('settings')}
             onCreateAgent={() => setPage('create-agent')}
@@ -230,6 +253,14 @@ export default function App() {
         )}
 
       </div>
+
+      {dialog && agent && <TreeDialog action={dialog} agent={agent} organization={organization}
+        disabled={busy || managingAgents || !loaded} onChange={changeOrganization} onClose={() => setDialog(null)}
+        onNoteCreated={path => { setFileRevision(value => value + 1); setSelectedFile(path); setPage('file') }}
+        onNoteRenamed={(previous, next) => {
+          setFileRevision(value => value + 1)
+          setSelectedFile(path => path === previous ? next : path)
+        }} />}
 
       {approval && (
         <ApprovalPrompt key={approval.id} request={approval} onAnswer={approve} onStop={stop} />

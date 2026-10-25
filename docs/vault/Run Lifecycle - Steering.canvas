@@ -3,7 +3,7 @@
     {
       "id": "intro",
       "type": "text",
-      "text": "## Steering — initial design\n\nAccepted in D-045.\nOriginal request + new messages + actual tool results.\nSafe boundaries; same run and undo record.\n\n[[Run Lifecycle Design]]\n[[Run Lifecycle - Model Request Failures.canvas]]",
+      "text": "## Steering — agreed\n\nOriginal request + new messages + actual results.\nSafe boundaries; same run/change record.\nStop retains completed edits (D-067).\n\n[[Run Lifecycle Design]]",
       "x": 0,
       "y": -450,
       "width": 460,
@@ -93,7 +93,7 @@
     {
       "id": "stop_priority",
       "type": "text",
-      "text": "## Stop wins\n\nA message during stopping/restoring cannot restart the cancelled run.\nSave for next-run handling after cleanup.\n\n[[Run Lifecycle - Stop & Rollback.canvas]]",
+      "text": "## Stop wins\n\nA message during stopping/settling cannot restart the cancelled run.\nSave for next-run handling after cleanup.\n\n[[Run Lifecycle - Stop & Rollback.canvas]]",
       "x": 0,
       "y": 550,
       "width": 430,
@@ -103,7 +103,7 @@
     {
       "id": "same_run",
       "type": "text",
-      "text": "## Keep the original run boundary\n\nSame run ID, permissions and repo ownership.\nKeep original undo record and operation/context limits.\nNo whole-run budgets in the first iteration.\nLater Stop restores tracked edits across the run.",
+      "text": "## Keep original run identity\n\nSame run ID and project reservation.\nRefresh permissions on new requests/actions.\nKeep change/outcome records.\nNo whole-run budgets.\nStop retains completed edits.",
       "x": 500,
       "y": 550,
       "width": 430,

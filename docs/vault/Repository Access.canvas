@@ -223,7 +223,7 @@
     {
       "id": "relink_notice",
       "type": "text",
-      "text": "## Relink safely — D-061\n\nSettle current work before retargeting.\nOld undo stays bound to old resource.\nRefresh paths/indexes/caches.\nTell the model the repo changed; inspect current files.",
+      "text": "## Relink safely — D-061 / D-067\n\nSettle current work before retargeting.\nOld operation records stay with old resources.\nRefresh paths/indexes/caches.\nTell model the repo changed; inspect files.",
       "x": 540,
       "y": 2920,
       "width": 460,

@@ -6,7 +6,7 @@ Start visually: [[Agent Structure.canvas]] · [[Memory & Context.canvas]] · [[R
 
 Run behavior design: [[Run Lifecycle Design]] · [[Run Lifecycle - Text Only.canvas]]. Start with one successful text-only answer before adding tool/approval/error branches.
 
-Repository execution: [[Run Lifecycle - Repository Edits.canvas]] — successful edits and first failed-edit recovery agreed. [[Run Lifecycle - Stop & Rollback.canvas]] records the accepted initial restoration design. [[Run Lifecycle - Steering.canvas]] records how new messages redirect an active run. [[Run Lifecycle - Model Request Failures.canvas]] records connection-error and incomplete-reply handling. [[Run Lifecycle - Approvals.canvas]] records identity-edit approval. [[Run Lifecycle - Temporary Expiry.canvas]] records the revised timer rules and proposed cleanup. [[Run Lifecycle - Chat Deletion.canvas]] records permanent-chat deletion during repository work.
+Repository execution: [[Run Lifecycle - Repository Edits.canvas]] — successful edits and first failed-edit recovery agreed. [[Run Lifecycle - Stop & Rollback.canvas]] records Stop with edits retained (D-067); [[Deferred File Restoration]] keeps the earlier rollback design as future work. [[Run Lifecycle - Steering.canvas]] records how new messages redirect an active run. [[Run Lifecycle - Model Request Failures.canvas]] records connection-error and incomplete-reply handling. [[Run Lifecycle - Approvals.canvas]] records identity-edit approval. [[Run Lifecycle - Temporary Expiry.canvas]] records the revised timer rules and proposed cleanup. [[Run Lifecycle - Chat Deletion.canvas]] records permanent-chat deletion during repository work.
 
 Existing execution maps: [[Harness Overview.canvas]] · [[Run Lifecycle.canvas]]
 
@@ -15,6 +15,8 @@ Unexpected application closure: [[Unexpected Closure Recovery]] · [[Run Lifecyc
 Later improvements: [[Things to Optimize]] — large-repository work and model-context optimization after the basics.
 
 Planning finish line: [[Remaining Harness Decisions]] — behavior groups are reviewed; implementation defaults, explicit deferrals and acceptance cases remain to consolidate. Final container/relink/memory/settings choices: [[Container & Settings Rules]] · [[Container & Settings.canvas]] (D-059–D-066).
+
+Implementation sequence and planned tests: [[Harness Implementation Plan]] — six passes, with automatic file restoration deferred under D-067.
 
 Tool inventory and reuse direction: [[Tooling Strategy]] — current implementations and a proposed approach to reuse established repository tools behind Granite's controls.
 
@@ -207,7 +209,7 @@ Chats can enter a repository project when the source-section movement rules perm
 
 **Recommended presentation:** show a compact summary such as `3 files changed · +42 / −18`, with a file list and an inspectable diff. Calculate the summary from actual filesystem changes against a pre-run baseline, not the model's description or the repository's last commit. Preserve the distinction between pre-existing user edits and changes made during the run; include newly created files. Show binary changes, renames, and deletions even when line counts are not useful. Counts describe the current net diff, so an edit later undone may return to zero; they are not a complete activity log or proof that a change is correct.
 
-The exact change-tracking mechanism, attribution when the user edits concurrently, and integration with the requested Stop rollback remain implementation work. Do not claim all current repository differences were made by the agent.
+The exact change-tracking mechanism, attribution when the user edits concurrently, and integration with Stop cancellation and retained-change reporting remain implementation work. Do not claim all current repository differences were made by the agent.
 
 ### Project and repository lifecycle
 
@@ -237,7 +239,7 @@ An external folder and an internally created repository use the same project edi
 
 **Recommendation:** enforce project membership in the backend for every modifying action, including file tools, terminal commands, Git operations and MCP tools capable of touching the repo. Knowing a path or obtaining an ordinary tool approval must not bypass membership. Validate the destination project and canonical repository path; changing membership while a run is active must not leave stale write access.
 
-**Revised by D-062:** multiple projects may link the same physical folder. Store linked paths and warn about conflicting independent edits rather than rejecting duplicate ownership. Serialize repository-capable runs within each project; separately linked projects may run concurrently. Guarded Stop/conflict checks remain, but cannot promise complete rollback when another writer changed a file. Stronger overlap/worktree detection and cross-project coordination are in [[Things to Optimize]].
+**Revised by D-062:** multiple projects may link the same physical folder. Store linked paths and warn about conflicting independent edits rather than rejecting duplicate ownership. Serialize repository-capable runs within each project; separately linked projects may run concurrently. Fresh-read/conflict checks remain. D-067 makes Stop retain completed edits; automatic rollback is deferred. Stronger overlap/worktree detection and cross-project coordination are in [[Things to Optimize]].
 
 Open details: read-only access must also hold for commands that can create generated files, indexes, caches, or lockfiles. Creation/registration failure handling, unavailable or moved external folders, and overlapping repository paths still need implementation decisions. Recovery for a folder relocated by the user must not silently switch the project to a different codebase.
 
@@ -278,7 +280,7 @@ Remove the deleted source's transcript/search entries and its memory support ref
 
 The original goal of removing memories of deleted content is bounded by this non-cascading rule: no promise to erase copies in other saved conversations. Container deletion and equal treatment of current manual/agent memory edits are settled in D-059/D-060; exact cleanup transactions and cache invalidation remain implementation work. Repository file deletion is separate from deleting remembered information.
 
-**Agreed lifecycle in D-049:** deleting a permanent chat while it has an active coding run first uses Stop to restore only that run's tracked edits, then deletes the chat. Earlier-run code remains; unresolved restoration pauses final deletion and retains recovery data. Deleting an idle chat does not undo existing code. See [[Run Lifecycle Design]] and [[Run Lifecycle - Chat Deletion.canvas]].
+**D-049 revised by D-067:** deleting an active permanent chat cancels/settles its run, keeps completed repository edits and removes chat data. Known retained edits do not pause deletion for rollback; genuinely unknown action/process outcomes still require reconciliation. Idle-chat deletion also preserves existing code. See [[Run Lifecycle Design]] and [[Run Lifecycle - Chat Deletion.canvas]].
 
 ## 7. Keeping the first version manageable
 
@@ -297,6 +299,6 @@ Recommended first pass, not yet an agreed implementation plan:
 
 The four remaining behavior groups are resolved in [[Container & Settings Rules]] (D-059–D-066): cascade container deletion, current editable memory/notes, missing-folder relinking, duplicate-link warnings, fixed session model, next-request/action permission changes, requested skill imports and core-plus-lookup tools.
 
-Earlier immutable-attachment and unique-owner rules are explicitly revised. Keep/move locks, section isolation, no temporary durable writes, next-run personality changes, Stop conflict protection and the no-budget policy remain. Deleting a physical container also deletes code inside it; links to external folders do not delete their targets.
+Earlier immutable-attachment and unique-owner rules are explicitly revised. Keep/move locks, section isolation, no temporary durable writes, next-run personality changes, Stop cancellation and edit conflict checks and the no-budget policy remain. Deleting a physical container also deletes code inside it; links to external folders do not delete their targets.
 
 [[Remaining Harness Decisions]] records the finish line. Choose storage/transaction/index details during implementation and defer advanced cross-project/worktree coordination and model/context tuning through [[Things to Optimize]]. Observable acceptance cases are included in [[Container & Settings Rules]]; consolidate the full first-version acceptance checklist before building each slice.

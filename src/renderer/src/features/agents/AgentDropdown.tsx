@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import type { Agent } from '../../../../shared/agent'
+import Chevron from '../../components/Chevron'
 
 type Props = {
   agents: Agent[]
@@ -103,9 +104,7 @@ export default function AgentDropdown({
           {selected?.name ?? 'Choose an agent'}
         </span>
 
-        <span aria-hidden="true">
-          ⌄
-        </span>
+        <Chevron expanded />
       </button>
 
       {open && !disabled && (

@@ -1,9 +1,12 @@
-import { join } from 'node:path'
+import { isAbsolute, join } from 'node:path'
 import { rmSync } from 'node:fs'
+import { realpath, stat } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import type { Connection, StreamDelta } from '../../shared/chat.ts'
 import type { HarnessSettings } from '../../shared/harness.ts'
-import { workspaceEntries, workspaceText } from '../workspace/workspace.ts'
+import { ensureOrganizationStorage, workspaceEntries, workspaceText } from '../workspace/workspace.ts'
+import { AgentFilesystem } from '../workspace/filesystem.ts'
+import type { ConversationLocation, SectionMode } from '../../shared/organization.ts'
 import { AgentStore } from './store.ts'
 import { AgentRegistry } from './registry.ts'
 import { ApprovalQueue } from '../harness/approvals.ts'
@@ -42,7 +45,18 @@ export class AgentRuntime {
     const registry = await AgentRegistry.open(directory)
 
     // Retain the original database filename, including existing WAL/checkpoints.
-    return new AgentRuntime(new AgentStore(join(directory, 'atlas.sqlite')), registry)
+    const runtime = new AgentRuntime(new AgentStore(join(directory, 'atlas.sqlite')), registry)
+    try {
+      for (const agent of await registry.list()) {
+        runtime.store.organization.ensureGeneral(agent.id)
+        const workspace = await registry.workspace(agent.id)
+        ensureOrganizationStorage(workspace.root, runtime.store.organization.snapshot(agent.id))
+      }
+      return runtime
+    } catch (error) {
+      runtime.close()
+      throw error
+    }
   }
 
   async entries(agentId: string, path: string) {
@@ -51,6 +65,24 @@ export class AgentRuntime {
 
   async read(agentId: string, path: string) {
     return workspaceText(await this.registry.workspace(agentId), path)
+  }
+
+  async saveMarkdown(agentId: string, path: string, content: string, expected: string | null) {
+    if (this.active || this.editingIdentity || this.changingAgents) {
+      throw new Error('Finish the current operation before editing files.')
+    }
+    this.editingIdentity = true
+    try { return await this.registry.saveMarkdown(agentId, path, content, expected) }
+    finally { this.editingIdentity = false }
+  }
+
+  async renameNote(agentId: string, path: string, name: string) {
+    if (this.active || this.editingIdentity || this.changingAgents) {
+      throw new Error('Finish the current operation before renaming notes.')
+    }
+    this.editingIdentity = true
+    try { return await this.registry.renameNote(agentId, path, name) }
+    finally { this.editingIdentity = false }
   }
 
   async saveIdentity(agentId: string, identity: string, expected: string) {
@@ -75,7 +107,11 @@ export class AgentRuntime {
     this.changingAgents = true
 
     try {
-      return await this.registry.create(name)
+      const agent = await this.registry.create(name)
+      this.store.organization.ensureGeneral(agent.id)
+      const workspace = await this.registry.workspace(agent.id)
+      ensureOrganizationStorage(workspace.root, this.store.organization.snapshot(agent.id))
+      return agent
     } finally {
       this.changingAgents = false
     }
@@ -102,7 +138,7 @@ export class AgentRuntime {
     }
   }
 
-  async createConversation(agentId: string) {
+  async createConversation(agentId: string, location?: Partial<ConversationLocation>) {
     if (this.active || this.editingIdentity || this.changingAgents) {
       throw new Error('Finish the current operation before creating a conversation.')
     }
@@ -114,10 +150,68 @@ export class AgentRuntime {
     try {
       await this.registry.get(agentId)
 
-      return this.store.create(agentId)
+      return this.store.create(agentId, location)
     } finally {
       this.changingAgents = false
     }
+  }
+
+  async organization(agentId: string) {
+    await this.registry.get(agentId)
+    return this.store.organization.snapshot(agentId)
+  }
+
+  private async changeOrganization<T>(agentId: string, change: () => T) {
+    if (this.active || this.editingIdentity || this.changingAgents) {
+      throw new Error('Finish the current operation before changing sections, projects or chat locations.')
+    }
+    this.changingAgents = true
+    try {
+      const workspace = await this.registry.workspace(agentId)
+      return this.store.saver.db.transaction(() => {
+        const result = change()
+        ensureOrganizationStorage(workspace.root, this.store.organization.snapshot(agentId))
+        return result
+      })()
+    } finally {
+      this.changingAgents = false
+    }
+  }
+
+  createSection(agentId: string, name: string, mode: SectionMode) {
+    return this.changeOrganization(agentId, () => this.store.organization.createSection(agentId, name, mode))
+  }
+
+  renameSection(agentId: string, id: string, name: string) {
+    return this.changeOrganization(agentId, () => this.store.organization.renameSection(agentId, id, name))
+  }
+
+  shareSection(agentId: string, id: string) {
+    return this.changeOrganization(agentId, () => this.store.organization.shareSection(agentId, id))
+  }
+
+  createProject(agentId: string, sectionId: string, name: string) {
+    return this.changeOrganization(agentId, () => this.store.organization.createProject(agentId, sectionId, name))
+  }
+
+  renameProject(agentId: string, id: string, name: string) {
+    return this.changeOrganization(agentId, () => this.store.organization.renameProject(agentId, id, name))
+  }
+
+  async attachRepository(agentId: string, projectId: string, path: string) {
+    // Resolve the selected directory before publishing the reference. No copying,
+    // symlinking or modification of the selected codebase is performed here.
+    if (typeof path !== 'string' || !isAbsolute(path) || path.includes('\0')) throw new Error('Choose an existing repository folder.')
+    const canonical = await realpath(path)
+    if (!(await stat(canonical)).isDirectory()) throw new Error('Choose a repository folder, not a file.')
+    return this.changeOrganization(agentId, () => this.store.organization.attachRepository(agentId, projectId, canonical))
+  }
+
+  moveConversation(agentId: string, id: string, location: ConversationLocation) {
+    return this.changeOrganization(agentId, () => {
+      this.store.organization.move(agentId, id, location)
+      return this.store.get(agentId, id)
+    })
   }
 
   async renameConversation(agentId: string, id: string, title: string) {
@@ -221,7 +315,14 @@ export class AgentRuntime {
       )
     }
 
-    const locked = this.store.get(agentId, conversationId).messages.find(message => message.role === 'assistant' && message.model)
+    const conversation = this.store.get(agentId, conversationId)
+    const section = this.store.organization.section(agentId, conversation.sectionId)
+    if (section.mode === 'closed') throw new Error('Closed-section runs will be available after isolated context is implemented. You can organize chats here now.')
+    if (conversation.retention === 'temporary') throw new Error('Temporary-chat runs are not available until expiry and memory isolation are implemented.')
+    if (conversation.projectId && this.store.organization.project(agentId, conversation.projectId).repositoryPath) {
+      throw new Error('Repository-project runs will be available when repository tools and permissions are implemented.')
+    }
+    const locked = conversation.messages.find(message => message.role === 'assistant' && message.model)
     if (locked && (locked.model !== connection.model || (locked.connectionId && locked.connectionId !== connection.connectionId))) {
       throw new Error('The model is fixed for this conversation. Start a new chat to choose another model.')
     }
@@ -235,7 +336,8 @@ export class AgentRuntime {
 
     try {
       const profile = await this.registry.get(agentId)
-      const workspace = await this.registry.workspace(agentId)
+      const humanWorkspace = await this.registry.workspace(agentId)
+      const workspace = new AgentFilesystem(humanWorkspace.root, { excludeOrganization: true })
       const [identity, memory, settings] = await Promise.all([
         workspaceText(workspace, '/identity.md'),
         workspaceText(workspace, '/memory.md'),
@@ -258,10 +360,16 @@ export class AgentRuntime {
       this.store.saveMessage(conversationId, turn.message)
       const persist = () => this.store.saveMessage(conversationId, turn!.message)
       const previous = turn.recovered ? undefined : this.store.modelState(conversationId, modelKey)
+      // The existing unscoped MCP transport must not read Closed files via the
+      // agent root. Scoped connector integration belongs to pass 5.
+      const hasClosed = this.store.organization.snapshot(agentId).sections.some(item => item.mode === 'closed')
+      if (hasClosed && settings.mcpServers.some(server => server.enabled)) {
+        turn.message.notice = 'Connected integrations are paused while this agent has Closed sections. Section-aware integrations are not available yet.'
+      }
       const result = await runHarness({
         connection,
         workspace,
-        settings,
+        settings: hasClosed ? { ...settings, mcpServers: [] } : settings,
         instructions: [
           instructions,
           turn.interrupted
@@ -320,8 +428,9 @@ export class AgentRuntime {
       signal.throwIfAborted()
 
       if (result.withoutAnswer) {
-        turn.message.notice =
+        turn.message.notice = [turn.message.notice,
           'The model ended without a final message. Completed tool results are shown above.'
+        ].filter(Boolean).join(' ')
       }
 
       this.store.saver.db.transaction(() => {

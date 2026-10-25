@@ -9,9 +9,12 @@ import type {
   ToolActivity
 } from '../../shared/agent.ts'
 import type { NativeItem } from '../harness/types.ts'
+import { OrganizationStore } from './organization.ts'
+import type { ChatRetention, ConversationLocation } from '../../shared/organization.ts'
 
 export class AgentStore {
   saver: SqliteSaver
+  organization: OrganizationStore
 
   constructor(path: string) {
     this.saver = SqliteSaver.fromConnString(path)
@@ -51,9 +54,18 @@ export class AgentStore {
       )
     }
 
+    if (!columns.some(column => column.name === 'createdAt')) {
+      // Legacy records have no exact creation time. Their earliest saved message
+      // is the best available estimate; empty records fall back to updatedAt.
+      this.saver.db.transaction(() => this.saver.db.exec(`ALTER TABLE conversations ADD COLUMN createdAt INTEGER NOT NULL DEFAULT 0;
+        UPDATE conversations SET createdAt = COALESCE(
+          (SELECT MIN(createdAt) FROM messages WHERE conversationId = conversations.id), updatedAt);`))()
+    }
+
     this.saver.db.exec(
       'CREATE INDEX IF NOT EXISTS conversation_agent ON conversations(agentId, updatedAt)'
     )
+    this.organization = new OrganizationStore(this.saver.db)
 
     // Recovery starts a new graph without discarding the previous checkpoint.
     // Track every graph so deleting its conversation removes the entire history.
@@ -97,26 +109,34 @@ export class AgentStore {
   list(agentId: string): Conversation[] {
     return this.saver.db
       .prepare(
-        'SELECT id, agentId, title, updatedAt FROM conversations WHERE agentId = ? ORDER BY updatedAt DESC'
+        `SELECT id, agentId, title, updatedAt, createdAt, sectionId, projectId, retention, expiresAt,
+          (SELECT MAX(createdAt) FROM messages WHERE conversationId = conversations.id) AS lastChattedAt
+          FROM conversations WHERE agentId = ? ORDER BY updatedAt DESC, rowid DESC`
       )
       .all(agentId) as Conversation[]
   }
 
-  create(agentId: string): ConversationDetail {
+  create(agentId: string, location?: Partial<ConversationLocation>, retention: ChatRetention = 'permanent'): ConversationDetail {
+    if (retention !== 'permanent' && retention !== 'temporary') throw new Error('Invalid chat retention.')
     const conversation = {
       id: randomUUID(),
       agentId,
       title: 'New conversation',
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
+      createdAt: Date.now(),
+      lastChattedAt: null,
+      ...this.organization.location(agentId, location, retention),
+      retention,
+      expiresAt: null
     }
     const graphId = randomUUID()
 
     this.saver.db.transaction(() => {
       this.saver.db
         .prepare(
-          'INSERT INTO conversations (id, title, updatedAt, graphId, recover, agentId) VALUES (?, ?, ?, ?, 0, ?)'
+          'INSERT INTO conversations (id, title, updatedAt, createdAt, graphId, recover, agentId, sectionId, projectId, retention) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)'
         )
-        .run(conversation.id, conversation.title, conversation.updatedAt, graphId, agentId)
+        .run(conversation.id, conversation.title, conversation.updatedAt, conversation.createdAt, graphId, agentId, conversation.sectionId, conversation.projectId, retention)
       this.saver.db
         .prepare('INSERT INTO conversation_threads (graphId, conversationId) VALUES (?, ?)')
         .run(graphId, conversation.id)
@@ -128,7 +148,9 @@ export class AgentStore {
   get(agentId: string, id: string): ConversationDetail {
     const row = this.saver.db
       .prepare(
-        'SELECT id, agentId, title, updatedAt FROM conversations WHERE id = ? AND agentId = ?'
+        `SELECT id, agentId, title, updatedAt, createdAt, sectionId, projectId, retention, expiresAt,
+          (SELECT MAX(createdAt) FROM messages WHERE conversationId = conversations.id) AS lastChattedAt
+          FROM conversations WHERE id = ? AND agentId = ?`
       )
       .get(id, agentId) as Conversation | undefined
 
@@ -189,7 +211,7 @@ export class AgentStore {
       tools: []
     }
     this.saver.db.transaction(() => {
-      if (!detail.messages.length) {
+      if (!detail.messages.length && detail.title === 'New conversation') {
         this.saver.db
           .prepare('UPDATE conversations SET title = ? WHERE id = ?')
           .run(text.slice(0, 64), conversationId)
@@ -324,6 +346,8 @@ export class AgentStore {
         )
         .run(agentId)
       this.saver.db.prepare('DELETE FROM conversations WHERE agentId = ?').run(agentId)
+      this.saver.db.prepare('DELETE FROM projects WHERE agentId = ?').run(agentId)
+      this.saver.db.prepare('DELETE FROM sections WHERE agentId = ?').run(agentId)
     })()
   }
 }

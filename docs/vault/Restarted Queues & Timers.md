@@ -1,6 +1,6 @@
 # Restarted Queues & Timers
 
-> Agreed October 24, 2026, as D-056 from P-014. D-055 stops interrupted active runs and restores their tracked coding changes on reopening; the choices below cover saved pending messages and temporary-timer transitions. This is a target specification, not implemented functionality.
+> Agreed October 24, 2026, as D-056 from P-014. D-055/D-067 stop interrupted active runs and keep their file changes on reopening; the choices below cover saved pending messages and temporary-timer transitions. This is a target specification, not implemented functionality.
 
 Visual policy: [[Run Lifecycle - Unexpected Closure.canvas]] (D-056 cards below the D-055 flow).
 
@@ -16,7 +16,7 @@ Offer **Run pending messages**, or honor an explicit request to continue/retry t
 
 The user may leave these messages unprocessed or cancel the pending request without deleting the transcript. A new unrelated prompt must not silently dispatch an old cancelled job. Earlier unprocessed messages remain clearly marked; an explicit request to run them supplies the restart intent.
 
-Never-started work has no repository edits to undo. A run that had already started and was waiting for its next model slot is an interrupted active run under D-055; its tracked edits use Stop restoration before any restart. Retained messages/tool history must reflect actual interrupted and reverted outcomes, rather than implying reverted edits still exist.
+Never-started work has no repository edits to undo. A run that had already started and was waiting for its next model slot is an interrupted active run under D-055; settle its writers and retain actual edits before any new run. Retained history must reflect actual interrupted outcomes; automatic restoration is deferred.
 
 ### Previously held temporary timers get a fresh hour
 
@@ -45,7 +45,7 @@ A second closure during startup recovery must not recreate removed queue entries
 
 ## Observable acceptance cases
 
-- A runs and B waits for the same repository when Granite crashes. On reopening, A is stopped/restored; B's messages remain visible but B does not start automatically. The user can explicitly enqueue B after recovery.
+- A runs and B waits for the same repository when Granite crashes. On reopening, A is stopped with its edits retained; B's messages remain visible but B does not start automatically. The user can explicitly enqueue B after recovery.
 - B was a queued temporary chat with its timer held. Granite reopens several hours later. B survives recovery with a fresh idle hour; explicitly rerunning it holds the timer again.
 - C was an idle temporary chat with twenty minutes left when Granite closed. It is reopened two hours later and expires normally; no fresh hour is granted just for opening Granite.
 - An approval-only temporary chat's saved deadline expired while the app was closed. Its approval is invalid and the chat is not revived.

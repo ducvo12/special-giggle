@@ -1,1 +1,1 @@
-export type Page = 'chat' | 'settings' | 'workspace' | 'identity' | 'create-agent' | 'tools'
+export type Page = 'chat' | 'settings' | 'file' | 'create-agent' | 'tools'

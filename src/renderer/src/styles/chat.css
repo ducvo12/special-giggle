@@ -5,6 +5,21 @@
   background: var(--surface);
 }
 
+.chat-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 28px;
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.chat-breadcrumb { flex: 1; min-width: 0; }
+.chat-breadcrumb ol { display: flex; gap: 8px; margin: 0; padding: 0; list-style: none; font-size: 12px; color: var(--text-secondary); }
+.chat-breadcrumb li { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-breadcrumb li + li::before { content: '/'; margin-right: 8px; color: var(--text-muted); }
+.chat-breadcrumb li[aria-current] { color: var(--text-strong); }
+.chat-heading-status { flex-shrink: 0; font-size: 11px; color: var(--text-muted); }
+
 .messages {
   flex: 1;
   min-height: 0;

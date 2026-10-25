@@ -1,0 +1,14 @@
+.file-main { display: flex; flex: 1; min-width: 0; flex-direction: column; background: var(--surface); }
+.file-heading { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 16px; min-height: 56px; padding: 12px 24px; border-bottom: 1px solid var(--border); }
+.file-breadcrumb { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--text-secondary); }
+.file-dirty { color: var(--text-muted); }
+.file-actions { display: flex; flex-shrink: 0; gap: 8px; }
+.file-preview { flex: 1; min-height: 0; overflow: auto; padding: 32px 40px; }
+.file-preview > .formatted-response { max-width: 840px; margin: 0 auto; }
+.file-preview pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.file-error { display: block; margin: 16px 24px 0; }
+.file-error button { display: block; margin-top: 10px; }
+.file-editor-wrap { display: flex; flex: 1; min-height: 0; flex-direction: column; }
+.file-editor { flex: 1; width: 100%; min-height: 0; max-height: none; resize: none; border: 0; border-radius: 0; padding: 24px 32px; outline: none; background: var(--surface); color: var(--text); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; line-height: 1.8; tab-size: 2; }
+.file-editor:focus-visible { outline: none; }
+.file-editor-status { padding: 8px 24px; border-top: 1px solid var(--border); font-size: 10px; color: var(--text-muted); }

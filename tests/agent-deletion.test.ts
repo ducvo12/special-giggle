@@ -46,6 +46,8 @@ test('empty → create → delete leaves no agent files or database rows, includ
     assert.ok(Object.values(rowCounts(runtime)).every(count => count === 0))
 
     const agent = await runtime.createAgent('Offline test')
+    const section = await runtime.createSection(agent.id, 'Section to delete', 'shared')
+    await runtime.createProject(agent.id, section.id, 'Project to delete')
     const root = join(directory, 'agents', agent.id)
     await access(join(root, 'identity.md'))
     await mkdir(join(root, 'projects', 'nested'), { recursive: true })
@@ -193,9 +195,8 @@ test('chat deletion removes all recovered history and preserves other chats and 
     runtime.store.saver.db.exec('DROP TRIGGER reject_chat_deletion')
 
     await runtime.deleteConversation(agent.id, chat.id)
-    assert.deepEqual(runtime.store.list(agent.id), [{
-      id: survivor.id, agentId: agent.id, title: survivor.title, updatedAt: survivor.updatedAt
-    }])
+    const { messages: _messages, ...survivingMetadata } = survivor
+    assert.deepEqual(runtime.store.list(agent.id), [survivingMetadata])
     assert.throws(() => runtime.store.get(agent.id, chat.id), /Conversation not found/)
     assert.equal(runtime.store.modelState(chat.id, 'offline'), undefined)
     for (const graphId of [turn.graphId, recovered.graphId]) {

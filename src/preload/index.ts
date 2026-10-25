@@ -35,14 +35,26 @@ contextBridge.exposeInMainWorld('granite', {
   conversations: {
     saveResponseDuration: (agentId, id, messageId, durationMs) => ipcRenderer.invoke('conversations:responseDuration', agentId, id, messageId, durationMs),
     list: agentId => ipcRenderer.invoke('conversations:list', agentId),
-    create: agentId => ipcRenderer.invoke('conversations:create', agentId),
+    create: (agentId, location) => ipcRenderer.invoke('conversations:create', agentId, location),
+    move: (agentId, id, location) => ipcRenderer.invoke('conversations:move', agentId, id, location),
     rename: (agentId, id, title) => ipcRenderer.invoke('conversations:rename', agentId, id, title),
     delete: (agentId, id) => ipcRenderer.invoke('conversations:delete', agentId, id),
     get: (agentId, id) => ipcRenderer.invoke('conversations:get', agentId, id)
   },
+  organization: {
+    get: agentId => ipcRenderer.invoke('organization:get', agentId),
+    createSection: (agentId, name, mode) => ipcRenderer.invoke('organization:createSection', agentId, name, mode),
+    renameSection: (agentId, id, name) => ipcRenderer.invoke('organization:renameSection', agentId, id, name),
+    shareSection: (agentId, id) => ipcRenderer.invoke('organization:shareSection', agentId, id),
+    createProject: (agentId, sectionId, name) => ipcRenderer.invoke('organization:createProject', agentId, sectionId, name),
+    renameProject: (agentId, id, name) => ipcRenderer.invoke('organization:renameProject', agentId, id, name),
+    chooseRepository: (agentId, projectId) => ipcRenderer.invoke('organization:chooseRepository', agentId, projectId)
+  },
   workspace: {
     entries: (agentId, path) => ipcRenderer.invoke('workspace:entries', agentId, path),
-    read: (agentId, path) => ipcRenderer.invoke('workspace:read', agentId, path)
+    read: (agentId, path) => ipcRenderer.invoke('workspace:read', agentId, path),
+    save: (agentId, path, content, expected) => ipcRenderer.invoke('workspace:save', agentId, path, content, expected),
+    renameNote: (agentId, path, name) => ipcRenderer.invoke('workspace:renameNote', agentId, path, name)
   },
   stream: (requestId, agentId, conversationId, connectionId, text, model, effort) =>
     ipcRenderer.invoke('model:stream', requestId, agentId, conversationId, connectionId, text, model, effort),

@@ -14,7 +14,7 @@ Repository-project membership grants ordinary local repository read/write access
 | --- | --- |
 | List, search and read permitted files | Automatic. |
 | Ordinary local code edits in the chat's own repository project | Automatic under the agreed standing permission; show actual changes. |
-| Local tests, builds, formatters and linters | Automatic when execution is confined to permitted locations and repository mutations are covered by the run's change/undo tracking. Use isolated temporary/cache locations where needed. Network access is separate. |
+| Local tests, builds, formatters and linters | Automatic when execution is confined to permitted locations and repository mutations are covered by change/outcome tracking. Use isolated temporary/cache locations where needed. Network access is separate. |
 | Git inspection: status, diffs and history | Automatic through bounded inspection operations. |
 | Git mutations: staging, commits, branch/worktree changes, restore/reset/clean and history rewriting | Require explicit user authorization for the operation. Destructive operations must identify what work/history would be affected. Ordinary editing permission alone is insufficient. |
 | Public web search and page reading | Automatic when web tools are enabled and relevant to the task. Tool availability does not expose extra local data. |
@@ -28,7 +28,7 @@ Repository-project membership grants ordinary local repository read/write access
 
 An automatic test/build/formatter grant is a capability to execute project code within enforced limits. A command's familiar name does not establish its effects: scripts and child processes must inherit the same filesystem/network restrictions. A working directory or a list of supposedly safe command names is insufficient. If a backend cannot enforce the required scope and tracking, defer that automatic execution path rather than silently running it unrestricted.
 
-Record actual repository changes from tools and commands. Settling/killing the process group must precede restoring tracked files after Stop. Preserve pre-existing/concurrent user edits under D-043. Generated caches, Git metadata/history, downloads and remote effects need their own explicit boundary; do not claim that the existing file-undo design reverses them. The exact command-tracking mechanism and restart/uncertain-outcome recovery remain implementation/R-03 work.
+Record actual repository changes from tools and commands. D-067 makes Stop cancel/settle owned processes and keep completed edits; there is no automatic inverse patch, Git reset or restoration journal requirement. Preserve stale-edit/conflict checks and visible changes. Git metadata/history, downloads and remote effects are not automatically reversed either. Exact command tracking and unknown-outcome reconciliation remain implementation work.
 
 The model should use controlled Git operations for inspection or authorized mutations. A shell, script or MCP call is not an alternate permission route. The implementation must account for indirect execution and actual capabilities rather than only matching the proposed command string.
 
