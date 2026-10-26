@@ -77,9 +77,7 @@ export default function MessageList({
 
       {messages.map(message => (
         <article className={`message ${message.role}${resumedEntries.current.has(message.id) || resumedReplies.current.has(responseClock.get(message.id)?.requestId ?? message.id) ? 'resumed-entry' : ''}`} key={responseClock.get(message.id)?.requestId ?? timingFor(message.id)?.requestId ?? message.id}>
-          <span className="message-role">
-            {message.role === 'user' ? 'You' : `${agent?.name ?? 'Agent'} · ${message.model ?? ''}`}
-          </span>
+          {message.role === 'user' && <span className="message-role">You</span>}
 
           {message.role === 'assistant' && <ThoughtActivity message={message} />}
           {message.delivery === 'pending' && <span className="message-delivery">Received · pending</span>}

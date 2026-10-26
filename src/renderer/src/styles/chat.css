@@ -221,18 +221,21 @@
 }
 
 .tool-activity {
-  margin: 10px 0 16px;
+  margin: 4px 0 8px 18px;
   white-space: normal !important;
 }
 
 .tool-activity summary {
   cursor: pointer;
-  padding: 8px 12px;
+  padding: 2px 0;
   display: flex;
   align-items: center;
   gap: 9px;
   font-size: 11px;
+  line-height: 1.5;
 }
+
+.tool-activity summary:hover { color: var(--text-strong); }
 
 .tool-activity summary > span:last-child {
   margin-left: auto;
@@ -261,8 +264,7 @@
   max-height: 220px;
   overflow: auto;
   margin: 0;
-  padding: 12px;
-  background: var(--surface-inset);
+  padding: 6px 0 12px 15px;
   white-space: pre-wrap;
 }
 
@@ -418,7 +420,6 @@
   font-size: 11px;
   font-variant-numeric: tabular-nums;
 }
-
 .thought-activity > .thought-summary { display: list-item; width: fit-content; margin-bottom: 4px; cursor: pointer; }
 .thought-activity > .thought-summary:hover { color: var(--text-strong); }
 
