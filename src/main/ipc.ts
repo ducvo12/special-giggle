@@ -5,6 +5,7 @@ import { AgentClient } from './agent-client'
 import type { ConnectionDraft } from '../shared/chat'
 import type { RunIntent } from '../shared/run'
 import { ChatGPTAccounts } from '../backend/auth/chatgpt'
+import { AccountModelCatalog } from '../backend/models/account-catalog'
 import type { HarnessSettings } from '../shared/harness'
 import type { ConversationLocation } from '../shared/organization'
 import type { AgentOrganization } from '../shared/organization'
@@ -21,7 +22,13 @@ export function registerIpc(directory: string) {
   }
   const store = new ConnectionStore(directory, protection)
   const chatgpt = new ChatGPTAccounts(directory, protection)
+  const modelCatalog = new AccountModelCatalog(chatgpt)
   const repositoryEditors = new RepositoryEditors(directory)
+  // Start discovery before the window opens. Model pickers and messages share
+  // this request; later messages use the session's cached result.
+  void store.list().then(connections => modelCatalog.warm(connections
+    .filter(connection => connection.provider === 'chatgpt' && connection.accountId)
+    .map(connection => connection.accountId!))).catch(() => {})
   app.on('before-quit', () => chatgpt.cancel())
   const active = new Map<string, { senderId: number; stopped: boolean }>()
   const agents = new AgentClient(directory, delta => {
@@ -102,11 +109,11 @@ export function registerIpc(directory: string) {
     return safely(() => store.delete(id))
   })
 
-  ipcMain.handle('connections:models', (event, id: string) => {
+  ipcMain.handle('connections:models', (event, id: string, refresh = false) => {
     trusted(event)
 
     return safely(async () => {
-      if (typeof id !== 'string' || id.length > 100) {
+      if (typeof id !== 'string' || id.length > 100 || typeof refresh !== 'boolean') {
         throw new Error('Choose a saved connection first.')
       }
 
@@ -116,7 +123,7 @@ export function registerIpc(directory: string) {
         return listModelCatalog(connection)
       }
 
-      return chatgpt.modelCatalog(connection.accountId ?? '')
+      return modelCatalog.get(connection.accountId ?? '', refresh)
     })
   })
 
@@ -127,7 +134,7 @@ export function registerIpc(directory: string) {
       const connection = await store.resolveDraft(draft)
 
       if (connection.provider === 'chatgpt') {
-        return chatgpt.models(connection.accountId ?? '')
+        return (await modelCatalog.get(connection.accountId ?? '', true)).map(model => model.id)
       }
 
       return listModels(connection)
@@ -146,7 +153,12 @@ export function registerIpc(directory: string) {
       return { ok: false, error: 'Invalid account.' }
     }
 
-    return safely(() => chatgpt.login(url => shell.openExternal(url), accountId))
+    return safely(async () => {
+      const account = await chatgpt.login(url => shell.openExternal(url), accountId)
+      modelCatalog.invalidate(account.id)
+      void modelCatalog.get(account.id).catch(() => {})
+      return account
+    })
   })
   ipcMain.handle('chatgpt:cancelLogin', event => {
     trusted(event)
@@ -162,7 +174,9 @@ export function registerIpc(directory: string) {
         throw new Error('Stop the current run before signing out.')
       }
 
-      return chatgpt.signOut(id)
+      const result = await chatgpt.signOut(id)
+      modelCatalog.invalidate(id)
+      return result
     })
   })
   ipcMain.handle('harness:save', (event, agentId: string, settings: HarnessSettings) => {
@@ -361,25 +375,17 @@ export function registerIpc(directory: string) {
           }
 
           if (connection.provider === 'chatgpt') {
-            const catalog = await chatgpt.modelCatalog(connection.accountId ?? '')
-            connection.model ||= catalog[0]?.id ?? ''
-
-            if (!catalog.some(item => item.id === connection.model)) {
-              throw new Error(
-                'This model is no longer available. Refresh the model list and choose another model.'
-              )
-            }
-
-            connection.baseUrl = 'https://api.openai.com/v1'
-            connection.protocol = 'responses'
-            connection.apiKey = await chatgpt.resolve(connection.accountId ?? '')
+            await modelCatalog.prepare(connection)
           }
 
           if (request.stopped) {
             return { ok: true, value: { stopped: true } }
           }
 
-          return await agents.call('run', requestId, agentId, conversationId, connection, text, intent)
+          const result = await agents.call('run', requestId, agentId, conversationId, connection, text, intent)
+          // Refresh availability, but never replay a run or its completed tools.
+          await modelCatalog.refreshAfterError(connection, result)
+          return result
         } catch (error) {
           return {
             ok: false,

@@ -3,6 +3,7 @@ import type { Connection, StreamDelta } from '../../shared/chat.ts'
 import type { RunIntent } from '../../shared/run.ts'
 import type { HarnessSettings } from '../../shared/harness.ts'
 import type { ConversationLocation, SectionMode } from '../../shared/organization.ts'
+import { ModelAccessError } from '../harness/types.ts'
 
 type Request = { id: string; action: string; args: unknown[] }
 
@@ -173,7 +174,8 @@ port.on('message', async ({ data }: { data: Request }) => {
   } catch (error) {
     port.postMessage({
       id,
-      result: { ok: false, error: error instanceof Error ? error.message : 'Agent request failed.' }
+      result: { ok: false, error: error instanceof Error ? error.message : 'Agent request failed.',
+        ...(error instanceof ModelAccessError ? { code: 'model_access' } : {}) }
     })
   }
 })

@@ -1,6 +1,6 @@
 import { validateConnection } from '../../models/api.ts'
 import type { ModelOptions } from '../types.ts'
-import { HarnessError, HostCapacityError, ModelConnectionError } from '../types.ts'
+import { HarnessError, HostCapacityError, ModelAccessError, ModelConnectionError, isModelAccessCode } from '../types.ts'
 
 export async function modelRequest(options: ModelOptions, path: string, body: unknown) {
   const { connection, signal } = options
@@ -29,6 +29,7 @@ export async function modelRequest(options: ModelOptions, path: string, body: un
   // Only explicit capacity codes are a host queue. Generic 429/503 errors may
   // mean exhausted quota or a broken server and must not wait indefinitely.
   let code = ''
+  let param = ''
   try {
     const reader = response.body?.getReader()
     if (reader) {
@@ -41,6 +42,7 @@ export async function modelRequest(options: ModelOptions, path: string, body: un
         }
         const error = JSON.parse(raw).error
         code = error?.code ?? error?.type ?? ''
+        param = error?.param ?? ''
       } finally { await reader.cancel().catch(() => {}); reader.releaseLock() }
     }
   } catch { /* Provider errors are untrusted and never displayed verbatim. */ }
@@ -50,6 +52,10 @@ export async function modelRequest(options: ModelOptions, path: string, body: un
     throw new HostCapacityError(Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(60_000, retryAfter * 1000) : 2000)
   }
   const message = `Model request failed (HTTP ${response.status}). Check sign-in, model access, and account limits.`
+  if ([400, 403, 404].includes(response.status) &&
+      (isModelAccessCode(code) || param === 'model' || [403, 404].includes(response.status))) {
+    throw new ModelAccessError(message)
+  }
   if ([408, 502, 503, 504].includes(response.status)) throw new ModelConnectionError(message)
   throw new HarnessError(message)
 }

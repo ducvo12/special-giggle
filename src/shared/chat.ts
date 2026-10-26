@@ -59,7 +59,7 @@ export interface Message {
   interrupted?: boolean
 }
 
-export type Result<T> = { ok: true; value: T } | { ok: false; error: string }
+export type Result<T> = { ok: true; value: T } | { ok: false; error: string; code?: 'model_access' }
 
 export interface StreamActivity {
   reasoningCharacters: number
@@ -90,7 +90,7 @@ export interface GraniteBridge {
     list: () => Promise<Result<SavedConnection[]>>
     save: (draft: ConnectionDraft) => Promise<Result<SavedConnection>>
     delete: (id: string) => Promise<Result<void>>
-    models: (id: string) => Promise<Result<ModelOption[]>>
+    models: (id: string, refresh?: boolean) => Promise<Result<ModelOption[]>>
   }
   models: (draft: ConnectionDraft) => Promise<Result<string[]>>
   chatgpt: {

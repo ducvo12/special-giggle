@@ -14,7 +14,7 @@ contextBridge.exposeInMainWorld('granite', {
     list: () => ipcRenderer.invoke('connections:list'),
     save: draft => ipcRenderer.invoke('connections:save', draft),
     delete: id => ipcRenderer.invoke('connections:delete', id),
-    models: id => ipcRenderer.invoke('connections:models', id)
+    models: (id, refresh) => ipcRenderer.invoke('connections:models', id, refresh)
   },
   models: draft => ipcRenderer.invoke('model:list', draft),
   chatgpt: {

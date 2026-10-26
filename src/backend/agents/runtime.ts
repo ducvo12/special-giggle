@@ -19,7 +19,7 @@ import { AgentStore } from './store.ts'
 import { AgentRegistry } from './registry.ts'
 import { ApprovalQueue } from '../harness/approvals.ts'
 import { runHarness } from '../harness/loop.ts'
-import { HarnessError, SteeringInterrupt, type NativeItem } from '../harness/types.ts'
+import { HarnessError, ModelAccessError, SteeringInterrupt, type NativeItem } from '../harness/types.ts'
 import {
   readHarnessSettings,
   saveHarnessSettings,
@@ -688,6 +688,7 @@ export class AgentRuntime {
       this.publish(job, stopped ? 'stopped' : 'error')
       this.publishMessages(job)
       if (stopped) return { stopped: true }
+      if (error instanceof ModelAccessError) throw error
       throw new Error(safe)
     } finally { releaseProject?.() }
   }

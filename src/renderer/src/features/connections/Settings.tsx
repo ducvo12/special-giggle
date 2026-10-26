@@ -137,7 +137,7 @@ export default function Settings({
     setError('')
     setNotice('')
     try {
-      const result = await window.granite.connections.models(id)
+      const result = await window.granite.connections.models(id, true)
       if (!result.ok) {
         setError(result.error)
         return

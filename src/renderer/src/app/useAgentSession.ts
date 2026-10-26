@@ -274,6 +274,12 @@ export function useAgentSession() {
       const result = await pending
       finishTiming(requestId)
       if (!result.ok) {
+        if (result.code === 'model_access') {
+          const catalog = await window.granite.connections.models(connection.id)
+          if (catalog.ok) window.dispatchEvent(new CustomEvent('granite:models-refreshed', {
+            detail: { connectionId: connection.id, models: catalog.value }
+          }))
+        }
         if (isViewing(owner, id)) setError(result.error)
         await refreshRecovery()
       }

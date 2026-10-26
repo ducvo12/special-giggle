@@ -44,6 +44,10 @@ export interface ModelOptions {
 
 export class HarnessError extends Error {}
 export class ModelConnectionError extends HarnessError {}
+export class ModelAccessError extends HarnessError {}
+export function isModelAccessCode(code: unknown) {
+  return ['model_not_found', 'model_not_available', 'model_access_denied'].includes(String(code))
+}
 export class HostCapacityError extends HarnessError {
   delayMs: number
   constructor(delayMs: number) {

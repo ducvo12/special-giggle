@@ -12,6 +12,8 @@ Open **Settings → Connections → Add connection**.
 
 The earlier Codex app-server adapter has been removed. Legacy connection records remain readable and deletable. Edit one to reconnect through ChatGPT or configure an API connection. Existing agents, identities, memory, conversations, and legacy checkpoints are preserved.
 
+ChatGPT model catalogs load in the background as soon as the app starts and remain cached per account for that app session. Messages and connection/model switches reuse the cached list. **Reload models** in Connections explicitly fetches a new list. A model-access error also refreshes the list, without automatically replaying the failed prompt or completed tools. New sign-ins load their own catalog; signing out clears that account's cached list. If discovery fails, use **Reload models** to retry.
+
 The supported ChatGPT plan flow calls the public Responses endpoint directly with `store: false` and `stream: true`. Granite keeps the full required input history locally; it does not use HTTP `previous_response_id`. Function tools are grouped in the `granite` namespace. See [Sign in with ChatGPT](https://developers.openai.com/siwc/token-sharing-open-source), [models and inference](https://developers.openai.com/siwc/token-sharing-open-source/models-and-inference), and [preview limits](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations).
 
 ## Identity, memory, and instructions

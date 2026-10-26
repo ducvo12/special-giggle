@@ -1,6 +1,6 @@
 import { parseContextUsage } from '../../models/usage.ts'
 import type { ModelAdapter, ModelOptions, NativeItem, ToolCall } from '../types.ts'
-import { HarnessError, ModelConnectionError } from '../types.ts'
+import { HarnessError, ModelAccessError, ModelConnectionError, isModelAccessCode } from '../types.ts'
 import { modelRequest } from './http.ts'
 import { readModelEvents } from './stream.ts'
 
@@ -41,6 +41,10 @@ export function responsesAdapter(options: ModelOptions): ModelAdapter {
       const items = new Map<number, NativeItem>()
       await readModelEvents(response, event => {
         if (event.type === 'error' || event.type === 'response.failed') {
+          const error = event.response?.error ?? event
+          if (isModelAccessCode(error.code) || error.param === 'model') {
+            throw new ModelAccessError('The selected model is no longer available. Choose an available model or refresh the model list.')
+          }
           if (['server_error', 'internal_error', 'timeout'].includes(event.response?.error?.code ?? event.code)) {
             throw new ModelConnectionError('The model server temporarily failed. Completed actions are kept.')
           }
