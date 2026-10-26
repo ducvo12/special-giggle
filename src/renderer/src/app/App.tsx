@@ -236,6 +236,10 @@ export default function App() {
             busy={viewBusy}
             run={viewRun}
             submitting={submitting}
+            onEnterProject={async projectId => {
+              const target = organization.projects.find(project => project.id === projectId)
+              return target ? moveConversation(conversationId, { sectionId: target.sectionId, projectId: target.id }) : false
+            }}
             onContinue={continueRun}
             onRunPending={runPending}
             onCancelPending={cancelPending}
@@ -271,6 +275,11 @@ export default function App() {
 
       {dialog && agent && <TreeDialog action={dialog} agent={agent} organization={organization}
         disabled={managingAgents || !loaded} onChange={changeOrganization} onClose={() => setDialog(null)}
+        onProjectCreated={project => {
+          selectLocation({ sectionId: project.sectionId, projectId: project.id })
+          setPage('chat')
+          setNewChatFocus(value => value + 1)
+        }}
         onNoteCreated={path => { setFileRevision(value => value + 1); setSelectedFile(path); setPage('file') }}
         onNoteRenamed={(previous, next) => {
           setFileRevision(value => value + 1)
@@ -282,6 +291,7 @@ export default function App() {
           <h2 id="recovery-title">Granite closed before work finished</h2>
           <p>{recovery.active} interrupted run{recovery.active === 1 ? '' : 's'} stopped. Completed changes are kept.</p>
           {recovery.pending > 0 && <p>{recovery.pending} queued request{recovery.pending === 1 ? '' : 's'} did not start. Their messages are saved; use Run pending messages in each chat when ready.</p>}
+          {Boolean(recovery.repositories) && <p>{recovery.repositories} repository outcome{recovery.repositories === 1 ? '' : 's'} need review. Open the affected chat’s repository changes; dismissing this notice does not unlock its writes.</p>}
           <p>Dismissing this notice will not restart any work.</p>
           <button onClick={() => void dismissRecovery()}>OK</button>
         </section>

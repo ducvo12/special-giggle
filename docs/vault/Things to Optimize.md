@@ -40,3 +40,8 @@ Earlier design material: [[Deferred File Restoration]] · [[Deferred File Restor
 Use token use, response time, retrieval quality, and successful tasks to judge improvements. A newer API or research result is a reason to evaluate an approach, not to replace the basic visibility/retention/permission rules.
 
 The starting point remains bounded listing/search/range reads, batching when supported, scoped text/database lookup, and the accepted model-aware context budget. Correct permission checks and basic context-limit handling are required from the start.
+
+## Repository command execution and change tracking
+
+- [ ] Optimize the initial complete manifest and temporary command-copy approach (see [[Pass 3 Implementation & Testing]]) for larger repositories: incremental scans, safe dependency/cache reuse, bounded diff storage and streaming change publication. Preserve command isolation, revision checks, visible outcomes and the rule that Stop retains already applied edits.
+- [ ] Broaden supported Git/worktree metadata layouts and command platforms while keeping authorization and process/outcome tracking enforced. This is implementation optimization/extension work, not the separate pending verification backlog.

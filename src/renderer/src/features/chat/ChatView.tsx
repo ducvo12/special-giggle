@@ -9,6 +9,8 @@ import type { ModelSelection } from './useConnectionModel'
 import type { Project, Section } from '../../../../shared/organization'
 import type { RunSnapshot } from '../../../../shared/run'
 import RunControls, { runLabel } from './RunControls'
+import RepositoryChanges from './RepositoryChanges'
+import ProjectEntryPrompt from './ProjectEntryPrompt'
 import ApprovalPrompt from '../harness/ApprovalPrompt'
 import type { ApprovalRequest } from '../../../../shared/harness'
 
@@ -25,6 +27,7 @@ type Props = {
   busy: boolean
   run?: RunSnapshot
   submitting: boolean
+  onEnterProject: (projectId: string) => Promise<boolean>
   onContinue: () => Promise<void>
   onRunPending: () => Promise<void>
   onCancelPending: () => Promise<void>
@@ -65,6 +68,7 @@ export default function ChatView({
   busy,
   run,
   submitting,
+  onEnterProject,
   onContinue,
   onRunPending,
   onCancelPending,
@@ -125,6 +129,7 @@ export default function ChatView({
       />
 
       <div className="composer-area">
+        <ProjectEntryPrompt key={conversationId} run={run} currentProject={project?.id} onMove={onEnterProject} />
         <RunControls run={run} messages={messages} disabled={submitting || !loaded || Boolean(runUnavailable)}
           onContinue={onContinue} onRunPending={onRunPending} onCancelPending={onCancelPending} />
         {approval && <ApprovalPrompt key={approval.id} request={approval} onAnswer={onApprove} onStop={onStop} />}
@@ -158,6 +163,7 @@ export default function ChatView({
             void onSend()
           }}
         >
+          {agent && conversationId && <RepositoryChanges key={`${agent.id}:${conversationId}`} agentId={agent.id} conversationId={conversationId} run={run} />}
           <textarea
             ref={messageInput}
             aria-label="Message"

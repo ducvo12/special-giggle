@@ -7,6 +7,8 @@ import type { ToolCall, ToolDefinition } from '../types.ts'
 import { fileTools } from './workspace.ts'
 import { terminalTool } from './terminal.ts'
 import { listSkills } from '../settings.ts'
+import { repositoryTools, type RepositoryTools } from './repository.ts'
+import { StaleRepositoryEdit } from '../../repositories/session.ts'
 import { connectMcp } from './mcp.ts'
 
 export async function createToolRegistry(options: {
@@ -17,12 +19,15 @@ export async function createToolRegistry(options: {
   onTool: (tool: ToolActivity) => void
   getSettings?: () => Promise<HarnessSettings>
   hasSteering?: () => boolean
+  repository?: RepositoryTools
 }) {
   const { workspace, settings, signal, approve } = options
   const skills = settings.skills ? await listSkills(workspace) : []
   const definitions = fileTools(workspace)
 
-  if (settings.terminal) {
+  if (options.repository) definitions.push(...repositoryTools(options.repository).filter(tool => tool.name !== 'repo_command' || settings.terminal))
+
+  if (settings.terminal && !options.repository?.owner) {
     definitions.push(terminalTool(workspace, signal))
   }
 
@@ -55,7 +60,7 @@ export async function createToolRegistry(options: {
   const schemas = new Map(definitions.map(tool => [tool.name, validator.compile<Record<string, any>>(tool.parameters)]))
 
   const permitted = (tool: ToolDefinition, current: HarnessSettings) => {
-    if (tool.permission === 'terminal' && !current.terminal) return false
+    if ((tool.permission === 'terminal' || tool.name === 'repo_command') && !current.terminal) return false
     if (tool.name === 'load_skill' && !current.skills) return false
     if (tool.permission === 'mcp') {
       const before = settings.mcpServers.find(server => server.id === tool.serverId)
@@ -89,6 +94,7 @@ export async function createToolRegistry(options: {
       let result: unknown
       let success = true
       let validationError = false
+      let stalePath: string | undefined
 
       try {
         if (call.namespace && call.namespace !== 'granite') {
@@ -124,11 +130,14 @@ export async function createToolRegistry(options: {
         if (!permitted(tool, current)) throw new Error('This tool is no longer permitted. This action did not run.')
         if (options.hasSteering?.()) throw new Error('Superseded by a new user message. This action did not run.')
 
-        if (
+        const preview = await tool.approval?.(args)
+        if (preview && !(await approve(preview.kind, preview.title, preview.detail))) throw new Error('Permission denied by the user. This action did not run.')
+
+        if (!tool.approval && (
           tool.permission === 'terminal' ||
           tool.permission === 'mcp' ||
           (tool.permission === 'write' && current.approveWrites)
-        ) {
+        )) {
           let title = `Run ${tool.label ?? tool.name.replaceAll('_', ' ')}?`
           let detail = JSON.stringify(args, null, 2)
 
@@ -170,6 +179,9 @@ export async function createToolRegistry(options: {
       } catch (error) {
         signal.throwIfAborted()
         success = false
+        if (error instanceof StaleRepositoryEdit) {
+          try { stalePath = JSON.parse(call.arguments).path } catch {}
+        }
         result = {
           error:
             error instanceof z.ZodError
@@ -193,7 +205,7 @@ export async function createToolRegistry(options: {
         status: success ? 'complete' : 'error'
       })
 
-      return { output, success, validationError }
+      return { output, success, validationError, stalePath }
     }
   }
 }

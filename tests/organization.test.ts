@@ -159,7 +159,7 @@ test('moves retain transcript and IDs, enforce Closed/project boundaries and inv
 
 test('repository links bind all project chats, allow duplicate physical roots and never copy or modify external code', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'granite-repository-links-'))
-  const runtime = await AgentRuntime.open(directory)
+  const runtime = await AgentRuntime.open(join(directory, 'profile'))
   try {
     const repository = join(directory, 'external-repo')
     await mkdir(repository); await writeFile(join(repository, 'keep.ts'), 'original')
@@ -180,10 +180,35 @@ test('repository links bind all project chats, allow duplicate physical roots an
     assert.throws(() => runtime.store.saver.db.prepare('UPDATE projects SET repositoryPath = NULL WHERE id = ?').run(project.id), /already has a repository/)
     const outside = await runtime.createConversation(agent.id, { sectionId: section.id })
     await runtime.moveConversation(agent.id, outside.id, { sectionId: section.id, projectId: project.id })
-    await assert.rejects(runtime.run('not-yet', agent.id, outside.id, { baseUrl: 'http://127.0.0.1:1', model: 'offline', apiKey: '' }, 'Edit', () => {}), /repository tools and permissions/)
     const unattached = await runtime.createProject(agent.id, section.id, 'Failed attachment')
     await assert.rejects(runtime.attachRepository(agent.id, unattached.id, join(directory, 'missing')))
     assert.equal(runtime.store.organization.project(agent.id, unattached.id).repositoryPath, null)
+    assert.equal(await readFile(join(repository, 'keep.ts'), 'utf8'), 'original')
+    assert.deepEqual(await readdir(repository), ['keep.ts'])
+  } finally { runtime.close(); await rm(directory, { recursive: true, force: true }) }
+})
+
+test('project creation can link a repository immediately and invalid folders do not publish a project', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'granite-project-repository-create-'))
+  const runtime = await AgentRuntime.open(join(directory, 'profile'))
+  try {
+    const repository = join(directory, 'code')
+    await mkdir(repository); await writeFile(join(repository, 'keep.ts'), 'original')
+    const alias = join(directory, 'code-alias'); await symlink(repository, alias)
+    const agent = await runtime.createAgent('Developer')
+    const section = await runtime.createSection(agent.id, 'Code', 'shared')
+    const project = await runtime.createProject(agent.id, section.id, 'Website', alias)
+    assert.equal(project.repositoryPath, await realpath(repository))
+    assert.equal(runtime.store.organization.project(agent.id, project.id).repositoryPath, project.repositoryPath)
+    const chat = await runtime.createConversation(agent.id, { sectionId: section.id, projectId: project.id })
+    await assert.rejects(runtime.moveConversation(agent.id, chat.id, { sectionId: section.id, projectId: null }), /cannot leave/)
+    const before = await runtime.organization(agent.id)
+    for (const invalid of [join(directory, 'missing'), join(repository, 'keep.ts'), join(directory, 'profile'), 'relative-folder']) {
+      await assert.rejects(runtime.createProject(agent.id, section.id, 'Invalid', invalid))
+      assert.deepEqual(await runtime.organization(agent.id), before)
+    }
+    const unlinked = await runtime.createProject(agent.id, section.id, 'Planning')
+    assert.equal(unlinked.repositoryPath, null)
     assert.equal(await readFile(join(repository, 'keep.ts'), 'utf8'), 'original')
     assert.deepEqual(await readdir(repository), ['keep.ts'])
   } finally { runtime.close(); await rm(directory, { recursive: true, force: true }) }

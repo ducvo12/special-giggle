@@ -32,11 +32,20 @@ port.on('message', async ({ data }: { data: Request }) => {
       case 'init':
         value = true
         break
+      case 'repositories:reports':
+        value = agent.repositories.reports(args[0] as string, args[1] as string)
+        break
+      case 'repositories:review':
+        value = await agent.repositories.review(args[0] as string, args[1] as string, args[2] as string, args[3] as boolean)
+        break
+      case 'organization:createRepository':
+        value = await agent.createRepository(args[0] as string, args[1] as string)
+        break
       case 'runs:list':
         value = agent.listRuns()
         break
       case 'runs:recovery':
-        value = agent.store.runs.recovery()
+        value = agent.recovery()
         break
       case 'runs:dismissRecovery':
         value = agent.store.runs.dismissRecovery()
@@ -98,7 +107,7 @@ port.on('message', async ({ data }: { data: Request }) => {
         value = await agent.shareSection(args[0] as string, args[1] as string)
         break
       case 'organization:createProject':
-        value = await agent.createProject(args[0] as string, args[1] as string, args[2] as string)
+        value = await agent.createProject(args[0] as string, args[1] as string, args[2] as string, args[3] as string | null | undefined, args[4] as boolean | undefined)
         break
       case 'organization:renameProject':
         value = await agent.renameProject(args[0] as string, args[1] as string, args[2] as string)

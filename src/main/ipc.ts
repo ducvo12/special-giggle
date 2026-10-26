@@ -7,6 +7,9 @@ import type { RunIntent } from '../shared/run'
 import { ChatGPTAccounts } from '../backend/auth/chatgpt'
 import type { HarnessSettings } from '../shared/harness'
 import type { ConversationLocation } from '../shared/organization'
+import type { AgentOrganization } from '../shared/organization'
+import { realpath, stat } from 'node:fs/promises'
+import { RepositoryEditors } from './repository-editors'
 
 export function registerIpc(directory: string) {
   const protection = {
@@ -18,6 +21,7 @@ export function registerIpc(directory: string) {
   }
   const store = new ConnectionStore(directory, protection)
   const chatgpt = new ChatGPTAccounts(directory, protection)
+  const repositoryEditors = new RepositoryEditors(directory)
   app.on('before-quit', () => chatgpt.cancel())
   const active = new Map<string, { senderId: number; stopped: boolean }>()
   const agents = new AgentClient(directory, delta => {
@@ -39,6 +43,46 @@ export function registerIpc(directory: string) {
       throw new Error('Invalid sender')
     }
   }
+
+  async function repositoryFolder(agentId: unknown, projectId: unknown) {
+    if ([agentId, projectId].some(value => typeof value !== 'string' || !value || value.length > 100)) throw new Error('Choose a repository project.')
+    const result = await agents.call('organization:get', agentId)
+    if (!result.ok) throw new Error(result.error)
+    const project = (result.value as AgentOrganization).projects.find(project => project.id === projectId)
+    if (!project?.repositoryPath) throw new Error('This project has no repository folder.')
+    try {
+      const folder = await realpath(project.repositoryPath)
+      if (!(await stat(folder)).isDirectory()) throw new Error('Not a folder')
+      return folder
+    } catch { throw new Error('The repository folder cannot be found. Check its location in Project settings.') }
+  }
+
+  async function chooseRepositoryEditor(event: Electron.IpcMainInvokeEvent, folder: string) {
+    const selected = await dialog.showOpenDialog(BrowserWindow.fromWebContents(event.sender)!, {
+      title: 'Open repository with…', buttonLabel: 'Open repository', properties: ['openFile'],
+      ...(process.platform === 'darwin' ? { defaultPath: '/Applications', filters: [{ name: 'Applications', extensions: ['app'] }] }
+        : process.platform === 'win32' ? { filters: [{ name: 'Applications', extensions: ['exe'] }] } : {})
+    })
+    return selected.canceled || !selected.filePaths[0] ? null : repositoryEditors.openApplication(folder, selected.filePaths[0])
+  }
+
+  ipcMain.handle('repositories:editors', event => {
+    trusted(event)
+    return safely(() => repositoryEditors.choices())
+  })
+  ipcMain.handle('repositories:open', (event, agentId, projectId, editorId) => {
+    trusted(event)
+    return safely(async () => {
+      if (editorId !== undefined && (typeof editorId !== 'string' || editorId.length > 100)) throw new Error('Choose an installed editor.')
+      const folder = await repositoryFolder(agentId, projectId)
+      if (editorId === undefined && !(await repositoryEditors.choices()).selectedId) return chooseRepositoryEditor(event, folder)
+      return repositoryEditors.open(folder, editorId)
+    })
+  })
+  ipcMain.handle('repositories:chooseEditor', (event, agentId, projectId) => {
+    trusted(event)
+    return safely(async () => chooseRepositoryEditor(event, await repositoryFolder(agentId, projectId)))
+  })
 
   ipcMain.handle('connections:list', event => {
     trusted(event)
@@ -172,7 +216,15 @@ export function registerIpc(directory: string) {
     return agents.call('workspace:save', agentId, path, content, expected)
   })
 
+  ipcMain.handle('repositories:review', (event, agentId, id, runId, acknowledge) => {
+    trusted(event)
+    if ([agentId,id,runId].some(value => typeof value !== 'string' || !value || value.length > 100) || typeof acknowledge !== 'boolean') return { ok: false, error: 'Invalid repository review.' }
+    return agents.call('repositories:review', agentId, id, runId, acknowledge)
+  })
+
   const routes: Record<string, { action: string; limits: number[] }> = {
+    'repositories:reports': { action: 'repositories:reports', limits: [64, 100] },
+    'organization:createRepository': { action: 'organization:createRepository', limits: [64, 100] },
     'runs:list': { action: 'runs:list', limits: [] },
     'runs:recovery': { action: 'runs:recovery', limits: [] },
     'runs:dismissRecovery': { action: 'runs:dismissRecovery', limits: [] },
@@ -181,7 +233,6 @@ export function registerIpc(directory: string) {
     'organization:createSection': { action: 'organization:createSection', limits: [64, 80, 6] },
     'organization:renameSection': { action: 'organization:renameSection', limits: [64, 100, 80] },
     'organization:shareSection': { action: 'organization:shareSection', limits: [64, 100] },
-    'organization:createProject': { action: 'organization:createProject', limits: [64, 100, 80] },
     'organization:renameProject': { action: 'organization:renameProject', limits: [64, 100, 80] },
     'harness:get': { action: 'harness:get', limits: [64] },
     'harness:skills': { action: 'harness:skills', limits: [64] },
@@ -217,16 +268,37 @@ export function registerIpc(directory: string) {
     if (typeof agentId !== 'string' || agentId.length > 64 || typeof id !== 'string' || id.length > 100 || !validLocation(location)) return { ok: false, error: 'Invalid chat location.' }
     return agents.call('move', agentId, id, location)
   })
+  async function pickRepositoryFolder(event: Electron.IpcMainInvokeEvent) {
+    const selected = await dialog.showOpenDialog(BrowserWindow.fromWebContents(event.sender)!, {
+      title: 'Choose a repository folder', properties: ['openDirectory'], buttonLabel: 'Choose folder'
+    })
+    return selected.canceled ? null : selected.filePaths[0] ?? null
+  }
+  ipcMain.handle('organization:pickRepositoryFolder', event => {
+    trusted(event)
+    return safely(() => pickRepositoryFolder(event))
+  })
+  ipcMain.handle('organization:createProject', (event, agentId, sectionId, name, repositoryPath = null, createRepository = false) => {
+    trusted(event)
+    if ([agentId, sectionId, name].some((value, index) => typeof value !== 'string' || value.length > [64, 100, 80][index]) ||
+        repositoryPath !== null && (typeof repositoryPath !== 'string' || repositoryPath.length > 4096) ||
+        typeof createRepository !== 'boolean' || createRepository && repositoryPath !== null) {
+      return { ok: false, error: 'Invalid project details.' }
+    }
+    return agents.call('organization:createProject', agentId, sectionId, name, repositoryPath, createRepository)
+  })
   ipcMain.handle('organization:chooseRepository', async (event, agentId, projectId) => {
     trusted(event)
     if (typeof agentId !== 'string' || agentId.length > 64 || typeof projectId !== 'string' || projectId.length > 100) {
       return { ok: false, error: 'Finish the current operation before linking a folder.' }
     }
-    const selected = await dialog.showOpenDialog(BrowserWindow.fromWebContents(event.sender)!, {
-      title: 'Link a repository folder', properties: ['openDirectory'], buttonLabel: 'Link folder'
+    return safely(async () => {
+      const selected = await pickRepositoryFolder(event)
+      if (!selected) return null
+      const result = await agents.call('organization:attachRepository', agentId, projectId, selected)
+      if (!result.ok) throw new Error(result.error)
+      return result.value
     })
-    if (selected.canceled || !selected.filePaths[0]) return { ok: true, value: null }
-    return agents.call('organization:attachRepository', agentId, projectId, selected.filePaths[0])
   })
 
   for (const [channel, { action, limits }] of Object.entries(routes)) {

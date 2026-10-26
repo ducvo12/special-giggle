@@ -46,8 +46,10 @@ contextBridge.exposeInMainWorld('granite', {
     createSection: (agentId, name, mode) => ipcRenderer.invoke('organization:createSection', agentId, name, mode),
     renameSection: (agentId, id, name) => ipcRenderer.invoke('organization:renameSection', agentId, id, name),
     shareSection: (agentId, id) => ipcRenderer.invoke('organization:shareSection', agentId, id),
-    createProject: (agentId, sectionId, name) => ipcRenderer.invoke('organization:createProject', agentId, sectionId, name),
+    createProject: (agentId, sectionId, name, repositoryPath, createRepository) => ipcRenderer.invoke('organization:createProject', agentId, sectionId, name, repositoryPath, createRepository),
+    pickRepositoryFolder: () => ipcRenderer.invoke('organization:pickRepositoryFolder'),
     renameProject: (agentId, id, name) => ipcRenderer.invoke('organization:renameProject', agentId, id, name),
+    createRepository: (agentId, projectId) => ipcRenderer.invoke('organization:createRepository', agentId, projectId),
     chooseRepository: (agentId, projectId) => ipcRenderer.invoke('organization:chooseRepository', agentId, projectId)
   },
   workspace: {
@@ -55,6 +57,13 @@ contextBridge.exposeInMainWorld('granite', {
     read: (agentId, path) => ipcRenderer.invoke('workspace:read', agentId, path),
     save: (agentId, path, content, expected) => ipcRenderer.invoke('workspace:save', agentId, path, content, expected),
     renameNote: (agentId, path, name) => ipcRenderer.invoke('workspace:renameNote', agentId, path, name)
+  },
+  repositories: {
+    editors: () => ipcRenderer.invoke('repositories:editors'),
+    open: (agentId, projectId, editorId) => ipcRenderer.invoke('repositories:open', agentId, projectId, editorId),
+    chooseEditor: (agentId, projectId) => ipcRenderer.invoke('repositories:chooseEditor', agentId, projectId),
+    reports: (agentId, id) => ipcRenderer.invoke('repositories:reports', agentId, id),
+    review: (agentId, id, runId, acknowledge) => ipcRenderer.invoke('repositories:review', agentId, id, runId, acknowledge)
   },
   runs: {
     list: () => ipcRenderer.invoke('runs:list'),

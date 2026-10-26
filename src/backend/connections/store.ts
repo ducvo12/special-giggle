@@ -112,9 +112,9 @@ export class ConnectionStore {
   }
 
   private public(record: StoredConnection): SavedConnection {
-    const { encryptedKey, ...connection } = record
+    const { encryptedKey, maxConcurrentRequests, ...connection } = record
 
-    return { ...connection, hasKey: Boolean(encryptedKey) }
+    return { ...connection, ...(maxConcurrentRequests === undefined ? {} : { maxConcurrentRequests }), hasKey: Boolean(encryptedKey) }
   }
 
   private serialize<T>(action: () => Promise<T>): Promise<T> {

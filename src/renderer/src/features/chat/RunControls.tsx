@@ -21,7 +21,7 @@ export default function RunControls({ run, messages, disabled, onContinue, onRun
   const interrupted = !live && [...messages].reverse().find(message => message.role === 'assistant')?.interrupted
   if (!live && !pending && !interrupted) return null
   return <div className="run-status-bar" role="status" aria-live="polite">
-    <span>{run ? runLabel(run) : 'Reply interrupted'}{pending ? ' · messages awaiting an explicit restart' : ''}</span>
+    <span>{run ? runLabel(run) : 'Reply interrupted'}{run?.error && <span role="alert"> · {run.error}</span>}{pending ? ' · messages awaiting an explicit restart' : ''}</span>
     {!live && <div className="run-status-actions">
       {pending ? <>
         <button className="quiet-button" disabled={disabled} onClick={() => void onRunPending()}>Run pending messages</button>

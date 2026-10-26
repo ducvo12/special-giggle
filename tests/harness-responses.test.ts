@@ -7,6 +7,86 @@ import { join } from 'node:path'
 import { AgentRuntime } from '../src/backend/agents/runtime.ts'
 import type { StreamDelta } from '../src/shared/chat.ts'
 import { defaultHarnessSettings, type ApprovalRequest } from '../src/shared/harness.ts'
+import { responsesAdapter } from '../src/backend/harness/providers/responses.ts'
+
+function streamedEvents(events: unknown[]) {
+  return new Response(events.map(event => `data: ${JSON.stringify(event)}\n\n`).join(''), {
+    headers: { 'Content-Type': 'text/event-stream' }
+  })
+}
+
+test('empty completion envelopes retain completed streamed repository calls and final messages', async context => {
+  const directory = await mkdtemp(join(tmpdir(), 'granite-streamed-repository-'))
+  const runtime = await AgentRuntime.open(directory)
+  let requests = 0
+  try {
+    const agent = await runtime.createAgent('Stream check')
+    const section = await runtime.createSection(agent.id, 'Code', 'shared')
+    const project = await runtime.createProject(agent.id, section.id, 'Website')
+    const repository = await runtime.createRepository(agent.id, project.id)
+    const { writeFile } = await import('node:fs/promises')
+    await writeFile(join(repository.repositoryPath!, 'README.md'), '# Test repository\n')
+    const chat = await runtime.createConversation(agent.id, { sectionId: section.id, projectId: project.id })
+    const call = { type: 'function_call', id: 'item-call', call_id: 'stream-call', name: 'repo_list', namespace: 'granite',
+      status: 'completed', arguments: JSON.stringify({ project_id: project.id, path: '' }) }
+    const reasoning = { type: 'reasoning', id: 'reasoning', summary: [], encrypted_content: 'opaque-test-state' }
+    context.mock.method(globalThis, 'fetch', async (_url, init) => {
+      const body = JSON.parse(String(init?.body))
+      requests++
+      if (requests === 1) return streamedEvents([
+        { type: 'response.output_item.added', output_index: 1, item: { ...call, arguments: '', status: 'in_progress' } },
+        { type: 'response.function_call_arguments.delta', output_index: 1, delta: call.arguments },
+        { type: 'response.output_item.done', output_index: 1, item: call },
+        { type: 'response.output_item.done', output_index: 0, item: reasoning },
+        { type: 'response.completed', response: { status: 'completed', output: [] } }
+      ])
+      assert.equal(requests, 2)
+      assert.deepEqual(body.input.slice(-3, -1), [reasoning, call])
+      const output = body.input.at(-1)
+      assert.equal(output.type, 'function_call_output')
+      assert.equal(output.call_id, call.call_id)
+      assert.ok(JSON.parse(output.output).some((file: any) => file.name === 'README.md'))
+      return streamedEvents([
+        { type: 'response.output_item.done', output_index: 0, item: { type: 'message', id: 'answer', role: 'assistant',
+          status: 'completed', content: [{ type: 'output_text', text: 'This folder contains README.md.' }] } },
+        { type: 'response.completed', response: { status: 'completed', output: [] } }
+      ])
+    })
+    const text: string[] = []
+    await runtime.run('streamed-list', agent.id, chat.id, { baseUrl: 'http://localhost:1234/v1', apiKey: '', model: 'fixture', protocol: 'responses' },
+      'What is in this folder?', delta => { if (delta.text) text.push(delta.text) })
+    assert.equal(requests, 2)
+    const reply = runtime.store.get(agent.id, chat.id).messages.at(-1)!
+    assert.equal(reply.status, 'complete')
+    assert.equal(reply.content, 'This folder contains README.md.')
+    assert.equal(reply.tools?.[0].name, 'repo_list')
+    assert.equal(reply.tools?.[0].status, 'complete')
+    assert.equal(text.join(''), reply.content)
+  } finally { await runtime.stopAll(); runtime.close(); await rm(directory, { recursive: true, force: true }) }
+})
+
+test('stream fallback does not promote unfinished calls or bypass response validation', async context => {
+  const call = { type: 'function_call', call_id: 'fragment', name: 'repo_write', arguments: '{', status: 'in_progress' }
+  let events: unknown[] = []
+  context.mock.method(globalThis, 'fetch', async () => streamedEvents(events))
+  const adapter = responsesAdapter({ connection: { baseUrl: 'http://localhost:1234/v1', apiKey: '', model: 'fixture' },
+    signal: new AbortController().signal, onText() {}, onReasoning() {} })
+  events = [
+    { type: 'response.output_item.added', output_index: 0, item: call },
+    { type: 'response.function_call_arguments.delta', output_index: 0, delta: '{' },
+    { type: 'response.completed', response: { status: 'completed', output: [] } }
+  ]
+  assert.deepEqual((await adapter.step([], '', [])).calls, [])
+  events = [
+    { type: 'response.output_item.done', output_index: 0, item: call },
+    { type: 'response.completed', response: { status: 'completed', output: [] } }
+  ]
+  await assert.rejects(adapter.step([], '', []), /incomplete response item/)
+  events = [{ type: 'response.output_item.done', output_index: 0, item: { ...call, status: 'completed', arguments: '{}' } }]
+  await assert.rejects(adapter.step([], '', []), /connection ended/)
+  events = [{ type: 'response.completed', response: { status: 'completed', output: {} } }]
+  await assert.rejects(adapter.step([], '', []), /invalid response/)
+})
 
 async function fixture() {
   const requests: any[] = []

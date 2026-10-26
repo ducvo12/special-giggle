@@ -59,4 +59,6 @@
 .tree-dialog code { display: block; font-size: 12px; overflow-wrap: anywhere; }
 .tree-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 .tree-dialog-extra { margin-top: 20px; }
+.tree-dialog-repository-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+.tree-dialog-repository-actions [aria-pressed="true"] { background: var(--surface-selected); border-color: var(--focus); }
 @media (max-width: 900px) { .file-sidebar { width: 240px; padding: 18px 10px 14px; } }

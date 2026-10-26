@@ -138,9 +138,9 @@ export class OrganizationStore {
     return this.section(agentId, id)
   }
 
-  createProject(agentId: string, sectionId: string, value: unknown): Project {
+  createProject(agentId: string, sectionId: string, value: unknown, repositoryPath: string | null = null): Project {
     if (this.section(agentId, sectionId).kind === 'general') throw new Error('General contains chats only. Create a custom section for projects.')
-    const project: Project = { id: `project-${randomUUID()}`, agentId, sectionId, name: name(value, 'project'), repositoryPath: null, createdAt: Date.now() }
+    const project: Project = { id: `project-${randomUUID()}`, agentId, sectionId, name: name(value, 'project'), repositoryPath, createdAt: Date.now() }
     this.db.prepare('INSERT INTO projects (id, agentId, sectionId, name, repositoryPath, createdAt) VALUES (@id, @agentId, @sectionId, @name, @repositoryPath, @createdAt)').run(project)
     return project
   }

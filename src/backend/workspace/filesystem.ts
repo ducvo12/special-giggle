@@ -27,7 +27,7 @@ export class AgentFilesystem extends FilesystemBackend {
 
     const parts = path.split('/').filter(Boolean)
 
-    if (this.excludeOrganization && parts[0]?.toLowerCase() === 'sections') {
+    if (this.excludeOrganization && ['sections', 'projects'].includes(parts[0]?.toLowerCase())) {
       throw new Error('Section files are not available through the current agent-wide tools.')
     }
 

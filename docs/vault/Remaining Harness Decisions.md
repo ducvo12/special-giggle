@@ -38,7 +38,7 @@ If an engineering choice would materially change sharing, deletion, approvals, S
 
 ## Next handoff
 
-The requested six-pass breakdown and planned tests are recorded in [[Harness Implementation Plan]]. Pass 1’s original criteria were confirmed against recorded results. Pass 2 is implemented with light verification and a broader follow-up checklist in [[Pass 2 Implementation & Testing]]. Passes 3–6 remain planned.
+The requested six-pass breakdown and planned tests are recorded in [[Harness Implementation Plan]]. Pass 1’s original criteria were confirmed against recorded results. Pass 2 is implemented with light verification and a broader follow-up checklist in [[Pass 2 Implementation & Testing]]. Pass 3 is implemented with basic verification in [[Pass 3 Implementation & Testing]]. Passes 4–6 remain planned.
 
 1. Consolidate the accepted notes/canvases into a first-version implementation plan, clearly separating the target from prototype behavior.
 2. Define observable acceptance cases for each slice; [[Container & Settings Rules]] already includes examples for the latest decisions.

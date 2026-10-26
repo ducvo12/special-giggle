@@ -15,11 +15,14 @@ export interface RunSnapshot {
   messageIds: string[]
   queue?: { reason: string; position?: number }
   error?: string
+  repository?: { projectId: string; name: string; files: number; added: number; removed: number; state: 'active' | 'settled' | 'attention'; error?: string }
+  projectEntry?: { projectId: string; name: string }
 }
 
 export interface RecoveryNotice {
   active: number
   pending: number
+  repositories?: number
 }
 
 export type RunIntent = 'message' | 'continue' | 'pending'

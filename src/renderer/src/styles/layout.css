@@ -262,7 +262,7 @@
 .organization-navigation { overflow-y: auto; flex: 1; min-height: 0; margin: 16px 0; }
 .organization-section-group + .organization-section-group { margin-top: 14px; }
 .organization-children { margin: 4px 0 0 8px; padding-left: 8px; border-left: 1px solid var(--border-strong); }
-.organization-children:has(> .conversation-list:empty):not(:has(> .organization-project-group)) { display: none; }
+.organization-children:has(> .conversation-list:only-child:empty) { display: none; }
 .organization-project-group + .organization-project-group { margin-top: 6px; }
 .organization-location { display: flex; align-items: center; gap: 6px; width: 100%; padding: 6px 8px; background: transparent; border-color: transparent; color: var(--text-secondary); text-align: left; font-size: 12px; }
 .organization-location > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

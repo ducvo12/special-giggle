@@ -2,6 +2,7 @@ import type { Agent, Conversation, ConversationDetail, ToolActivity, WorkspaceEn
 import type { ApprovalRequest, ChatGPTAccount, HarnessSettings } from './harness'
 import type { AgentOrganization, ConversationLocation, Project, Section, SectionMode } from './organization'
 import type { RecoveryNotice, RunIntent, RunSnapshot } from './run'
+import type { RepositoryEditorChoices } from './repository-editor'
 
 export interface Connection {
   maxConcurrentRequests?: number
@@ -119,8 +120,10 @@ export interface GraniteBridge {
     createSection: (agentId: string, name: string, mode: SectionMode) => Promise<Result<Section>>
     renameSection: (agentId: string, id: string, name: string) => Promise<Result<Section>>
     shareSection: (agentId: string, id: string) => Promise<Result<Section>>
-    createProject: (agentId: string, sectionId: string, name: string) => Promise<Result<Project>>
+    createProject: (agentId: string, sectionId: string, name: string, repositoryPath?: string | null, createRepository?: boolean) => Promise<Result<Project>>
+    pickRepositoryFolder: () => Promise<Result<string | null>>
     renameProject: (agentId: string, id: string, name: string) => Promise<Result<Project>>
+    createRepository: (agentId: string, projectId: string) => Promise<Result<Project>>
     chooseRepository: (agentId: string, projectId: string) => Promise<Result<Project | null>>
   }
   workspace: {
@@ -128,6 +131,13 @@ export interface GraniteBridge {
     read: (agentId: string, path: string) => Promise<Result<string>>
     save: (agentId: string, path: string, content: string, expected: string | null) => Promise<Result<string>>
     renameNote: (agentId: string, path: string, name: string) => Promise<Result<string>>
+  }
+  repositories: {
+    editors: () => Promise<Result<RepositoryEditorChoices>>
+    open: (agentId: string, projectId: string, editorId?: string) => Promise<Result<RepositoryEditorChoices | null>>
+    chooseEditor: (agentId: string, projectId: string) => Promise<Result<RepositoryEditorChoices | null>>
+    reports: (agentId: string, conversationId: string) => Promise<Result<import('./repository').RepositoryReport[]>>
+    review: (agentId: string, conversationId: string, runId: string, acknowledge: boolean) => Promise<Result<import('./repository').RepositoryReport>>
   }
   runs: {
     list: () => Promise<Result<RunSnapshot[]>>

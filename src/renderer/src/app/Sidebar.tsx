@@ -10,6 +10,7 @@ import type { TreeDialogAction } from '../features/organization/TreeDialog'
 import { defaultTreeSort, readTreeSort, sortTreeEntries, type TreeSort } from './tree-sort'
 import Chevron from '../components/Chevron'
 import type { RunSnapshot } from '../../../shared/run'
+import RepositoryLink, { useRepositoryEditors } from '../features/organization/RepositoryLink'
 
 type Props = {
   page: Page
@@ -46,6 +47,7 @@ export default function Sidebar({ page, agents, agentId, agent, busy, runs, load
   onRenameConversation, onNewChat, onSelectConversation, onPageChange }: Props) {
   const [sectionsOpen, setSectionsOpen] = useState(true)
   const [collapsed, setCollapsed] = useState(new Set<string>())
+  const repositoryEditors = useRepositoryEditors()
   const storageKey = `granite.tree-sort.${agentId}`
   const [sorts, setSorts] = useState<Record<string, TreeSort>>(() => {
     try {
@@ -109,8 +111,8 @@ export default function Sidebar({ page, agents, agentId, agent, busy, runs, load
           onClick={() => onSelectLocation({ sectionId: project.sectionId, projectId: project.id })}>+</button>
       </div>
       {open && <div className="organization-children">
-        {project.repositoryPath && <button className="tree-entry repository-tree-link" title={project.repositoryPath} disabled={actionsDisabled}
-          onClick={() => onDialog({ type: 'project-settings', projectId: project.id })}><span aria-hidden="true">↗</span><span>Repository</span></button>}
+        {project.repositoryPath && <RepositoryLink agentId={agentId} project={project} disabled={actionsDisabled}
+          choices={repositoryEditors.choices} onChoices={repositoryEditors.setChoices} />}
         {chatList(sortTreeEntries(conversations.filter(chat => chat.projectId === project.id), conversations, sort(project.id)))}
       </div>}
     </div>

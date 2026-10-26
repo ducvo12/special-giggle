@@ -38,8 +38,8 @@ export function terminalTool(workspace: AgentFilesystem, signal: AbortSignal): T
 (allow file-read-metadata)
 (allow file-read* (subpath ${quoted}) (subpath "/System") (subpath "/usr") (subpath "/bin") (subpath "/sbin") (subpath "/Library") (subpath "/opt") (subpath "/dev") (subpath "/private/var/db/dyld"))
 (allow file-write* (subpath ${quoted}) (literal "/dev/null"))
-${['identity.md', 'agent.json', 'harness.json', 'skills', 'tools', 'sections'].map(name => `(deny file-write* (subpath ${JSON.stringify(`${root}/${name}`)}))`).join('\n')}
-${workspace.excludeOrganization ? `(deny file-read* (subpath ${JSON.stringify(`${root}/sections`)}))` : ''}`
+${['identity.md', 'agent.json', 'harness.json', 'skills', 'tools', 'sections', 'projects'].map(name => `(deny file-write* (subpath ${JSON.stringify(`${root}/${name}`)}))`).join('\n')}
+${workspace.excludeOrganization ? `(deny file-read* (subpath ${JSON.stringify(`${root}/sections`)}) (subpath ${JSON.stringify(`${root}/projects`)}))` : ''}`
       signal.throwIfAborted()
 
       return new Promise((resolve, reject) => {

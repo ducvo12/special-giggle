@@ -59,7 +59,7 @@ export function useAgentSession() {
   const project = organization.projects.find(item => item.id === location.projectId)
   const runUnavailable = section?.mode === 'closed'
     ? 'You can organize chats here, but replies in Closed sections are not available yet.'
-    : project?.repositoryPath ? 'This folder is linked. You can organize chats here, but repository work is not available yet.' : ''
+    : ''
   const details = viewRun ? runDetails.current.get(viewRun.id) : undefined
   const approval = details?.approval ?? null
   const activity = details?.activity ?? emptyActivity()
@@ -164,7 +164,7 @@ export function useAgentSession() {
       }
       setRuns(saved.value)
     }
-    if (notice.ok && (notice.value.active || notice.value.pending)) setRecovery(notice.value)
+    if (notice.ok && (notice.value.active || notice.value.pending || notice.value.repositories)) setRecovery(notice.value)
   }
 
   useEffect(() => {

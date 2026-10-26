@@ -1,10 +1,14 @@
 import { isAbsolute, join } from 'node:path'
-import { rmSync } from 'node:fs'
-import { realpath, stat } from 'node:fs/promises'
+import { mkdirSync, rmdirSync, rmSync } from 'node:fs'
+import { mkdir, realpath, stat } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { isLiveRun, locksChat, type RunIntent, type RunPhase, type RunSnapshot } from '../../shared/run.ts'
 import type { AgentMessage } from '../../shared/agent.ts'
 import { ModelScheduler } from '../harness/scheduler.ts'
+import { repositoryAccess, internalRepository } from '../repositories/access.ts'
+import { RepositoryStore } from '../repositories/store.ts'
+import { RepositorySession } from '../repositories/session.ts'
+import { RepositoryPaths, within } from '../repositories/paths.ts'
 import { sessionKey } from './runs.ts'
 import type { Connection, StreamDelta } from '../../shared/chat.ts'
 import type { HarnessSettings } from '../../shared/harness.ts'
@@ -24,7 +28,7 @@ import {
 } from '../harness/settings.ts'
 
 const instructions = `You are a personal agent running in Granite. Your name and personality come from the agent profile and identity below.
-Your file tools use a virtual workspace rooted at /. Use /notes/ for notes and /projects/ for projects.
+Your file tools use a virtual workspace rooted at /. Use /notes/ for notes. Repository files are available only through the separate repo_ tools.
 Use /memory.md for explicit user preferences across conversations. Read existing content before editing. Never store secrets or guesses as facts.
 Identity, agent configuration, harness settings, and skills are read-only to tools; the user manages them in the application.
 For a simple question, answer directly. Use plans and tools only when they help complete the user's request. For file changes, actually call tools and report their outcome.
@@ -46,6 +50,8 @@ export class AgentRuntime {
   active: { id: string; controller: AbortController } | null = null
   approvals = new ApprovalQueue()
   private scheduler = new ModelScheduler()
+  private projectScheduler = new ModelScheduler()
+  repositories: RepositoryStore
   private jobs = new Map<string, Job>()
   private chats = new Map<string, Job>()
 
@@ -79,27 +85,49 @@ export class AgentRuntime {
   private editingIdentity = false
   private changingAgents = false
 
-  private constructor(store: AgentStore, registry: AgentRegistry) {
+  private directory: string
+  private constructor(store: AgentStore, registry: AgentRegistry, directory: string) {
+    this.directory = directory
     this.store = store
     this.registry = registry
+    this.repositories = new RepositoryStore(store, directory)
   }
 
   static async open(directory: string) {
+    await mkdir(directory, { recursive: true })
+    directory = await realpath(directory)
     const registry = await AgentRegistry.open(directory)
 
     // Retain the original database filename, including existing WAL/checkpoints.
-    const runtime = new AgentRuntime(new AgentStore(join(directory, 'atlas.sqlite')), registry)
+    const runtime = new AgentRuntime(new AgentStore(join(directory, 'atlas.sqlite')), registry, directory)
     try {
       for (const agent of await registry.list()) {
         runtime.store.organization.ensureGeneral(agent.id)
         const workspace = await registry.workspace(agent.id)
         ensureOrganizationStorage(workspace.root, runtime.store.organization.snapshot(agent.id))
       }
+      await runtime.repositories.recoverAll()
       return runtime
     } catch (error) {
       runtime.close()
       throw error
     }
+  }
+
+  recovery() {
+    return { ...this.store.runs.recovery(), repositories: this.repositories.records().filter(record => record.report.state === 'attention').length }
+  }
+
+  async createRepository(agentId: string, projectId: string) {
+    const project = this.store.organization.project(agentId, projectId)
+    const path = internalRepository(this.directory, agentId, project.sectionId, projectId)
+    if (project.repositoryPath) throw new Error('This project already has a repository.')
+    if (this.store.list(agentId).some(chat => chat.projectId === projectId && this.isChatActive(chat.id))) throw new Error('Stop project runs before creating its repository.')
+    const workspace = await this.registry.workspace(agentId)
+    ensureOrganizationStorage(workspace.root, this.store.organization.snapshot(agentId))
+    await mkdir(path, { recursive: false })
+    try { return await this.attachRepository(agentId, projectId, path) }
+    catch (error) { await (await import('node:fs/promises')).rmdir(path).catch(() => {}); throw error }
   }
 
   async entries(agentId: string, path: string) {
@@ -173,6 +201,7 @@ export class AgentRuntime {
       // Run in the worker, synchronously inside the transaction: a filesystem
       // failure rolls back database deletion, and no other request interleaves.
       this.store.saver.db.transaction(() => {
+        this.repositories.removeRecords(agentId)
         this.store.deleteAgent(agentId)
         rmSync(workspace.root, { recursive: true })
       })()
@@ -204,7 +233,7 @@ export class AgentRuntime {
     return this.store.organization.snapshot(agentId)
   }
 
-  private async changeOrganization<T>(agentId: string, change: () => T) {
+  private async changeOrganization<T>(agentId: string, change: (workspaceRoot: string) => T) {
     if (this.editingIdentity || this.changingAgents) {
       throw new Error('Finish the current operation before changing sections, projects or chat locations.')
     }
@@ -212,7 +241,7 @@ export class AgentRuntime {
     try {
       const workspace = await this.registry.workspace(agentId)
       return this.store.saver.db.transaction(() => {
-        const result = change()
+        const result = change(workspace.root)
         ensureOrganizationStorage(workspace.root, this.store.organization.snapshot(agentId))
         return result
       })()
@@ -233,20 +262,44 @@ export class AgentRuntime {
     return this.changeOrganization(agentId, () => this.store.organization.shareSection(agentId, id))
   }
 
-  createProject(agentId: string, sectionId: string, name: string) {
-    return this.changeOrganization(agentId, () => this.store.organization.createProject(agentId, sectionId, name))
+  async createProject(agentId: string, sectionId: string, name: string, repositoryPath: string | null = null, createRepository = false) {
+    if (typeof createRepository !== 'boolean' || createRepository && repositoryPath !== null) throw new Error('Choose either a linked folder or a new repository folder.')
+    const canonical = repositoryPath === null ? null : await this.resolveRepositoryFolder(repositoryPath)
+    let createdFolder: string | undefined
+    try {
+      return await this.changeOrganization(agentId, workspaceRoot => {
+        const project = this.store.organization.createProject(agentId, sectionId, name, canonical)
+        if (!createRepository) return project
+        ensureOrganizationStorage(workspaceRoot, this.store.organization.snapshot(agentId))
+        const folder = internalRepository(this.directory, agentId, sectionId, project.id)
+        mkdirSync(folder, { mode: 0o700 })
+        createdFolder = folder
+        return this.store.organization.attachRepository(agentId, project.id, folder)
+      })
+    } catch (error) {
+      if (createdFolder) { try { rmdirSync(createdFolder) } catch {} }
+      throw error
+    }
   }
 
   renameProject(agentId: string, id: string, name: string) {
     return this.changeOrganization(agentId, () => this.store.organization.renameProject(agentId, id, name))
   }
 
-  async attachRepository(agentId: string, projectId: string, path: string) {
-    // Resolve the selected directory before publishing the reference. No copying,
-    // symlinking or modification of the selected codebase is performed here.
+  private async resolveRepositoryFolder(path: string, internal?: string) {
     if (typeof path !== 'string' || !isAbsolute(path) || path.includes('\0')) throw new Error('Choose an existing repository folder.')
     const canonical = await realpath(path)
     if (!(await stat(canonical)).isDirectory()) throw new Error('Choose a repository folder, not a file.')
+    if (within(this.directory, canonical) && canonical !== internal) throw new Error('Link a code folder outside Granite storage, or create a repository inside this project.')
+    return canonical
+  }
+
+  async attachRepository(agentId: string, projectId: string, path: string) {
+    // Resolve the selected directory before publishing the reference. No copying,
+    // symlinking or modification of the selected codebase is performed here.
+    const project = this.store.organization.project(agentId, projectId)
+    if (project.repositoryPath) throw new Error('This project already has a repository. Relinking is not available yet.')
+    const canonical = await this.resolveRepositoryFolder(path, internalRepository(this.directory, agentId, project.sectionId, projectId))
     return this.changeOrganization(agentId, () => {
       if (this.store.list(agentId).some(chat => chat.projectId === projectId && this.isChatActive(chat.id))) {
         throw new Error('Finish this project’s active runs before linking a repository.')
@@ -286,7 +339,10 @@ export class AgentRuntime {
 
     try {
       await this.registry.get(agentId)
-      this.store.deleteConversation(agentId, id)
+      this.store.saver.db.transaction(() => {
+        this.repositories.removeRecords(agentId, id)
+        this.store.deleteConversation(agentId, id)
+      })()
     } finally {
       this.changingAgents = false
     }
@@ -354,9 +410,7 @@ export class AgentRuntime {
     const section = this.store.organization.section(agentId, conversation.sectionId)
     if (section.mode === 'closed') throw new Error('Closed-section runs will be available after isolated context is implemented. You can organize chats here now.')
     if (conversation.retention === 'temporary') throw new Error('Temporary-chat runs are not available until expiry and memory isolation are implemented.')
-    if (conversation.projectId && this.store.organization.project(agentId, conversation.projectId).repositoryPath) {
-      throw new Error('Repository-project runs will be available when repository tools and permissions are implemented.')
-    }
+    if (conversation.projectId && this.store.organization.project(agentId, conversation.projectId).repositoryPath) this.repositories.assertAvailable(conversation.projectId)
     return conversation
   }
 
@@ -418,8 +472,27 @@ export class AgentRuntime {
     let lastSave = 0
     let identity: string | undefined
     let inputInitialized = false
+    let repository: RepositorySession | undefined
+    let releaseProject: (() => void) | undefined
+    const updateRepository = () => {
+      if (!repository) return
+      const report = repository.record.report
+      run.repository = { projectId: report.projectId, name: report.name, state: report.state, error: report.error,
+        files: report.changes.length, added: report.changes.reduce((sum, change) => sum + change.added, 0), removed: report.changes.reduce((sum, change) => sum + change.removed, 0) }
+      this.publish(job)
+    }
+    const settleRepository = async () => {
+      if (!repository) return
+      try {
+        await this.repositories.refresh(repository.record)
+        if (repository.record.report.state !== 'attention') repository.record.report.state = 'settled'
+      } catch (error) {
+        repository.record.report.state = 'attention'; repository.record.report.error = error instanceof Error ? error.message : 'Could not verify repository changes.'
+      }
+      this.repositories.save(repository.record); updateRepository()
+    }
     let pausedIntegrations = false
-    const integrationNotice = 'Connected integrations are paused while this agent has Closed sections. Section-aware integrations are not available yet.'
+    const integrationNotice = 'Connected integrations are paused while this agent has Closed sections or repositories. Scoped integrations are not available yet.'
     const activity = { reasoningCharacters: 0, answerCharacters: 0 }
     const persist = () => { if (turn) this.store.saveMessage(conversationId, turn.message) }
     const splitReply = () => {
@@ -456,7 +529,8 @@ export class AgentRuntime {
     }
     const settings = async () => {
       const value = await this.settings(agentId)
-      const hasClosed = this.store.organization.snapshot(agentId).sections.some(section => section.mode === 'closed')
+      const organization = this.store.organization.snapshot(agentId)
+      const hasClosed = organization.sections.some(section => section.mode === 'closed') || organization.projects.some(project => project.repositoryPath)
       pausedIntegrations = hasClosed && value.mcpServers.some(server => server.enabled)
       if (pausedIntegrations && turn && !turn.message.notice?.includes(integrationNotice)) {
         turn.message.notice = [turn.message.notice, integrationNotice].filter(Boolean).join(' ')
@@ -467,6 +541,21 @@ export class AgentRuntime {
     try {
       await predecessor?.catch(() => {})
       signal.throwIfAborted()
+      const location = this.validateLocation(agentId, conversationId)
+      const project = location.projectId ? this.store.organization.project(agentId, location.projectId) : undefined
+      if (project?.repositoryPath) {
+        releaseProject = await this.projectScheduler.acquireResource({ key: project.id, capacity: 1, reason: 'Queued for repository project' }, signal,
+          (position, reason) => this.publish(job, 'queued', { position, reason }))
+        this.validateLocation(agentId, conversationId)
+        const paths = new RepositoryPaths(project.repositoryPath, this.directory, internalRepository(this.directory, agentId, project.sectionId, project.id))
+        await paths.check()
+        const record = { runId: run.id, agentId, conversationId, projectId: project.id, root: project.repositoryPath,
+          internalRoot: internalRepository(this.directory, agentId, project.sectionId, project.id), baseline: {}, touched: [],
+          report: { runId: run.id, projectId: project.id, name: project.name, state: 'active' as const, changes: [], preExisting: 0 } }
+        this.repositories.save(record)
+        repository = new RepositorySession(record, this.repositories, signal, updateRepository)
+        updateRepository()
+      }
       const profile = await this.registry.get(agentId)
       const humanWorkspace = await this.registry.workspace(agentId)
       const workspace = new AgentFilesystem(humanWorkspace.root, { excludeOrganization: true })
@@ -475,6 +564,19 @@ export class AgentRuntime {
         const result = await runHarness({
           connection, workspace, settings: await settings(), instructions: '', history: [], text: '', state,
           signal,
+          repository: {
+            signal, owner: repository,
+            access: () => repositoryAccess(this.store, this.directory, agentId, conversationId),
+            userMessages: () => this.store.get(agentId, conversationId).messages.filter(message => message.role === 'user' && message.runId === run.id).map(message => message.content),
+            requestEntry: projectId => {
+              const target = repositoryAccess(this.store, this.directory, agentId, conversationId).find(target => target.projectId === projectId)
+              if (!target) throw new Error('Repository is unavailable.')
+              const problem = (this.store.get(agentId, conversationId).retention === 'temporary')
+                ? 'Keep the temporary chat first.' : undefined
+              if (problem) throw new Error(problem)
+              run.projectEntry = { projectId, name: target.name }; this.publish(job)
+            }
+          },
           initialize: () => {
             const first = !inputInitialized
             inputInitialized = true
@@ -497,7 +599,9 @@ export class AgentRuntime {
             const memory = await workspaceText(workspace, '/memory.md')
             return [instructions, turn?.interrupted ? 'The previous run was interrupted. Completed file changes remain. Inspect current files before continuing unfinished work.' : '',
               '<agent_profile>', JSON.stringify(profile), '</agent_profile>', '<identity>', identity, '</identity>',
-              '<user_memory>', memory, '</user_memory>'].join('\n')
+              '<user_memory>', memory, '</user_memory>',
+              '<repositories>', JSON.stringify(repositoryAccess(this.store, this.directory, agentId, conversationId).map(({ paths, ...access }) => access)), '</repositories>',
+              'Repository tools use relative paths. Read before editing and use the returned revision. Only this chat’s own repository project is writable. If outside a project, ask to move using request_repository_edit, then finish the run. Never use workspace, terminal or MCP paths to bypass membership. Git mutations and network actions require explicit user authorization.'].join('\n')
           },
           acquire: requestSignal => this.scheduler.acquire(connection, requestSignal, (position, reason) => {
             if (!signal.aborted) this.publish(job, 'queued', { position, reason })
@@ -558,6 +662,7 @@ export class AgentRuntime {
         // Closing optional transports is asynchronous. Messages accepted during
         // that boundary still belong to this run and must precede finalization.
       } while (this.store.runs.pending(run).length)
+      await settleRepository()
       this.store.saver.db.transaction(() => {
         this.store.saveModelState(conversationId, sessionKey(connection), state!)
         this.store.finish(conversationId, turn!.message, 'complete')
@@ -567,6 +672,7 @@ export class AgentRuntime {
       this.publishMessages(job)
       return { stopped: false }
     } catch (error) {
+      await settleRepository()
       const stopped = signal.aborted
       const safe = error instanceof HarnessError || error instanceof Error && !turn
         ? error.message : 'The agent could not finish this reply. Check the connection and model, then Continue.'
@@ -583,7 +689,7 @@ export class AgentRuntime {
       this.publishMessages(job)
       if (stopped) return { stopped: true }
       throw new Error(safe)
-    }
+    } finally { releaseProject?.() }
   }
 
   close() {

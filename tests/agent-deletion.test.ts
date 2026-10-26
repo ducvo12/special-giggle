@@ -67,7 +67,8 @@ test('empty → create → delete leaves no agent files or database rows, includ
     runtime.store.saveModelState(runtime.store.list(agent.id)[0].id, 'test', [
       { role: 'user', content: 'retained native state' }
     ])
-    assert.ok(Object.values(rowCounts(runtime)).every(count => count > 0))
+    const populated = rowCounts(runtime)
+    for (const table of ['conversations', 'messages', 'conversation_threads', 'harness_state', 'sections', 'projects', 'checkpoints', 'writes']) assert.ok(populated[table] > 0, table)
 
     // Ownership of both graph histories must survive a process restart.
     runtime.close()

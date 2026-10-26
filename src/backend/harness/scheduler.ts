@@ -33,8 +33,11 @@ export class ModelScheduler {
   private resources = new Map<string, { active: number; capacity: number; waiting: Waiter[] }>()
 
   acquire(connection: Connection, signal: AbortSignal, notify: (position: number, reason: string) => void) {
+    return this.acquireResource(modelResource(connection), signal, notify)
+  }
+
+  acquireResource({ key, capacity, reason }: { key: string; capacity: number; reason: string }, signal: AbortSignal, notify: (position: number, reason: string) => void) {
     signal.throwIfAborted()
-    const { key, capacity, reason } = modelResource(connection)
     const resource = this.resources.get(key) ?? { active: 0, capacity, waiting: [] }
     resource.capacity = Math.max(1, Math.min(32, capacity))
     this.resources.set(key, resource)

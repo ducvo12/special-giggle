@@ -89,13 +89,16 @@ export function responsesAdapter(options: ModelOptions): ModelAdapter {
           throw new HarnessError('The model response was not completed.')
         }
 
-        output =
-          event.response.output ??
-          [...items.entries()].sort(([a], [b]) => a - b).map(([, item]) => item)
-
-        if (!Array.isArray(output)) {
+        const completedOutput = event.response.output
+        if (completedOutput != null && !Array.isArray(completedOutput)) {
           throw new HarnessError('The model returned an invalid response.')
         }
+        // Subscription streams can omit items from the completion envelope even
+        // after emitting output_item.done. Keep those completed items; never
+        // promote output_item.added or argument fragments into executable calls.
+        output = completedOutput?.length
+          ? completedOutput
+          : [...items.entries()].sort(([a], [b]) => a - b).map(([, item]) => item)
         if (output.some(item => !item || typeof item !== 'object' || typeof item.type !== 'string' ||
           item.status && item.status !== 'completed')) {
           throw new HarnessError('The model returned an incomplete response item. No proposed actions ran.')

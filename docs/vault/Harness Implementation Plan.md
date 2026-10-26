@@ -1,6 +1,6 @@
 # Harness Implementation Plan
 
-> Planned October 25, 2026. Pass 1’s original acceptance criteria are supported by the recorded implementation/testing review. Pass 2 is implemented; selected reply, steering, queue and Stop/Continue checks passed in [[Pass 2 Focused Verification Results]]. Broader verification remains pending in [[Pass 2 Tests to Run Later]]. Passes 3–6 remain planned. Based on the accepted harness decisions through D-067. Automatic restoration of file edits is deferred: Stop, crash recovery and chat deletion keep completed repository edits.
+> Planned October 25, 2026. Pass 1’s original acceptance criteria are supported by the recorded implementation/testing review. Pass 2 is implemented; selected reply, steering, queue and Stop/Continue checks passed in [[Pass 2 Focused Verification Results]]. Broader verification remains pending in [[Pass 2 Tests to Run Later]]. Pass 3 is implemented with basic verification in [[Pass 3 Implementation & Testing]]; passes 4–6 remain planned. Based on the accepted harness decisions through D-067. Automatic restoration of file edits is deferred: Stop, crash recovery and chat deletion keep completed repository edits.
 
 Related: [[Harness Design]] · [[Remaining Harness Decisions]] · [[Decisions & Questions]] · [[Run Lifecycle Design]] · [[Container & Settings Rules]] · [[Things to Optimize]]
 

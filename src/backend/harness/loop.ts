@@ -7,6 +7,7 @@ import type { AgentFilesystem } from '../workspace/filesystem.ts'
 import { HarnessError, HostCapacityError, ModelConnectionError, SteeringInterrupt, type NativeItem, type ModelStep } from './types.ts'
 import { responsesAdapter } from './providers/responses.ts'
 import { chatCompletionsAdapter } from './providers/chat-completions.ts'
+import type { RepositoryTools } from './tools/repository.ts'
 import { createToolRegistry } from './tools/registry.ts'
 
 type InitialInput = { history: AgentMessage[]; state?: NativeItem[]; messages: string[] }
@@ -32,6 +33,7 @@ export async function runHarness(options: {
   getInstructions?: () => Promise<string>
   takeSteering?: () => string[]
   hasSteering?: () => boolean
+  repository?: RepositoryTools
   onPhase?: (phase: RunPhase, queue?: { reason: string; position?: number }) => void
 }) {
   const { signal } = options
@@ -55,6 +57,7 @@ export async function runHarness(options: {
   let retry = 0
   let correcting = false
   const calls = new Set<string>()
+  const staleEdits = new Map<string, number>()
 
   const initialize = () => {
     if (initialized) return
@@ -171,6 +174,13 @@ export async function runHarness(options: {
         }
         const result = await registry.execute(call)
         input.push(adapter(signal).toolResult(call, result.output))
+        if (result.stalePath) {
+          const failures = (staleEdits.get(result.stalePath) ?? 0) + 1
+          staleEdits.set(result.stalePath, failures)
+          if (failures > 1) throw new HarnessError('A corrected repository edit is stale again. Completed changes are kept; review the file before continuing.')
+        } else if (result.success && ['repo_write','repo_edit','repo_patch','repo_delete','repo_rename'].includes(call.name)) {
+          staleEdits.delete(JSON.parse(call.arguments).path)
+        }
         if (result.validationError) { held = true; invalid = true }
       }
       if (invalid && correcting) throw new HarnessError('The model returned another invalid tool proposal. Completed actions are kept; you can Continue.')
