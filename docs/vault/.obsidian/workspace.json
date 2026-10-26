@@ -25,17 +25,14 @@
             "id": "14ddaceb3b8ee2df",
             "type": "leaf",
             "state": {
-              "type": "canvas",
+              "type": "markdown",
               "state": {
-                "file": "Run Lifecycle - Approvals.canvas",
-                "viewState": {
-                  "x": 1495.9483705679534,
-                  "y": 588.2947009354168,
-                  "zoom": -1.5586914753782724
-                }
+                "file": "Harness Implementation Plan.md",
+                "mode": "source",
+                "source": false
               },
-              "icon": "lucide-layout-dashboard",
-              "title": "Run Lifecycle - Approvals"
+              "icon": "lucide-file",
+              "title": "Harness Implementation Plan"
             }
           },
           {
@@ -134,7 +131,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "Run Lifecycle - Approvals.canvas",
+                "file": "Harness Implementation Plan.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -153,7 +150,7 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "Run Lifecycle - Approvals.canvas",
+                "file": "Harness Implementation Plan.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
@@ -196,7 +193,7 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "Run Lifecycle - Approvals.canvas",
+                "file": "Harness Implementation Plan.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
@@ -223,8 +220,18 @@
       "bases:Create new base": false
     }
   },
-  "active": "14ddaceb3b8ee2df",
+  "active": "e922a7c1ec2ef0eb",
   "lastOpenFiles": [
+    "Pass 3 Implementation & Testing.md",
+    "Pass 2 Focused Verification Results.md",
+    "Pass 2 Tests to Run Later.md",
+    "Pass 2 Verification Plan.md",
+    "Pass 2 Implementation & Testing.md",
+    "Pass 1 Implementation & Testing.md",
+    "Run Lifecycle - Approvals.canvas",
+    "Harness Implementation Plan.md",
+    "Deferred File Restoration.canvas",
+    "Deferred File Restoration.md",
     "Container & Settings.canvas",
     "Container & Settings Rules.md",
     "Context Retrieval.canvas",
@@ -244,9 +251,6 @@
     "Remaining Harness Decisions.md",
     "Run Lifecycle - Chat Deletion.canvas",
     "Run Lifecycle - Temporary Expiry.canvas",
-    "Run Lifecycle.canvas",
-    "Run Lifecycle - Approvals.canvas",
-    "Run Lifecycle - Model Request Failures.canvas",
     "Things to Optimize.md",
     "Run Lifecycle Design.md",
     "Harness Design.md",
