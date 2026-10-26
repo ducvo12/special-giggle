@@ -1,4 +1,4 @@
-import ResponseDuration from './ResponseDuration'
+import ThoughtActivity from './ThoughtActivity'
 import { responseClock } from './response-clock'
 import ResponseTimings from './ResponseTimings'
 import { timingFor } from './devTimings'
@@ -81,31 +81,9 @@ export default function MessageList({
             {message.role === 'user' ? 'You' : `${agent?.name ?? 'Agent'} · ${message.model ?? ''}`}
           </span>
 
-          {message.role === 'assistant' && message.status !== 'interrupted' && <ResponseDuration message={message} />}
+          {message.role === 'assistant' && <ThoughtActivity message={message} />}
           {message.delivery === 'pending' && <span className="message-delivery">Received · pending</span>}
           {message.delivery === 'cancelled' && <span className="message-delivery">Not processed · cancelled</span>}
-
-          {!!message.tools?.length && (
-            <div className="tool-activity" aria-label="Tool activity">
-              {message.tools.map(tool => (
-                <details key={tool.id}>
-                  <summary>
-                    <span className={`tool-state ${tool.status}`} />
-
-                    {tool.label ?? tool.name.replaceAll('_', ' ')}
-
-                    <span>
-                      {tool.status}
-                    </span>
-                  </summary>
-
-                  <pre>
-                    {tool.input}{tool.output ? `\n\n${tool.output}` : ''}
-                  </pre>
-                </details>
-              ))}
-            </div>
-          )}
 
           <div>
             {message.content ? (

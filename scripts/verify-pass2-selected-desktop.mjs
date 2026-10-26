@@ -124,7 +124,7 @@ for (const [protocolIndex, protocol] of ['chat-completions', 'responses'].entrie
     try {
       await selectAgent(agents[0])
       await action()
-      await wait(()=>evaluate(`document.querySelector('.messages')?.getAttribute('aria-busy')==='false' && [...document.querySelectorAll('.response-duration')].every(e=>!e.textContent.startsWith('Responding'))`),'desktop completion rendered')
+      await wait(()=>evaluate(`document.querySelector('.messages')?.getAttribute('aria-busy')==='false' && [...document.querySelectorAll('.thought-summary')].every(e=>!e.textContent.startsWith('Thinking'))`),'desktop completion rendered')
       const selectedTitle=await selected()
       if(selectedTitle){
         const saved=(await bridge(`window.granite.conversations.list(${JSON.stringify(activeAgent.id)})`)).find(c=>c.title===selectedTitle)
