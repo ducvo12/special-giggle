@@ -8,6 +8,14 @@ Related: [[Harness Design]] · [[Remaining Harness Decisions]] · [[Run Lifecycl
 
 Reuse established repository tools where the work is the same as other coding harnesses. Build Granite-specific behavior around those implementations rather than rewriting ordinary repository operations without a concrete need.
 
+## Model access, hosted tools and the Codex harness — October 26 clarification
+
+Granite currently calls the Responses API directly, through either its own ChatGPT-plan sign-in or an API-key connection, and owns its model/tool loop. It does not launch Codex or inherit Codex's local tools, approvals, terminal sessions, compaction or application integrations by choosing an OpenAI model. This is already explicit in `docs/harness.md`; the earlier Codex app-server adapter was removed. D-066 adopts a Codex-style tool-discovery pattern, not the Codex runtime itself.
+
+OpenAI-hosted tools are a separate integration choice. [Responses web search](https://developers.openai.com/api/docs/guides/tools-web-search) can supply search and source citations to a custom harness without embedding Codex. [ChatGPT-plan preview limits](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations) say search depends on the selected model and account/workspace policy; they do not promise every hosted API tool. Granite's current Responses adapter sends its own function tools in the `granite` namespace and does not enable hosted `web_search` or render its citation annotations. Evaluate this as future work in [[Things to Optimize]], including account checks, source rendering and portable fallback.
+
+To reuse more of Codex itself, the [Codex app-server interface](https://learn.chatgpt.com/docs/app-server) offers an explicit embedding path with local tools, history, approvals and streamed events. This would require a separate integration and validation of Granite's access/isolation rules; it is not an automatic benefit of the current connection. Reusing hosted search should be evaluated independently of replacing Granite's harness. Hosted search networking and shell-command networking remain distinct capabilities.
+
 ## What exists today
 
 Granite owns the model/tool loop and its tool registry. A model proposes a tool name and structured arguments; Granite validates the request, checks the current approval setting, executes the implementation, and returns the result to the model. These built-in tools do not require an MCP server.

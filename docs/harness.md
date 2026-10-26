@@ -48,7 +48,7 @@ Local MCP programs are trusted extensions: after approval, they run with the use
 
 Terminal execution is disabled by default and always requires approval when enabled. The current sandbox uses macOS `sandbox-exec`; the application disables this option on other platforms until a corresponding sandbox is implemented.
 
-Commands run from a checked directory inside the agent workspace, with a minimal environment and no inherited model credentials. The sandbox permits the workspace and required system runtime reads, blocks reads of other user files, blocks network access, and denies changes to identity/configuration/skills. It has a 30-second command limit and a 32,000-character output budget. Stop terminates the process group, including child processes. It is a command runner, not a persistent interactive terminal session.
+Commands run from a checked directory inside the agent workspace, with a minimal environment and no inherited model credentials. The sandbox permits the workspace and required system runtime reads, blocks reads of other user files, blocks network access, and denies changes to identity/configuration/skills. Commands run until completion or Stop with no fixed elapsed-time limit; output previews have a 32,000-character budget for memory safety. Stop terminates the process group, including child processes. It is a command runner, not a persistent interactive terminal session. Repository commands use their separate temporary-copy sandbox and can receive explicitly authorized network access; see [pass 3 implementation](<vault/Pass 3 Implementation & Testing.md>) and [future terminal/network extensions](<vault/Things to Optimize.md>).
 
 ## Limits and recovery
 
