@@ -1,5 +1,5 @@
 import { constants } from 'node:fs'
-import { open, chmod, lstat, mkdir, readFile, realpath, rename, unlink, mkdtemp, rm, rmdir, writeFile } from 'node:fs/promises'
+import { open, chmod, link, lstat, mkdir, readFile, realpath, rename, unlink, mkdtemp, rm, rmdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
@@ -7,6 +7,7 @@ import { fingerprint, localGit, scanPaths, scanTree, type TreeState } from './ch
 import { RepositoryPaths } from './paths.ts'
 import { copyCommandWorkspace, gitManifest, mergeGitFile } from './command-workspace.ts'
 import { runRepositoryProcess, type CommandResult } from './process.ts'
+import { copyVerifiedFile, inspectFile } from './files.ts'
 import type { RepositoryRecord, RepositoryStore } from './store.ts'
 
 export class StaleRepositoryEdit extends Error {}
@@ -39,7 +40,7 @@ export class RepositorySession {
   }
   async existsRevision(path: string) {
     const absolute = await this.paths.check(path)
-    try { return (await lstat(absolute)).isDirectory() ? 'directory' : fingerprint(await readFile(absolute)) }
+    try { return (await lstat(absolute)).isDirectory() ? 'directory' : (await inspectFile(absolute, this.signal, false)).hash }
     catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null; throw error }
   }
   private async guard(path: string, expected: string | null) {
@@ -63,8 +64,8 @@ export class RepositorySession {
       this.changed()
     }
   }
-  async write(path: string, content: Buffer, revision: string | null, commandOutput = false) {
-    if (content.length > (commandOutput ? 128_000_000 : 1_000_000)) throw new Error('Repository writes are limited to 1 MB per file.')
+  async write(path: string, content: Buffer, revision: string | null) {
+    if (content.length > 1_000_000) throw new Error('Repository writes are limited to 1 MB per file.')
     const absolute = await this.paths.check(path)
     await this.guard(path, revision)
     await this.mutate([path], async () => {
@@ -85,6 +86,23 @@ export class RepositorySession {
     })
     this.revisions.set(path, fingerprint(content))
     return { path, revision: fingerprint(content) }
+  }
+  private async importCommandFile(path: string, source: string, hash: string, revision: string | null, mode: number) {
+    const absolute = await this.paths.check(path)
+    await this.guard(path, revision)
+    await this.mutate([path], async () => {
+      await mkdir(dirname(absolute), { recursive: true })
+      await this.paths.check(path)
+      const temporary = join(dirname(absolute), `.granite-${randomUUID()}.tmp`)
+      try {
+        await copyVerifiedFile(source, temporary, hash, mode, this.signal)
+        await this.paths.check(path); await this.guard(path, revision); this.signal.throwIfAborted()
+        // Exclusive creation for new paths; atomic replacement for known files.
+        if (revision === null) await link(temporary, absolute)
+        else await rename(temporary, absolute)
+      } finally { await rm(temporary, { force: true }) }
+    })
+    this.revisions.set(path, hash)
   }
   async edit(path: string, old: string, next: string, all: boolean, revision: string) {
     const current = await this.read(path, 0, 2_000_000)
@@ -144,7 +162,7 @@ export class RepositorySession {
   async command(executable: string, args: string[], cwd = '', gitWrite = false, network = false, writable = true) {
     await this.paths.check(cwd)
     if (writable) this.store.assertAvailable(this.record.projectId)
-    const before = await scanTree(this.paths, this.signal)
+    const before = await scanTree(this.paths, this.signal, false)
     const staging = await realpath(await mkdtemp(join(tmpdir(), 'granite-repository-command-')))
     const stage = join(staging, 'repository')
     let outcome: CommandResult | undefined
@@ -152,14 +170,14 @@ export class RepositorySession {
     this.record.pending = { kind: 'command', external: network, workspace: staging }
     this.store.save(this.record)
     try {
-      const initialGit = await gitManifest(this.paths.root).catch(error => {
+      const initialGit = await gitManifest(this.paths.root, this.signal).catch(error => {
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {} as TreeState
         throw error
       })
       const metadata = gitWrite ? initialGit : undefined
       await copyCommandWorkspace(this.paths.root, stage, true)
       if (metadata) {
-        const copied = await gitManifest(stage).catch(error => {
+        const copied = await gitManifest(stage, this.signal).catch(error => {
           if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {} as TreeState
           throw error
         })
@@ -172,7 +190,7 @@ export class RepositorySession {
       this.signal.throwIfAborted()
       if (writable) {
         const stagedPaths = new RepositoryPaths(stage, this.paths.privateRoot)
-        const after = await scanTree(stagedPaths, this.signal)
+        const after = await scanTree(stagedPaths, this.signal, false)
         const changed = [...new Set([...Object.keys(before), ...Object.keys(after)])]
           .filter(path => before[path]?.hash !== after[path]?.hash || before[path]?.mode !== after[path]?.mode)
           .sort((a, b) => {
@@ -189,9 +207,12 @@ export class RepositorySession {
         }
         // Persist all original targets before publication so recovery only needs
         // these paths, even when command import stops between two files.
-        for (const path of changed) {
-          if (!this.record.touched.includes(path) && !Object.hasOwn(this.record.baseline, path) && before[path]) this.record.baseline[path] = before[path]
+        const uncaptured = changed.filter(path => !this.record.touched.includes(path) && !Object.hasOwn(this.record.baseline, path))
+        const originals = await scanPaths(this.paths, uncaptured, this.signal)
+        for (const path of uncaptured) {
+          if (originals[path]?.hash !== before[path]?.hash || originals[path]?.mode !== before[path]?.mode) throw new StaleRepositoryEdit(`Command changes conflict with a newer live file: ${path}. No command changes were imported.`)
         }
+        Object.assign(this.record.baseline, originals)
         this.record.touched = [...new Set([...this.record.touched, ...changed])]
         this.record.pending = { kind: 'file', external: network, workspace: staging }
         this.store.save(this.record)
@@ -209,9 +230,7 @@ export class RepositorySession {
           }
           if (before[path]) this.revisions.set(path, before[path].hash)
           if (after[path]) {
-            const data = await readFile(join(stage, path))
-            if (fingerprint(data) !== after[path].hash) throw new Error('Command output is still changing; remaining command changes were not applied.')
-            await this.write(path, data, before[path]?.hash ?? null, true)
+            await this.importCommandFile(path, join(stage, path), after[path].hash, before[path]?.hash ?? null, after[path].mode ?? 0o644)
             if (after[path].mode !== undefined) {
               await chmod(await this.paths.check(path), after[path].mode!)
               await this.store.refresh(this.record)
@@ -219,7 +238,7 @@ export class RepositorySession {
           } else await this.remove(path, before[path].hash)
         }
         if (metadata) {
-          const afterGit = await gitManifest(stage)
+          const afterGit = await gitManifest(stage, this.signal)
           this.store.assertAvailable(this.record.projectId)
           importingGit = true
           this.record.pending = { kind: 'file', external: true, workspace: staging }; this.store.save(this.record)

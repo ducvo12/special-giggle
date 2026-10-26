@@ -195,11 +195,13 @@ test('finished commands preserve executable bits and large generated outputs', {
  const f=await fixture()
  try{
   await writeFile(join(f.root,'script.sh'),'#!/bin/sh\nprintf ok\n',{mode:0o644})
+  await symlink('script.sh',join(f.root,'script-link.sh'))
   f.session.record.baseline=await scanTree(f.session.paths)
-  const result=await f.session.command('/bin/sh',['-c','chmod +x script.sh; /usr/bin/perl -e \'print "x" x 1100000\' > bundle.js'])
+  const result=await f.session.command('/bin/sh',['-c','chmod +x script.sh; ./script-link.sh > link-output.txt; /usr/bin/perl -e \'open(my $f, ">", "bundle.js") or die $!; truncate($f, 129000001) or die $!;\''])
   assert.equal(result.exitCode,0)
   assert.ok((await lstat(join(f.root,'script.sh'))).mode & 0o100)
-  assert.equal((await lstat(join(f.root,'bundle.js'))).size,1100000)
+  assert.equal(await readFile(join(f.root,'link-output.txt'),'utf8'),'ok')
+  assert.equal((await lstat(join(f.root,'bundle.js'))).size,129000001)
   assert.equal(f.session.record.report.changes.find(change=>change.path==='script.sh')?.modeChanged,true)
   assert.equal(f.session.record.report.changes.find(change=>change.path==='bundle.js')?.large,true)
  }finally{await f.close()}

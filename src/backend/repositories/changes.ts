@@ -1,10 +1,11 @@
 import { createHash } from 'node:crypto'
 import { execFile } from 'node:child_process'
-import { mkdtemp, readFile, readdir, readlink, rm, writeFile, lstat } from 'node:fs/promises'
+import { mkdtemp, readdir, readlink, rm, writeFile, lstat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { RepositoryChange } from '../../shared/repository.ts'
 import type { RepositoryPaths } from './paths.ts'
+import { inspectFile } from './files.ts'
 
 export type FileState = { hash: string; text?: string; binary: boolean; large?: boolean; mode?: number; directory?: boolean }
 export type TreeState = Record<string, FileState>
@@ -16,7 +17,6 @@ export const gitEnvironment = () => ({ PATH: '/usr/bin:/bin:/usr/sbin:/sbin', LA
 // and unrelated files must not prevent a chat or an ordinary source-file edit.
 export async function scanPaths(paths: RepositoryPaths, selected: string[], signal?: AbortSignal): Promise<TreeState> {
   const result: TreeState = Object.create(null)
-  let bytes = 0
   for (const path of new Set(selected)) {
     signal?.throwIfAborted()
     const absolute = await paths.check(path)
@@ -26,13 +26,7 @@ export async function scanPaths(paths: RepositoryPaths, selected: string[], sign
         result[path] = { hash: 'directory', binary: false, directory: true, mode: info.mode & 0o777 }
         continue
       }
-      if ((bytes += info.size) > 128_000_000) throw new Error('Changed files exceed the initial 128 MB tracking limit.')
-      const data = await readFile(absolute)
-      bytes += data.length - info.size
-      if (bytes > 128_000_000) throw new Error('Changed files exceed the initial 128 MB tracking limit.')
-      const binary = data.includes(0) || Buffer.from(data.toString('utf8')).compare(data) !== 0
-      const large = data.length > 1_000_000
-      result[path] = { hash: fingerprint(data), binary, large, mode: info.mode & 0o777, ...(binary || large ? {} : { text: data.toString('utf8') }) }
+      result[path] = await inspectFile(absolute, signal)
     } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
   }
   return result
@@ -49,17 +43,15 @@ export function localGit(args: string[], cwd: string, input?: string) {
   })
 }
 
-// Bounded complete manifests make command-created/deleted/untracked files visible.
-// Refuse work rather than silently claim a partial baseline is comprehensive.
-export async function scanTree(paths: RepositoryPaths, signal?: AbortSignal): Promise<TreeState> {
+// Complete manifests make command-created/deleted/untracked files visible.
+// Content hashing streams; only small text files are retained for inline diffs.
+export async function scanTree(paths: RepositoryPaths, signal?: AbortSignal, includeText = true): Promise<TreeState> {
   const result: TreeState = Object.create(null)
-  let files = 0, bytes = 0
   async function visit(directory: string) {
     signal?.throwIfAborted()
     for (const entry of await readdir(await paths.check(directory), { withFileTypes: true })) {
       signal?.throwIfAborted()
       if (entry.name.toLowerCase() === '.git') continue
-      if (++files > 25_000) throw new Error('Repository exceeds the initial 25,000-entry tracking limit.')
       const path = directory ? `${directory}/${entry.name}` : entry.name
       // Links are visible as inaccessible entries in directory listings but never
       // traversed or followed by scans, reads, commands or writes.
@@ -76,13 +68,7 @@ export async function scanTree(paths: RepositoryPaths, signal?: AbortSignal): Pr
       else if (entry.isFile()) {
         const info = await lstat(absolute)
         if (info.nlink > 1) throw new Error('Hard-linked repository files are not supported for tracked command execution.')
-        if (info.size + bytes > 128_000_000) throw new Error('Repository exceeds the initial 128 MB tracking limit.')
-        const data = await readFile(absolute)
-        bytes += data.length
-        if (bytes > 128_000_000) throw new Error('Repository exceeds the initial 128 MB tracking limit.')
-        const binary = data.includes(0) || Buffer.from(data.toString('utf8')).compare(data) !== 0
-        const large = data.length > 1_000_000
-        result[path] = { hash: fingerprint(data), binary, large, mode: info.mode & 0o777, ...(binary || large ? {} : { text: data.toString('utf8') }) }
+        result[path] = await inspectFile(absolute, signal, includeText)
       }
     }
   }

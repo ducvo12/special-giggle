@@ -177,7 +177,7 @@ export default function HarnessSettings({
 
           <small>
             {window.granite.platform === 'darwin'
-              ? 'Commands run in a workspace sandbox with network access blocked and a 30-second limit. Identity, settings, and skills stay protected.'
+              ? 'Commands run in a workspace sandbox until completion or Stop, with network access blocked. Identity, settings, and skills stay protected.'
               : 'The terminal sandbox currently supports macOS. File tools, skills, and MCP are available on other platforms.'}
           </small>
 

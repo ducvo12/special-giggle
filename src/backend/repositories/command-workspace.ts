@@ -1,27 +1,26 @@
-import { cp, lstat, mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
+import { cp, link, lstat, mkdir, readdir, rename, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { fingerprint, type TreeState } from './changes.ts'
+import type { TreeState } from './changes.ts'
+import { copyVerifiedFile, inspectFile } from './files.ts'
 
 // Command subprocesses never receive write access to the live repository. Even
 // deliberately detached descendants can only change this disposable copy.
 export async function copyCommandWorkspace(source: string, destination: string, git: boolean) {
-  await cp(source, destination, { recursive: true, dereference: false, preserveTimestamps: true,
+  await cp(source, destination, { recursive: true, dereference: false, verbatimSymlinks: true, preserveTimestamps: true,
     filter: path => git || !path.slice(source.length).split('/').some(part => part.toLowerCase() === '.git') })
 }
 
-export async function gitManifest(root: string): Promise<TreeState> {
+export async function gitManifest(root: string, signal?: AbortSignal): Promise<TreeState> {
   const result: TreeState = Object.create(null)
-  let bytes = 0, count = 0
   async function visit(path: string) {
     for (const entry of await readdir(join(root, path), { withFileTypes: true })) {
+      signal?.throwIfAborted()
       const file = `${path}/${entry.name}`, absolute = join(root, file)
       if (entry.isSymbolicLink() || !entry.isFile() && !entry.isDirectory()) throw new Error('Git metadata must use local regular files and directories.')
       if (entry.isDirectory()) await visit(file)
       else {
-        const info = await lstat(absolute)
-        if (++count > 25_000 || (bytes += info.size) > 128_000_000) throw new Error('Git metadata exceeds the initial command-copy limit.')
-        result[file] = { hash: fingerprint(await readFile(absolute)), binary: true }
+        result[file] = { hash: (await inspectFile(absolute, signal, false)).hash, binary: true }
       }
     }
   }
@@ -43,18 +42,16 @@ export async function mergeGitFile(root: string, stage: string, path: string, be
       try { if ((await lstat(join(root, ...parts.slice(0, i)))).isSymbolicLink()) throw new Error('Git metadata path became a symbolic link.') }
       catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
     }
-    current = fingerprint(await readFile(target))
+    current = (await inspectFile(target, undefined, false)).hash
   } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
   if (current === after) return // Existing immutable objects can be shared safely.
   if (current !== before) throw new Error(`Git metadata changed concurrently: ${path}. Review the remaining Git outcome.`)
   if (!after) { await rm(target); return }
   await mkdir(dirname(target), { recursive: true })
-  const data = await readFile(join(stage, path))
-  if (fingerprint(data) !== after) throw new Error('The command copy changed during Git reconciliation.')
-  if (!before) await writeFile(target, data, { flag: 'wx' })
-  else {
-    const temporary = join(dirname(target), `.granite-${randomUUID()}`)
-    try { await writeFile(temporary, data, { flag: 'wx' }); await rename(temporary, target) }
-    finally { await rm(temporary, { force: true }) }
-  }
+  const temporary = join(dirname(target), `.granite-${randomUUID()}`)
+  try {
+    await copyVerifiedFile(join(stage, path), temporary, after, 0o644)
+    if (!before) await link(temporary, target)
+    else await rename(temporary, target)
+  } finally { await rm(temporary, { force: true }) }
 }

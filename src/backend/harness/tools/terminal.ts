@@ -6,14 +6,14 @@ import type { ToolDefinition } from '../types.ts'
 
 export function terminalTool(workspace: AgentFilesystem, signal: AbortSignal): ToolDefinition {
   const schema = z.object({
-    command: z.string().min(1).max(16_000),
-    cwd: z.string().max(1024).default('/')
+    command: z.string().min(1),
+    cwd: z.string().default('/')
   })
 
   return {
     name: 'terminal',
     description:
-      'Run a shell command in the agent workspace after user approval. Files outside this workspace and network access are unavailable. Each command has a 30-second limit.',
+      'Run a shell command in the agent workspace sandbox after user approval. Files outside this workspace and network access are unavailable. Runs until completion or Stop, with no elapsed-time limit. Output previews are bounded to protect application memory.',
     parameters: z.toJSONSchema(schema, { target: 'draft-7' }),
     permission: 'terminal',
     async run(raw) {
@@ -59,8 +59,7 @@ ${workspace.excludeOrganization ? `(deny file-read* (subpath ${JSON.stringify(`$
           }
         )
         let output = '',
-          truncated = false,
-          timedOut = false
+          truncated = false
         const stop = () => {
           if (child.pid) {
             try {
@@ -69,10 +68,6 @@ ${workspace.excludeOrganization ? `(deny file-read* (subpath ${JSON.stringify(`$
           }
         }
         const abort = () => stop()
-        const timer = setTimeout(() => {
-          timedOut = true
-          stop()
-        }, 30_000)
         signal.addEventListener('abort', abort, { once: true })
         const append = (chunk: Buffer) => {
           if (output.length < 32_000) {
@@ -84,7 +79,6 @@ ${workspace.excludeOrganization ? `(deny file-read* (subpath ${JSON.stringify(`$
         child.stdout.on('data', append)
         child.stderr.on('data', append)
         const cleanup = () => {
-          clearTimeout(timer)
           signal.removeEventListener('abort', abort)
         }
         child.on('error', () => {
@@ -98,7 +92,7 @@ ${workspace.excludeOrganization ? `(deny file-read* (subpath ${JSON.stringify(`$
           if (signal.aborted) {
             reject(signal.reason)
           } else {
-            resolve({ output, exitCode: code, signal: exitSignal, truncated, timedOut })
+            resolve({ output, exitCode: code, signal: exitSignal, truncated, timedOut: false })
           }
         })
       })

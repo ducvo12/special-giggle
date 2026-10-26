@@ -73,14 +73,13 @@ ${options.network ? '(allow network*)' : ''}`
         detached: true, stdio: ['pipe', 'pipe', 'pipe', 'pipe'],
         env: { ...env, ELECTRON_RUN_AS_NODE: '1' }
       })
-      let output = '', control = '', truncated = false, timedOut = false
+      let output = '', control = '', truncated = false
       const stop = () => { if (child.pid) { try { process.kill(-child.pid, 'SIGKILL') } catch {} } }
-      const timer = setTimeout(() => { timedOut = true; stop() }, 120_000)
       const append = (chunk: Buffer) => { truncated ||= output.length + chunk.length > 32_000; output = (output + chunk.toString()).slice(0, 32_000) }
       child.stdout!.on('data', append); child.stderr!.on('data', append)
       child.stdio[3]!.on('data', (chunk: Buffer) => { control += chunk.toString() })
       options.signal.addEventListener('abort', stop, { once: true })
-      const cleanup = () => { clearTimeout(timer); options.signal.removeEventListener('abort', stop) }
+      const cleanup = () => { options.signal.removeEventListener('abort', stop) }
       child.on('error', () => { cleanup(); reject(new Error('The repository command supervisor could not start.')) })
       child.on('close', () => {
         stop(); cleanup()
@@ -88,7 +87,7 @@ ${options.network ? '(allow network*)' : ''}`
         else {
           let exitCode: number | null = null
           try { exitCode = JSON.parse(control).exitCode } catch {}
-          resolve({ output, exitCode, timedOut, truncated })
+          resolve({ output, exitCode, timedOut: false, truncated })
         }
       })
       try {

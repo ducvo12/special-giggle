@@ -22,7 +22,7 @@ Granite owns the model/tool loop and its tool registry. A model proposes a tool 
 | `edit_file` | Replace exact text, optionally every occurrence. | Granite schema/adapter over the same backend. |
 | `write_todos` | Return a short structured task list to the harness. | Custom Granite tool; it does not itself persist a task database or write a file. |
 | `load_skill` | Load an available skill's instructions. | Custom registry tool, present when skills are enabled and a catalog exists. |
-| `terminal` | Run an approved shell command, with cancellation, bounded output and a 30-second limit. | Custom Node process runner using macOS `sandbox-exec`; optional and currently macOS-only. |
+| `terminal` | Run an approved shell command until completion or Stop, with cancellation and bounded output previews; no fixed elapsed-time limit. | Custom Node process runner using macOS `sandbox-exec`; optional and currently macOS-only. |
 | Configured MCP tools | Discover and call tools offered by enabled servers. | Official MCP TypeScript SDK plus Granite connection, validation, approval and result adapters. Server implementations are external. |
 
 The six file tools currently address the agent folder through virtual paths. Granite subclasses the backend to check containment, reject symbolic links and protect identity/configuration/skills from writes. They do not yet implement the planned external-project repository mounts, section visibility, change-count display (automatic restoration/undo journaling is deferred by D-067). There is no dedicated Git, repository-diff or patch tool in the current registry; shell commands are the current general execution mechanism.
