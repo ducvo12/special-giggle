@@ -1,4 +1,5 @@
 import type { Connection, ContextUsage } from '../../shared/chat.ts'
+import type { RateLimitWindow } from '../../shared/connection-usage.ts'
 
 export type NativeItem = Record<string, any>
 
@@ -38,6 +39,7 @@ export interface ModelOptions {
   signal: AbortSignal
   onText: (text: string) => void
   onUsage?: (usage: ContextUsage) => void
+  onRateLimits?: (windows: RateLimitWindow[]) => void
   onReasoning: (characters: number) => void
   onResponseData?: () => void
 }

@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { GraniteBridge, StreamDelta } from '../shared/chat'
+import type { ConnectionUsage } from '../shared/connection-usage'
 
 contextBridge.exposeInMainWorld('granite', {
   platform: process.platform,
@@ -12,6 +13,13 @@ contextBridge.exposeInMainWorld('granite', {
   },
   connections: {
     list: () => ipcRenderer.invoke('connections:list'),
+    usage: () => ipcRenderer.invoke('connections:usage'),
+    onUsage: callback => {
+      const listener = (_event: Electron.IpcRendererEvent, usage: ConnectionUsage[]) => callback(usage)
+      ipcRenderer.on('connections:usage', listener)
+
+      return () => ipcRenderer.removeListener('connections:usage', listener)
+    },
     save: draft => ipcRenderer.invoke('connections:save', draft),
     delete: id => ipcRenderer.invoke('connections:delete', id),
     models: (id, refresh) => ipcRenderer.invoke('connections:models', id, refresh)

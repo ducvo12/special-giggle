@@ -628,6 +628,9 @@ export class AgentRuntime {
             job.emit({ requestId: run.id, text, activity: { ...activity } })
             if (Date.now() - lastSave > 150) { persist(); lastSave = Date.now() }
           },
+          onRateLimits: rateLimits => {
+            job.emit({ requestId: run.id, text: '', rateLimits })
+          },
           onUsage: usage => {
             signal.throwIfAborted()
             initialize().message.contextUsage = usage

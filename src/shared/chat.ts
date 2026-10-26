@@ -3,6 +3,7 @@ import type { ApprovalRequest, ChatGPTAccount, HarnessSettings } from './harness
 import type { AgentOrganization, ConversationLocation, Project, Section, SectionMode } from './organization'
 import type { RecoveryNotice, RunIntent, RunSnapshot } from './run'
 import type { RepositoryEditorChoices } from './repository-editor'
+import type { ConnectionUsage, RateLimitWindow } from './connection-usage'
 
 export interface Connection {
   maxConcurrentRequests?: number
@@ -73,6 +74,7 @@ export interface StreamDelta {
   activity?: StreamActivity
   tool?: ToolActivity
   contextUsage?: ContextUsage
+  rateLimits?: RateLimitWindow[]
   approval?: ApprovalRequest | null
   run?: RunSnapshot
   messages?: import('./agent').AgentMessage[]
@@ -88,6 +90,8 @@ export interface GraniteBridge {
   }
   connections: {
     list: () => Promise<Result<SavedConnection[]>>
+    usage: () => Promise<Result<ConnectionUsage[]>>
+    onUsage: (callback: (usage: ConnectionUsage[]) => void) => () => void
     save: (draft: ConnectionDraft) => Promise<Result<SavedConnection>>
     delete: (id: string) => Promise<Result<void>>
     models: (id: string, refresh?: boolean) => Promise<Result<ModelOption[]>>

@@ -11,12 +11,15 @@ import { defaultTreeSort, readTreeSort, sortTreeEntries, type TreeSort } from '.
 import Chevron from '../components/Chevron'
 import type { RunSnapshot } from '../../../shared/run'
 import RepositoryLink, { useRepositoryEditors } from '../features/organization/RepositoryLink'
+import type { SavedConnection } from '../../../shared/chat'
+import ConnectionUsageCircles from '../features/connections/ConnectionUsage'
 
 type Props = {
   page: Page
   agents: Agent[]
   agentId: string
   agent: Agent | undefined
+  connections: SavedConnection[]
   busy: boolean
   runs: RunSnapshot[]
   loaded: boolean
@@ -28,7 +31,6 @@ type Props = {
   fileRevision: number
   onOpenFile: (path: string) => void
   onDialog: (action: TreeDialogAction) => void
-  onRefreshFiles: () => void
   onSelectLocation: (location: ConversationLocation) => void
   onMoveConversation: (id: string, location: ConversationLocation) => Promise<boolean>
   conversationId: string
@@ -41,8 +43,8 @@ type Props = {
   onPageChange: (page: Page) => void
 }
 
-export default function Sidebar({ page, agents, agentId, agent, busy, runs, loaded, identityDirty, conversations,
-  organization, location, selectedFile, fileRevision, onOpenFile, onDialog, onRefreshFiles, onSelectLocation,
+export default function Sidebar({ page, agents, agentId, agent, connections, busy, runs, loaded, identityDirty, conversations,
+  organization, location, selectedFile, fileRevision, onOpenFile, onDialog, onSelectLocation,
   onMoveConversation, conversationId, onSelectAgent, onDeleteAgent, onDeleteConversation,
   onRenameConversation, onNewChat, onSelectConversation, onPageChange }: Props) {
   const [sectionsOpen, setSectionsOpen] = useState(true)
@@ -125,10 +127,6 @@ export default function Sidebar({ page, agents, agentId, agent, busy, runs, load
     <div className="agent-tree-header">
       <AgentDropdown agents={agents} selectedId={agentId} disabled={actionsDisabled}
         onSelect={onSelectAgent} onDelete={onDeleteAgent} onCreate={() => onPageChange('create-agent')} />
-      <TreeMenu label="Agent options" disabled={disabled} items={[
-        { label: 'Refresh files', action: onRefreshFiles },
-        { label: 'Connections & app settings', action: () => onPageChange('settings') }
-      ]} />
       <button className="tree-action" aria-label="Create agent" title="New agent" disabled={actionsDisabled} onClick={() => onPageChange('create-agent')}>+</button>
     </div>
     {agent && <div className="agent-file-tree">
@@ -183,6 +181,18 @@ export default function Sidebar({ page, agents, agentId, agent, busy, runs, load
         </div>}
       </div>
     </div>}
-    <div className="sidebar-footer"><span className={busy ? 'live-dot' : 'status-dot'} />{busy ? 'Agent is working' : 'Saved on this device'}</div>
+    <div className="sidebar-footer">
+      <button type="button" className={`sidebar-settings quiet-button ${page === 'settings' ? 'selected' : ''}`}
+        aria-label="Settings" title="Settings" aria-current={page === 'settings' ? 'page' : undefined}
+        disabled={identityDirty} onClick={() => onPageChange('settings')}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="m9.5 3-.6 2.3-1.4.8L5.2 5.5 2.7 9.8l1.7 1.7v1.6l-1.7 1.7 2.5 4.3 2.3-.6 1.4.8.6 2.3h5l.6-2.3 1.4-.8 2.3.6 2.5-4.3-1.7-1.7v-1.6l1.7-1.7-2.5-4.3-2.3.6-1.4-.8L14.5 3Z" />
+          <circle cx="12" cy="12.3" r="3" />
+        </svg>
+      </button>
+
+      <ConnectionUsageCircles connections={connections} />
+    </div>
   </aside>
 }

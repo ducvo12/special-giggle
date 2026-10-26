@@ -11,6 +11,7 @@ import type { ConversationLocation } from '../shared/organization'
 import type { AgentOrganization } from '../shared/organization'
 import { realpath, stat } from 'node:fs/promises'
 import { RepositoryEditors } from './repository-editors'
+import { ConnectionUsageStore, type UsageBinding } from '../backend/connections/usage'
 
 export function registerIpc(directory: string) {
   const protection = {
@@ -30,8 +31,14 @@ export function registerIpc(directory: string) {
     .filter(connection => connection.provider === 'chatgpt' && connection.accountId)
     .map(connection => connection.accountId!))).catch(() => {})
   app.on('before-quit', () => chatgpt.cancel())
-  const active = new Map<string, { senderId: number; stopped: boolean }>()
+  const usage = new ConnectionUsageStore()
+  const publishUsage = () => {
+    for (const window of BrowserWindow.getAllWindows()) window.webContents.send('connections:usage', usage.list())
+  }
+  const active = new Map<string, { senderId: number; stopped: boolean; usageBinding?: UsageBinding }>()
   const agents = new AgentClient(directory, delta => {
+    const binding = active.get(delta.requestId)?.usageBinding
+    if (binding && delta.rateLimits && usage.observe(binding, delta.rateLimits)) publishUsage()
     for (const window of BrowserWindow.getAllWindows()) window.webContents.send('model:delta', delta)
   })
   let quitting = false
@@ -97,16 +104,31 @@ export function registerIpc(directory: string) {
     return safely(() => store.list())
   })
 
+  ipcMain.handle('connections:usage', event => {
+    trusted(event)
+
+    return { ok: true, value: usage.list() }
+  })
+
   ipcMain.handle('connections:save', (event, draft: ConnectionDraft) => {
     trusted(event)
 
-    return safely(() => store.save(draft))
+    return safely(async () => {
+      const saved = await store.save(draft)
+      usage.invalidate(saved.id)
+      publishUsage()
+      return saved
+    })
   })
 
   ipcMain.handle('connections:delete', (event, id: string) => {
     trusted(event)
 
-    return safely(() => store.delete(id))
+    return safely(async () => {
+      await store.delete(id)
+      usage.invalidate(id)
+      publishUsage()
+    })
   })
 
   ipcMain.handle('connections:models', (event, id: string, refresh = false) => {
@@ -175,6 +197,10 @@ export function registerIpc(directory: string) {
       }
 
       const result = await chatgpt.signOut(id)
+      for (const connection of await store.list()) {
+        if (connection.accountId === id) usage.invalidate(connection.id)
+      }
+      publishUsage()
       modelCatalog.invalidate(id)
       return result
     })
@@ -361,11 +387,12 @@ export function registerIpc(directory: string) {
           return { ok: false, error: 'This request is invalid or has already been accepted.' }
         }
 
-        const request = { senderId: event.sender.id, stopped: false }
+        const request: { senderId: number; stopped: boolean; usageBinding?: UsageBinding } = { senderId: event.sender.id, stopped: false }
         active.set(requestId, request)
 
         try {
           const connection = await store.resolve(connectionId, model)
+          request.usageBinding = usage.bind(connectionId, connection.model)
           connection.connectionId = connectionId
           if (effort !== undefined) {
             if (typeof effort !== 'string' || !/^(|none|minimal|low|medium|high|xhigh|max|ultra)$/.test(effort)) {

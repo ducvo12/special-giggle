@@ -1,4 +1,5 @@
 import { validateConnection } from '../../models/api.ts'
+import { parseRateLimitHeaders } from '../../models/rate-limits.ts'
 import type { ModelOptions } from '../types.ts'
 import { HarnessError, HostCapacityError, ModelAccessError, ModelConnectionError, isModelAccessCode } from '../types.ts'
 
@@ -24,6 +25,8 @@ export async function modelRequest(options: ModelOptions, path: string, body: un
     signal.throwIfAborted()
     throw new ModelConnectionError('Could not reach the model. Check the connection, then Continue.')
   }
+  const limits = parseRateLimitHeaders(response.headers)
+  if (limits.length) options.onRateLimits?.(limits)
   if (response.ok) return response
 
   // Only explicit capacity codes are a host queue. Generic 429/503 errors may

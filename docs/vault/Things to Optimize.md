@@ -45,3 +45,8 @@ The starting point remains bounded listing/search/range reads, batching when sup
 
 - [ ] Optimize the initial complete manifest and temporary command-copy approach (see [[Pass 3 Implementation & Testing]]) for larger repositories: incremental scans, safe dependency/cache reuse, bounded diff storage and streaming change publication. Preserve command isolation, revision checks, visible outcomes and the rule that Stop retains already applied edits.
 - [ ] Broaden supported Git/worktree metadata layouts and command platforms while keeping authorization and process/outcome tracking enforced. This is implementation optimization/extension work, not the separate pending verification backlog.
+
+## ChatGPT account usage limits
+
+- [ ] Add five-hour, weekly and other provider-reported account allowance windows to the sidebar meters when a compatible reader is available. Prefer reusing the same ChatGPT sign-in that provides model access. The October 26 investigation confirmed no compatible allowance reader for the current plan-sharing connection; this does not establish that a separate login is the only possible future approach. See [investigation and live findings](../research/chatgpt-usage-meter.md).
+- [ ] If allowance readings still require a separate Codex-authorized usage sign-in, defer that integration until a later optimization pass. User decision on October 26, 2026: do not require another sign-in solely to display limits now. Evaluate it as an optional addition with explicit account association, without replacing Granite's existing model connection or agent loop. Existing API request/token meters do not constitute ChatGPT subscription allowance support.

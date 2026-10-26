@@ -143,6 +143,7 @@ export default function App() {
           agents={agents}
           agentId={agentId}
           agent={agent}
+          connections={connections}
           busy={busy}
           runs={runs}
           loaded={loaded && !managingAgents}
@@ -151,7 +152,6 @@ export default function App() {
           fileRevision={fileRevision}
           onOpenFile={path => { setSelectedFile(path); setPage('file') }}
           onDialog={setDialog}
-          onRefreshFiles={() => setFileRevision(value => value + 1)}
           conversations={conversations}
           organization={organization}
           location={location}

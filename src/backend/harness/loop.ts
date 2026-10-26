@@ -1,5 +1,6 @@
 import { setTimeout as delay } from 'node:timers/promises'
 import type { Connection, ContextUsage } from '../../shared/chat.ts'
+import type { RateLimitWindow } from '../../shared/connection-usage.ts'
 import type { AgentMessage, ToolActivity } from '../../shared/agent.ts'
 import type { ApprovalRequest, HarnessSettings } from '../../shared/harness.ts'
 import type { RunPhase } from '../../shared/run.ts'
@@ -23,6 +24,7 @@ export async function runHarness(options: {
   signal: AbortSignal
   onText: (text: string) => void
   onUsage?: (usage: ContextUsage) => void
+  onRateLimits?: (windows: RateLimitWindow[]) => void
   onReasoning: (characters: number) => void
   onTool: (tool: ToolActivity) => void
   approve: (kind: ApprovalRequest['kind'], title: string, detail: string) => Promise<boolean>
