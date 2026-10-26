@@ -84,7 +84,7 @@ export default function HarnessSettings({
 
       setSettings(result.value)
       setSaved(JSON.stringify(result.value))
-      setNotice('Agent tools saved. Changes apply to the next message.')
+      setNotice('Agent tools saved. Changes apply to the next model request or tool action.')
     } catch {
       setError('Could not save agent tools.')
     } finally {

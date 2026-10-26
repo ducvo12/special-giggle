@@ -14,7 +14,7 @@ export function terminalTool(workspace: AgentFilesystem, signal: AbortSignal): T
     name: 'terminal',
     description:
       'Run a shell command in the agent workspace after user approval. Files outside this workspace and network access are unavailable. Each command has a 30-second limit.',
-    parameters: z.toJSONSchema(schema),
+    parameters: z.toJSONSchema(schema, { target: 'draft-7' }),
     permission: 'terminal',
     async run(raw) {
       const args = schema.parse(raw)

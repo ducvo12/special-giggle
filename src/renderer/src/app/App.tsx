@@ -6,7 +6,6 @@ import CreateAgent from '../features/agents/CreateAgent'
 import ChatView from '../features/chat/ChatView'
 import Sidebar from './Sidebar'
 import HarnessSettings from '../features/harness/HarnessSettings'
-import ApprovalPrompt from '../features/harness/ApprovalPrompt'
 import type { Page } from './navigation'
 import { useAgentSession } from './useAgentSession'
 import TreeDialog, { type TreeDialogAction } from '../features/organization/TreeDialog'
@@ -46,6 +45,14 @@ export default function App() {
     draft,
     setDraft,
     busy,
+    viewRun,
+    runs,
+    submitting,
+    recovery,
+    dismissRecovery,
+    continueRun,
+    runPending,
+    cancelPending,
     viewBusy,
     activeConversationId,
     stopping,
@@ -137,6 +144,7 @@ export default function App() {
           agentId={agentId}
           agent={agent}
           busy={busy}
+          runs={runs}
           loaded={loaded && !managingAgents}
           identityDirty={identityDirty || Boolean(dialog)}
           selectedFile={selectedFile}
@@ -191,7 +199,7 @@ export default function App() {
           />
         ) : page === 'create-agent' ? (
           <CreateAgent
-            busy={busy}
+            busy={managingAgents}
             onDirty={setIdentityDirty}
             onBack={() => setPage('chat')}
             onCreated={async created => {
@@ -204,7 +212,7 @@ export default function App() {
           <HarnessSettings
             key={agent.id}
             agent={agent}
-            busy={busy}
+            busy={false}
             onDirty={setIdentityDirty}
             onBack={() => {
               setIdentityDirty(false)
@@ -226,7 +234,14 @@ export default function App() {
             connection={connection}
             modelSelection={modelSelection}
             busy={viewBusy}
-            requestPending={busy}
+            run={viewRun}
+            submitting={submitting}
+            onContinue={continueRun}
+            onRunPending={runPending}
+            onCancelPending={cancelPending}
+            approval={approval}
+            onApprove={approve}
+            requestPending={false}
             onOpenActiveChat={() => {
               setPage('chat')
               if (activeConversationId) void loadConversation(activeConversationId)
@@ -255,16 +270,22 @@ export default function App() {
       </div>
 
       {dialog && agent && <TreeDialog action={dialog} agent={agent} organization={organization}
-        disabled={busy || managingAgents || !loaded} onChange={changeOrganization} onClose={() => setDialog(null)}
+        disabled={managingAgents || !loaded} onChange={changeOrganization} onClose={() => setDialog(null)}
         onNoteCreated={path => { setFileRevision(value => value + 1); setSelectedFile(path); setPage('file') }}
         onNoteRenamed={(previous, next) => {
           setFileRevision(value => value + 1)
           setSelectedFile(path => path === previous ? next : path)
         }} />}
 
-      {approval && (
-        <ApprovalPrompt key={approval.id} request={approval} onAnswer={approve} onStop={stop} />
-      )}
+      {recovery && <div className="modal-backdrop">
+        <section className="recovery-dialog" role="alertdialog" aria-modal="true" aria-labelledby="recovery-title">
+          <h2 id="recovery-title">Granite closed before work finished</h2>
+          <p>{recovery.active} interrupted run{recovery.active === 1 ? '' : 's'} stopped. Completed changes are kept.</p>
+          {recovery.pending > 0 && <p>{recovery.pending} queued request{recovery.pending === 1 ? '' : 's'} did not start. Their messages are saved; use Run pending messages in each chat when ready.</p>}
+          <p>Dismissing this notice will not restart any work.</p>
+          <button onClick={() => void dismissRecovery()}>OK</button>
+        </section>
+      </div>}
     </div>
   )
 }

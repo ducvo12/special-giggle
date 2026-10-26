@@ -2,6 +2,23 @@ import { z } from 'zod'
 import type { AgentFilesystem } from '../../workspace/filesystem.ts'
 import type { ToolDefinition } from '../types.ts'
 
+const workspaceWrites = new Map<string, Promise<void>>()
+
+// Independent model runs may edit the same agent memory/notes. Serialize the
+// short mutations so each library edit reads the preceding writer's contents.
+async function serializeWrite<T>(root: string, action: () => Promise<T>) {
+  const previous = workspaceWrites.get(root) ?? Promise.resolve()
+  let release!: () => void
+  const current = new Promise<void>(resolve => { release = resolve })
+  workspaceWrites.set(root, current)
+  await previous
+  try { return await action() }
+  finally {
+    release()
+    if (workspaceWrites.get(root) === current) workspaceWrites.delete(root)
+  }
+}
+
 export function fileTools(workspace: AgentFilesystem): ToolDefinition[] {
   const path = z.string().min(1).max(1024)
   const content = z.string().max(100_000)
@@ -14,9 +31,12 @@ export function fileTools(workspace: AgentFilesystem): ToolDefinition[] {
   ): ToolDefinition => ({
     name,
     description,
-    parameters: z.toJSONSchema(schema),
+    parameters: z.toJSONSchema(schema, { target: 'draft-7' }),
     permission,
-    run: async args => run(schema.parse(args))
+    run: async raw => {
+      const args = schema.parse(raw)
+      return permission === 'write' ? serializeWrite(workspace.root, () => run(args)) : run(args)
+    }
   })
 
   return [

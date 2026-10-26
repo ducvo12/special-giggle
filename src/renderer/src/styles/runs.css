@@ -1,0 +1,13 @@
+.run-status-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 10px; color: var(--text-secondary); font-size: 12px; }
+.run-status-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.run-status-actions button { font-size: 12px; }
+.message-delivery { display: block; color: var(--text-muted); font-size: 11px; margin: 3px 0 8px; }
+.chat-run-badge { flex: 0 0 auto; color: var(--text-muted); font-size: 10px; margin-left: 5px; }
+.recovery-dialog { width: min(480px, calc(100vw - 40px)); padding: 24px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); box-shadow: 0 12px 60px #0008; }
+.recovery-dialog h2 { font-size: 17px; }
+.recovery-dialog p { color: var(--text-secondary); font-size: 13px; line-height: 1.6; margin: 14px 0; }
+.recovery-dialog > button { float: right; }
+.modal-backdrop { position: fixed; inset: 0; display: grid; place-items: center; background: #0008; z-index: 1000; }
+.approval-panel { margin-bottom: 10px; }
+.approval-panel .approval-dialog { width: 100%; max-height: 32vh; overflow: auto; padding: 16px; }
+.approval-panel .approval-dialog pre { max-height: 13vh; }

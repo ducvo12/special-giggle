@@ -9,7 +9,7 @@ type Props = {
   busy: boolean
   models: string[]
   nameInput: RefObject<HTMLInputElement | null>
-  field: (key: keyof ConnectionDraft, value: string | boolean) => void
+  field: (key: keyof ConnectionDraft, value: string | boolean | number | undefined) => void
   onSave: (event: FormEvent) => Promise<void>
   onCancel: () => void
   onLoadModels: () => Promise<void>
@@ -232,6 +232,12 @@ export default function ChatGPTConnectionEditor({
           </button>
         </div>
 
+        <label>
+          Concurrent model requests
+          <input type="number" min={1} max={32} value={editing.maxConcurrentRequests ?? ''} placeholder="Automatic: 2"
+            onChange={event => field('maxConcurrentRequests', event.target.value ? Number(event.target.value) : undefined)} />
+          <small>Other chats wait in line when this account is at capacity.</small>
+        </label>
         <label>
           Default reasoning effort
 

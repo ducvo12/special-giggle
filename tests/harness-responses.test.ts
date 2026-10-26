@@ -197,7 +197,6 @@ test(
         const running = run(text)
         await ready
         const request = pendingApproval!
-        await assert.rejects(runtime.saveSettings(agent.id, defaultHarnessSettings), /Finish/)
         runtime.approvals.answer(request.requestId, request.id, allow)
         await running
         assert.throws(
@@ -309,7 +308,7 @@ test(
         code: 'ENOENT'
       })
     } finally {
-      runtime.active?.controller.abort()
+      await runtime.stopAll()
       runtime.close()
       await mock.close()
       await rm(directory, { recursive: true, force: true })

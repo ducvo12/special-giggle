@@ -56,8 +56,14 @@ contextBridge.exposeInMainWorld('granite', {
     save: (agentId, path, content, expected) => ipcRenderer.invoke('workspace:save', agentId, path, content, expected),
     renameNote: (agentId, path, name) => ipcRenderer.invoke('workspace:renameNote', agentId, path, name)
   },
-  stream: (requestId, agentId, conversationId, connectionId, text, model, effort) =>
-    ipcRenderer.invoke('model:stream', requestId, agentId, conversationId, connectionId, text, model, effort),
+  runs: {
+    list: () => ipcRenderer.invoke('runs:list'),
+    recovery: () => ipcRenderer.invoke('runs:recovery'),
+    dismissRecovery: () => ipcRenderer.invoke('runs:dismissRecovery'),
+    cancelPending: (agentId, id) => ipcRenderer.invoke('runs:cancelPending', agentId, id)
+  },
+  stream: (requestId, agentId, conversationId, connectionId, text, model, effort, intent) =>
+    ipcRenderer.invoke('model:stream', requestId, agentId, conversationId, connectionId, text, model, effort, intent),
   stop: requestId => ipcRenderer.invoke('model:stop', requestId),
   onDelta: callback => {
     const listener = (_event: Electron.IpcRendererEvent, delta: StreamDelta) => callback(delta)

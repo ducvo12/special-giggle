@@ -13,6 +13,8 @@ export interface ToolActivity {
 }
 
 export interface AgentMessage extends Message {
+  runId?: string
+  delivery?: 'pending' | 'processed' | 'cancelled'
   contextUsage?: ContextUsage
   responseDurationMs?: number
   connectionId?: string

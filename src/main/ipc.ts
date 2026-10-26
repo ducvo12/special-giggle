@@ -3,6 +3,7 @@ import { listModels, listModelCatalog, safely } from '../backend/models/api'
 import { ConnectionStore } from '../backend/connections/store'
 import { AgentClient } from './agent-client'
 import type { ConnectionDraft } from '../shared/chat'
+import type { RunIntent } from '../shared/run'
 import { ChatGPTAccounts } from '../backend/auth/chatgpt'
 import type { HarnessSettings } from '../shared/harness'
 import type { ConversationLocation } from '../shared/organization'
@@ -18,18 +19,16 @@ export function registerIpc(directory: string) {
   const store = new ConnectionStore(directory, protection)
   const chatgpt = new ChatGPTAccounts(directory, protection)
   app.on('before-quit', () => chatgpt.cancel())
-  const active = new Map<number, { id: string; stopped: boolean }>()
+  const active = new Map<string, { senderId: number; stopped: boolean }>()
   const agents = new AgentClient(directory, delta => {
-    for (const [senderId, request] of active) {
-      if (delta.requestId !== request.id) {
-        continue
-      }
-
-      const window = BrowserWindow.getAllWindows().find(
-        window => window.webContents.id === senderId
-      )
-      window?.webContents.send('model:delta', delta)
-    }
+    for (const window of BrowserWindow.getAllWindows()) window.webContents.send('model:delta', delta)
+  })
+  let quitting = false
+  app.on('before-quit', event => {
+    if (quitting) return
+    event.preventDefault()
+    quitting = true
+    void agents.call('shutdown').finally(() => app.quit())
   })
 
   function trusted(event: Electron.IpcMainInvokeEvent) {
@@ -142,7 +141,7 @@ export function registerIpc(directory: string) {
       trusted(event)
 
       if (
-        active.get(event.sender.id)?.id !== requestId ||
+        typeof requestId !== 'string' || requestId.length > 100 ||
         typeof approvalId !== 'string' ||
         approvalId.length > 100 ||
         typeof allow !== 'boolean'
@@ -174,6 +173,10 @@ export function registerIpc(directory: string) {
   })
 
   const routes: Record<string, { action: string; limits: number[] }> = {
+    'runs:list': { action: 'runs:list', limits: [] },
+    'runs:recovery': { action: 'runs:recovery', limits: [] },
+    'runs:dismissRecovery': { action: 'runs:dismissRecovery', limits: [] },
+    'runs:cancelPending': { action: 'runs:cancelPending', limits: [64, 100] },
     'organization:get': { action: 'organization:get', limits: [64] },
     'organization:createSection': { action: 'organization:createSection', limits: [64, 80, 6] },
     'organization:renameSection': { action: 'organization:renameSection', limits: [64, 100, 80] },
@@ -216,7 +219,7 @@ export function registerIpc(directory: string) {
   })
   ipcMain.handle('organization:chooseRepository', async (event, agentId, projectId) => {
     trusted(event)
-    if (active.size || typeof agentId !== 'string' || agentId.length > 64 || typeof projectId !== 'string' || projectId.length > 100) {
+    if (typeof agentId !== 'string' || agentId.length > 64 || typeof projectId !== 'string' || projectId.length > 100) {
       return { ok: false, error: 'Finish the current operation before linking a folder.' }
     }
     const selected = await dialog.showOpenDialog(BrowserWindow.fromWebContents(event.sender)!, {
@@ -251,7 +254,8 @@ export function registerIpc(directory: string) {
       connectionId: string,
       text: string,
       model?: string,
-      effort?: string
+      effort?: string,
+      intent: RunIntent = 'message'
     ) => {
       trusted(event)
 
@@ -260,21 +264,19 @@ export function registerIpc(directory: string) {
           typeof requestId !== 'string' ||
           !requestId ||
           requestId.length > 100 ||
-          active.size ||
+          active.has(requestId) ||
+          quitting ||
           typeof conversationId !== 'string' ||
           typeof agentId !== 'string' ||
-          agentId.length > 64
+          agentId.length > 64 || conversationId.length > 100 ||
+          typeof text !== 'string' || text.length > 32_000 ||
+          !['message', 'continue', 'pending'].includes(intent)
         ) {
-          return { ok: false, error: 'An agent is already working or the request is invalid.' }
+          return { ok: false, error: 'This request is invalid or has already been accepted.' }
         }
 
-        const request = { id: requestId, stopped: false }
-        active.set(event.sender.id, request)
-        const destroyed = () => {
-          request.stopped = true
-          void agents.call('stop', requestId)
-        }
-        event.sender.once('destroyed', destroyed)
+        const request = { senderId: event.sender.id, stopped: false }
+        active.set(requestId, request)
 
         try {
           const connection = await store.resolve(connectionId, model)
@@ -305,7 +307,7 @@ export function registerIpc(directory: string) {
             return { ok: true, value: { stopped: true } }
           }
 
-          return await agents.call('run', requestId, agentId, conversationId, connection, text)
+          return await agents.call('run', requestId, agentId, conversationId, connection, text, intent)
         } catch (error) {
           return {
             ok: false,
@@ -313,8 +315,7 @@ export function registerIpc(directory: string) {
               error instanceof Error ? error.message : 'Could not load the selected connection.'
           }
         } finally {
-          event.sender.removeListener('destroyed', destroyed)
-          active.delete(event.sender.id)
+          active.delete(requestId)
         }
       })()
     }
@@ -322,11 +323,9 @@ export function registerIpc(directory: string) {
 
   ipcMain.handle('model:stop', async (event, requestId: string) => {
     trusted(event)
-    const request = active.get(event.sender.id)
-
-    if (request?.id === requestId) {
-      request.stopped = true
-      await agents.call('stop', requestId)
-    }
+    if (typeof requestId !== 'string' || !requestId || requestId.length > 100) return
+    const request = active.get(requestId)
+    if (request) request.stopped = true
+    await agents.call('stop', requestId)
   })
 }

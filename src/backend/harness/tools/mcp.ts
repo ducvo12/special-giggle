@@ -80,6 +80,7 @@ export async function connectMcp(
               description: `${server.name}: ${tool.name}. ${(tool.description ?? '').slice(0, 2000)}`,
               parameters: tool.inputSchema,
               permission: 'mcp',
+              serverId: server.id,
               run: async args => {
                 if (!validate(args)) {
                   throw new Error('Invalid arguments for this MCP tool.')

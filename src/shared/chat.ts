@@ -1,8 +1,10 @@
 import type { Agent, Conversation, ConversationDetail, ToolActivity, WorkspaceEntry } from './agent'
 import type { ApprovalRequest, ChatGPTAccount, HarnessSettings } from './harness'
 import type { AgentOrganization, ConversationLocation, Project, Section, SectionMode } from './organization'
+import type { RecoveryNotice, RunIntent, RunSnapshot } from './run'
 
 export interface Connection {
+  maxConcurrentRequests?: number
   connectionId?: string
   provider?: 'openai' | 'codex' | 'chatgpt'
   protocol?: 'chat-completions' | 'responses'
@@ -14,6 +16,7 @@ export interface Connection {
 }
 
 export interface SavedConnection {
+  maxConcurrentRequests?: number
   provider?: 'openai' | 'codex' | 'chatgpt'
   protocol?: 'chat-completions' | 'responses'
   accountId?: string
@@ -70,6 +73,8 @@ export interface StreamDelta {
   tool?: ToolActivity
   contextUsage?: ContextUsage
   approval?: ApprovalRequest | null
+  run?: RunSnapshot
+  messages?: import('./agent').AgentMessage[]
 }
 
 export interface GraniteBridge {
@@ -124,6 +129,12 @@ export interface GraniteBridge {
     save: (agentId: string, path: string, content: string, expected: string | null) => Promise<Result<string>>
     renameNote: (agentId: string, path: string, name: string) => Promise<Result<string>>
   }
+  runs: {
+    list: () => Promise<Result<RunSnapshot[]>>
+    recovery: () => Promise<Result<RecoveryNotice>>
+    dismissRecovery: () => Promise<Result<void>>
+    cancelPending: (agentId: string, conversationId: string) => Promise<Result<void>>
+  }
   stream: (
     requestId: string,
     agentId: string,
@@ -131,8 +142,9 @@ export interface GraniteBridge {
     connectionId: string,
     text: string,
     model?: string,
-    effort?: string
-  ) => Promise<Result<{ stopped: boolean }>>
+    effort?: string,
+    intent?: RunIntent
+  ) => Promise<Result<{ stopped: boolean; steered?: boolean; runId?: string }>>
   stop: (requestId: string) => Promise<void>
   onDelta: (callback: (delta: StreamDelta) => void) => () => void
 }

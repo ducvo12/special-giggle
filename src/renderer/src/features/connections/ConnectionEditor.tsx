@@ -10,7 +10,7 @@ type Props = {
   models: string[]
   busy: boolean
   nameInput: RefObject<HTMLInputElement | null>
-  field: (key: keyof ConnectionDraft, value: string | boolean) => void
+  field: (key: keyof ConnectionDraft, value: string | boolean | number | undefined) => void
   onSave: (event: FormEvent) => Promise<void>
   onCancel: () => void
   onLoadModels: () => Promise<void>
@@ -55,7 +55,15 @@ export default function ConnectionEditor({
         </h2>
 
         <span className="badge">
-          {editing.protocol === 'responses' ? 'RESPONSES API' : 'OPENAI COMPATIBLE'}
+          <label>
+          Concurrent model requests
+          <input type="number" min={1} max={32} value={editing.maxConcurrentRequests ?? ''}
+            placeholder="Automatic: local 1, remote 2"
+            onChange={event => field('maxConcurrentRequests', event.target.value ? Number(event.target.value) : undefined)} />
+          <small>Lower this if your model host handles only one request at a time. Other chats wait in line.</small>
+        </label>
+
+        {editing.protocol === 'responses' ? 'RESPONSES API' : 'OPENAI COMPATIBLE'}
         </span>
       </div>
 

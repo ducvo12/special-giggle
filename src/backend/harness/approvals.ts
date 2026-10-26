@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { ApprovalRequest } from '../../shared/harness.ts'
 
 export class ApprovalQueue {
-  private pending = new Map<string, { requestId: string; resolve: (allow: boolean) => void }>()
+  private pending = new Map<string, { requestId: string; agentId: string; resolve: (allow: boolean) => void }>()
 
   ask(
     request: Omit<ApprovalRequest, 'id'>,
@@ -24,6 +24,7 @@ export class ApprovalQueue {
       }
       this.pending.set(id, {
         requestId: request.requestId,
+        agentId: request.agentId,
         resolve: allow => {
           cleanup()
           resolve(allow)
@@ -42,5 +43,17 @@ export class ApprovalQueue {
     }
 
     pending.resolve(allow)
+  }
+
+  withdraw(requestId: string) {
+    for (const pending of this.pending.values()) {
+      if (pending.requestId === requestId) pending.resolve(false)
+    }
+  }
+
+  invalidateAgent(agentId: string) {
+    for (const pending of this.pending.values()) {
+      if (pending.agentId === agentId) pending.resolve(false)
+    }
   }
 }

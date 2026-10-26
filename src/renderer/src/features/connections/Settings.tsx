@@ -47,7 +47,8 @@ export default function Settings({
             provider: item.provider === 'codex' ? 'chatgpt' : item.provider,
             protocol: item.protocol,
             accountId: item.accountId,
-            effort: item.effort
+            effort: item.effort,
+            maxConcurrentRequests: item.maxConcurrentRequests
           }
         : emptyConnection()
     )
@@ -57,7 +58,7 @@ export default function Settings({
     setDeleting(null)
   }
 
-  function field(key: keyof ConnectionDraft, value: string | boolean) {
+  function field(key: keyof ConnectionDraft, value: string | boolean | number | undefined) {
     setEditing(current => {
       if (!current) {
         return null

@@ -5,526 +5,363 @@ import { useEffect, useRef, useState } from 'react'
 import type { Result, SavedConnection, StreamActivity } from '../../../shared/chat'
 import type { ApprovalRequest } from '../../../shared/harness'
 import type { Agent, AgentMessage, Conversation } from '../../../shared/agent'
+import { isLiveRun, locksChat, type RecoveryNotice, type RunIntent, type RunSnapshot } from '../../../shared/run'
 import { useConnectionModel } from '../features/chat/useConnectionModel'
 import type { AgentOrganization, ConversationLocation } from '../../../shared/organization'
 
 const bridgeError = 'Could not communicate with the desktop backend.'
+const emptyActivity = (): StreamActivity => ({ reasoningCharacters: 0, answerCharacters: 0 })
 
 export function useAgentSession() {
   const [agents, setAgents] = useState<Agent[]>([])
   const [agentId, setAgentId] = useState('')
-  const selection = useRef(0)
   const currentAgent = useRef('')
-
+  const selection = useRef(0)
+  const conversationSelection = useRef(0)
+  const visible = useRef({ owner: '', id: '' })
+  const streams = useRef(new Map<string, ConversationStream>())
+  const runRecords = useRef(new Map<string, RunSnapshot>())
+  const [runs, setRuns] = useState<RunSnapshot[]>([])
+  const runDetails = useRef(new Map<string, { activity: StreamActivity; approval: ApprovalRequest | null }>())
+  const submissions = useRef(new Set<string>())
+  const [submitting, setSubmitting] = useState(false)
+  const [recovery, setRecovery] = useState<RecoveryNotice | null>(null)
   const [connections, setConnections] = useState<SavedConnection[]>([])
-  const [selectedId, setSelectedId] = useState(
-    () => localStorage.getItem('granite.connection') ?? ''
-  )
-
+  const [selectedId, setSelectedId] = useState(() => localStorage.getItem('granite.connection') ?? '')
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [organization, setOrganization] = useState<AgentOrganization>({ sections: [], projects: [] })
   const [location, setLocation] = useState<ConversationLocation>({ sectionId: '', projectId: null })
-  const currentLocation = useRef<ConversationLocation>({ sectionId: '', projectId: null })
+  const currentLocation = useRef(location)
+  const [conversationId, setConversationId] = useState('')
+  const [loaded, setLoaded] = useState(false)
+  const [messages, setMessages] = useState<AgentMessage[]>([])
+  const [draft, setDraftState] = useState('')
+  const drafts = useRef(new Map<string, string>())
+  const [error, setError] = useState('')
+  const [managingAgents, setManagingAgents] = useState(false)
+  const agentOperation = useRef(false)
+  const [now, setNow] = useState(Date.now())
+  const end = useRef<HTMLDivElement>(null)
+  const follow = useRef(true)
+
+  const visibleRuns = runs.filter(run => run.agentId === agentId && run.conversationId === conversationId)
+  const viewRun = visibleRuns.filter(isLiveRun).at(-1) ?? visibleRuns.at(-1)
+  const viewBusy = Boolean(viewRun && isLiveRun(viewRun))
+  const busy = runs.some(run => run.agentId === agentId && isLiveRun(run))
+  const activeConversationId = runs.find(run => run.agentId === agentId && isLiveRun(run))?.conversationId ?? ''
+  const locked = messages.find(message => message.model)
+  const connection = connections.find(item => item.id === (locked?.connectionId ?? viewRun?.connectionId ??
+    (locked ? connections.find(item => item.model === locked.model)?.id : undefined) ?? selectedId))
+  const modelSelection = useConnectionModel(connection, locked?.model ?? viewRun?.model, conversationId,
+    [...messages].reverse().find(message => message.model)?.effort)
+  const agent = agents.find(item => item.id === agentId)
+  const section = organization.sections.find(item => item.id === location.sectionId)
+  const project = organization.projects.find(item => item.id === location.projectId)
+  const runUnavailable = section?.mode === 'closed'
+    ? 'You can organize chats here, but replies in Closed sections are not available yet.'
+    : project?.repositoryPath ? 'This folder is linked. You can organize chats here, but repository work is not available yet.' : ''
+  const details = viewRun ? runDetails.current.get(viewRun.id) : undefined
+  const approval = details?.approval ?? null
+  const activity = details?.activity ?? emptyActivity()
+  const stopping = viewRun?.phase === 'stopping'
+  const elapsed = viewRun ? Math.max(0, Math.floor((now - (viewRun.startedAt ?? viewRun.createdAt)) / 1000)) : 0
 
   function updateLocation(next: ConversationLocation) {
     currentLocation.current = next
     setLocation(next)
   }
-  const [conversationId, setConversationId] = useState('')
-  const visibleConversation = useRef({ owner: '', id: '' })
-  const conversationSelection = useRef(0)
-  const activeStream = useRef<ConversationStream | null>(null)
-  const [activeConversationId, setActiveConversationId] = useState('')
-  const drafts = useRef(new Map<string, string>())
-  const [loaded, setLoaded] = useState(false)
-  const [messages, setMessages] = useState<AgentMessage[]>([])
-  const [draft, setDraftState] = useState('')
+  function isViewing(owner: string, id: string) { return visible.current.owner === owner && visible.current.id === id }
   function setDraft(value: string) {
-    const { owner, id } = visibleConversation.current
-    drafts.current.set(JSON.stringify([owner, id]), value)
+    drafts.current.set(JSON.stringify(visible.current), value)
     setDraftState(value)
   }
+  function updateRun(run: RunSnapshot) {
+    runRecords.current.set(run.id, run)
+    const detail = runDetails.current.get(run.id)
+    if (detail && run.phase !== 'approval') detail.approval = null
+    setRuns([...runRecords.current.values()])
+  }
+  function latestStream(owner: string, id: string) {
+    return [...streams.current.values()].filter(stream => stream.matches(owner, id)).at(-1)
+  }
 
-  const [busy, setBusy] = useState(false)
-  const [stopping, setStopping] = useState(false)
-  const [approval, setApproval] = useState<ApprovalRequest | null>(null)
-  const [activity, setActivity] = useState<StreamActivity>({
-    reasoningCharacters: 0,
-    answerCharacters: 0
-  })
-  const [elapsed, setElapsed] = useState(0)
-  const [error, setError] = useState('')
-  const [managingAgents, setManagingAgents] = useState(false)
-  const agentOperation = useRef(false)
+  async function refreshList(owner = currentAgent.current) {
+    if (!owner) return
+    const result = await window.granite.conversations.list(owner)
+    if (currentAgent.current !== owner) return
+    if (result.ok) setConversations(result.value)
+    else setError(result.error)
+  }
 
-  const run = useRef<string | null>(null)
-  const end = useRef<HTMLDivElement>(null)
-  const follow = useRef(true)
-
-  const locked = messages.find(message => message.role === 'assistant' && message.model)
-  const connection = connections.find(item => item.id === (locked?.connectionId ?? (locked ? connections.find(item => item.model === locked.model)?.id : undefined) ?? selectedId))
-  const modelSelection = useConnectionModel(connection, locked?.model, conversationId, [...messages].reverse().find(message => message.role === 'assistant')?.effort)
-  const agent = agents.find(agent => agent.id === agentId)
-  const section = organization.sections.find(item => item.id === location.sectionId)
-  const project = organization.projects.find(item => item.id === location.projectId)
-  const runUnavailable = section?.mode === 'closed'
-    ? 'You can organize chats here, but replies in Closed sections are not available yet.'
-    : project?.repositoryPath
-      ? 'This folder is linked. You can organize chats here, but repository work is not available yet.'
-      : ''
-
-  async function loadConversation(id: string, owner = agentId) {
+  async function loadConversation(id: string, owner = currentAgent.current) {
     const token = ++conversationSelection.current
-    visibleConversation.current = { owner, id }
+    visible.current = { owner, id }
     setConversationId(id)
-    const known = conversations.find(chat => chat.id === id && chat.agentId === owner)
-    if (known) updateLocation({ sectionId: known.sectionId, projectId: known.projectId })
-    setDraftState(drafts.current.get(JSON.stringify([owner, id])) ?? '')
+    setDraftState(drafts.current.get(JSON.stringify({ owner, id })) ?? '')
     setError('')
     follow.current = true
-
-    const stream = activeStream.current
-    if (stream?.matches(owner, id)) {
-      setMessages(stream.messages)
-      setLoaded(true)
-      return
-    }
-
     setLoaded(false)
-    setMessages([])
+    const snapshot = latestStream(owner, id)
+    setMessages(snapshot?.messages ?? [])
     try {
       const result = await window.granite.conversations.get(owner, id)
       if (token !== conversationSelection.current || currentAgent.current !== owner) return
-      if (!result.ok) { setError(result.error); return }
+      if (!result.ok) throw new Error(result.error)
       updateLocation({ sectionId: result.value.sectionId, projectId: result.value.projectId })
-      setMessages(result.value.messages)
-    } catch {
-      if (token === conversationSelection.current) setError(bridgeError)
+      const stream = latestStream(owner, id)
+      if (stream && !stream.messages.length) stream.messages = result.value.messages
+      setMessages(stream?.messages ?? result.value.messages)
+    } catch (error) {
+      if (token === conversationSelection.current) setError(error instanceof Error ? error.message : bridgeError)
     } finally {
       if (token === conversationSelection.current && currentAgent.current === owner) setLoaded(true)
     }
   }
 
-  function isViewing(owner: string, id: string) {
-    return visibleConversation.current.owner === owner && visibleConversation.current.id === id
-  }
-
-  async function finishConversation(id: string, owner: string, requestId: string) {
-    const result = await window.granite.conversations.get(owner, id)
-    if (!result.ok) {
-      if (isViewing(owner, id)) setError(result.error)
-      return
-    }
-    const reply = result.value.messages.at(-1)
-    const existingReply = activeStream.current?.messages.some(message => message.id === reply?.id && message.id !== requestId)
-    if (reply?.role === 'assistant' && !existingReply) {
-      bindTiming(requestId, reply.id)
-      if (reply.status === 'complete') {
-        responseClock.bind(requestId, reply.id, reply.content, (messageId, durationMs) => {
-          void window.granite.conversations.saveResponseDuration(owner, id, messageId, durationMs)
-            .then(result => { if (!result.ok && isViewing(owner, id)) setError(result.error) })
-            .catch(() => { if (isViewing(owner, id)) setError('Could not save the response duration.') })
-        })
-      }
-    }
-    if (activeStream.current?.requestId === requestId) activeStream.current.messages = result.value.messages
-    if (isViewing(owner, id)) setMessages(result.value.messages)
-  }
-
-  async function refreshList() {
-    const owner = currentAgent.current
-    const result = await window.granite.conversations.list(owner)
-    if (currentAgent.current !== owner) return
-
-    if (result.ok) {
-      setConversations(result.value)
-    } else {
-      setError(result.error)
-    }
-  }
-
   async function selectAgent(id: string) {
-    if (run.current) {
-      return
-    }
-
     const token = ++selection.current
     currentAgent.current = id
     ++conversationSelection.current
-    visibleConversation.current = { owner: id, id: '' }
+    visible.current = { owner: id, id: '' }
     setAgentId(id)
     setLoaded(false)
-
     setMessages([])
     setConversations([])
     setOrganization({ sections: [], projects: [] })
     updateLocation({ sectionId: '', projectId: null })
     setConversationId('')
-    setDraft('')
+    setDraftState('')
     setError('')
-
     if (!id) {
       localStorage.removeItem('granite.agent')
       setLoaded(true)
-
       return
     }
-
     try {
-      const [chats, layout] = await Promise.all([
-        window.granite.conversations.list(id), window.granite.organization.get(id)
-      ])
-
-      if (token !== selection.current) {
-        return
-      }
-
-      if (!chats.ok) {
-        throw new Error(chats.error)
-      }
+      const [chats, layout] = await Promise.all([window.granite.conversations.list(id), window.granite.organization.get(id)])
+      if (token !== selection.current) return
+      if (!chats.ok) throw new Error(chats.error)
       if (!layout.ok) throw new Error(layout.error)
-
       setConversations(chats.value)
       setOrganization(layout.value)
       updateLocation({ sectionId: layout.value.sections.find(item => item.kind === 'general')?.id ?? '', projectId: null })
-
-      const saved =
-        localStorage.getItem(`granite.conversation.${id}`) ??
-        (id === 'atlas' ? localStorage.getItem('granite.conversation') : null)
+      const saved = localStorage.getItem(`granite.conversation.${id}`) ?? (id === 'atlas' ? localStorage.getItem('granite.conversation') : null)
       const chat = chats.value.find(chat => chat.id === saved) ?? chats.value[0]
-
-      if (chat) {
-        await loadConversation(chat.id, id)
-      }
-
+      if (chat) await loadConversation(chat.id, id)
       localStorage.setItem('granite.agent', id)
     } catch (error) {
-      if (token === selection.current) {
-        setError(error instanceof Error ? error.message : bridgeError)
+      if (token === selection.current) setError(error instanceof Error ? error.message : bridgeError)
+    } finally { if (token === selection.current) setLoaded(true) }
+  }
+
+  async function refreshRecovery() {
+    const [saved, notice] = await Promise.all([window.granite.runs.list(), window.granite.runs.recovery()])
+    if (saved.ok) {
+      runRecords.current = new Map(saved.value.map(run => [run.id, run]))
+      for (const run of saved.value) {
+        const detail = runDetails.current.get(run.id)
+        if (detail && run.phase !== 'approval') detail.approval = null
       }
-    } finally {
-      if (token === selection.current) {
-        setLoaded(true)
-      }
+      setRuns(saved.value)
     }
+    if (notice.ok && (notice.value.active || notice.value.pending)) setRecovery(notice.value)
   }
 
   useEffect(() => {
     let mounted = true
-    void Promise.all([window.granite.connections.list(), window.granite.agents.list()])
-      .then(async ([connections, agents]) => {
-        if (!mounted) {
-          return
-        }
-
-        if (connections.ok) {
-          setConnections(connections.value)
-          setSelectedId(current =>
-            connections.value.some(item => item.id === current)
-              ? current
-              : (connections.value[0]?.id ?? '')
-          )
-        } else {
-          setError(connections.error)
-        }
-
-        if (!agents.ok) {
-          setError(agents.error)
-          setLoaded(true)
-
-          return
-        }
-
-        setAgents(agents.value)
-
-        const saved = localStorage.getItem('granite.agent')
-        const selected = agents.value.find(agent => agent.id === saved) ?? agents.value[0]
-
-        if (selected) {
-          await selectAgent(selected.id)
-        } else {
-          setLoaded(true)
-        }
-      })
-      .catch(() => {
-        if (mounted) {
-          setError(bridgeError)
-          setLoaded(true)
-        }
-      })
-
     const off = window.granite.onDelta(delta => {
-      if (delta.requestId !== run.current) {
-        return
-      }
-
+      if (delta.run) updateRun(delta.run)
+      const run = delta.run ?? runRecords.current.get(delta.requestId)
+      if (!run) return
       recordDelta(delta)
-
-      if (Object.hasOwn(delta, 'approval')) {
-        setApproval(delta.approval ?? null)
+      const detail = runDetails.current.get(run.id) ?? { activity: emptyActivity(), approval: null }
+      if (delta.activity) detail.activity = delta.activity
+      if (Object.hasOwn(delta, 'approval')) detail.approval = delta.approval ?? null
+      runDetails.current.set(run.id, detail)
+      let stream = streams.current.get(run.id)
+      if (!stream) {
+        stream = new ConversationStream(run.id, run.agentId, run.conversationId, [])
+        streams.current.set(run.id, stream)
       }
-
-      if (delta.activity) {
-        setActivity(delta.activity)
+      if (delta.messages) stream.messages = delta.messages
+      else stream.apply(delta)
+      if (isViewing(run.agentId, run.conversationId)) {
+        setMessages([...stream.messages])
+        // Approval-only deltas also need a render.
+        setNow(Date.now())
       }
-
-      const stream = activeStream.current
-      if (stream) {
-        stream.apply(delta)
-        if (isViewing(stream.owner, stream.conversationId)) setMessages(stream.messages)
-      }
+      if (delta.run) void refreshList(run.agentId)
     })
-
-    return () => {
-      mounted = false
-      ++selection.current
-      ++conversationSelection.current
-      off()
-    }
+    void Promise.all([window.granite.connections.list(), window.granite.agents.list(), refreshRecovery()])
+      .then(async ([savedConnections, savedAgents]) => {
+        if (!mounted) return
+        if (savedConnections.ok) {
+          setConnections(savedConnections.value)
+          setSelectedId(current => savedConnections.value.some(item => item.id === current) ? current : savedConnections.value[0]?.id ?? '')
+        } else setError(savedConnections.error)
+        if (!savedAgents.ok) { setError(savedAgents.error); setLoaded(true); return }
+        setAgents(savedAgents.value)
+        const saved = localStorage.getItem('granite.agent')
+        const selected = savedAgents.value.find(agent => agent.id === saved) ?? savedAgents.value[0]
+        if (selected) await selectAgent(selected.id)
+        else setLoaded(true)
+      }).catch(() => { if (mounted) { setError(bridgeError); setLoaded(true) } })
+    return () => { mounted = false; ++selection.current; ++conversationSelection.current; off() }
   }, [])
 
   useEffect(() => {
-    if (!busy) {
-      return
-    }
-
-    const started = Date.now()
-    setElapsed(0)
-
-    const timer = window.setInterval(
-      () => setElapsed(Math.floor((Date.now() - started) / 1000)),
-      1000
-    )
-
+    if (!viewBusy) return
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
     return () => window.clearInterval(timer)
-  }, [busy])
-
+  }, [viewBusy])
+  useEffect(() => { localStorage.setItem('granite.connection', selectedId) }, [selectedId])
   useEffect(() => {
-    localStorage.setItem('granite.connection', selectedId)
-  }, [selectedId])
-
-  useEffect(() => {
-    if (conversationId) {
-      localStorage.setItem(`granite.conversation.${agentId}`, conversationId)
-    }
+    if (conversationId) localStorage.setItem(`granite.conversation.${agentId}`, conversationId)
   }, [conversationId, agentId])
 
-  async function send() {
-    if (
-      run.current ||
-      agentOperation.current ||
-      !draft.trim() ||
-      !connection ||
-      !modelSelection.ready ||
-      !agent ||
-      runUnavailable ||
-      !loaded
-    ) {
-      return
+  async function finishConversation(owner: string, id: string, requestId: string) {
+    const result = await window.granite.conversations.get(owner, id)
+    if (!result.ok) { if (isViewing(owner, id)) setError(result.error); return }
+    const reply = [...result.value.messages].reverse().find(message => (message.id === requestId || message.runId === requestId) && message.role === 'assistant')
+    if (reply) {
+      bindTiming(requestId, reply.id)
+      if (reply.status === 'complete') responseClock.bind(requestId, reply.id, reply.content, (messageId, durationMs) => {
+        void window.granite.conversations.saveResponseDuration(owner, id, messageId, durationMs)
+      })
     }
+    const stream = streams.current.get(requestId)
+    if (stream) stream.messages = result.value.messages
+    if (isViewing(owner, id)) setMessages(result.value.messages)
+    await refreshList(owner)
+    return result.value
+  }
 
+  async function submit(intent: RunIntent = 'message') {
+    if (agentOperation.current || !connection || !modelSelection.ready || !agent || runUnavailable || !loaded ||
+      intent === 'message' && !draft.trim()) return
+    const owner = agent.id
+    const text = intent === 'message' ? draft.trim() : ''
+    const submitKey = JSON.stringify(visible.current)
+    if (submissions.current.has(submitKey)) return
+    submissions.current.add(submitKey)
+    setSubmitting(true)
     const requestId = crypto.randomUUID()
-    const text = draft.trim()
     const destination = { ...currentLocation.current }
-    responseClock.begin(requestId)
-    beginTiming(requestId)
-    run.current = requestId
-    follow.current = true
-    setBusy(true)
-    setStopping(false)
-    setError('')
-    setDraft('')
-    setActivity({ reasoningCharacters: 0, answerCharacters: 0 })
+    const token = conversationSelection.current
     let id = conversationId
-    const navigationToken = conversationSelection.current
-    const stream = new ConversationStream(requestId, agent.id, id, [
-      ...messages,
-      { id: crypto.randomUUID(), role: 'user', content: text },
-      { id: requestId, role: 'assistant', content: '', model: modelSelection.model,
-        connectionId: connection.id, effort: modelSelection.effort, tools: [], status: 'running' }
-    ])
-    activeStream.current = stream
-    setActiveConversationId(id)
-    setMessages(stream.messages)
-
+    setError('')
+    if (intent === 'message') setDraft('')
+    follow.current = true
     try {
       if (!id) {
-        const created = await window.granite.conversations.create(agent.id, destination)
-
-        if (!created.ok) {
-          throw new Error(created.error)
-        }
-
+        const created = await window.granite.conversations.create(owner, destination)
+        if (!created.ok) throw new Error(created.error)
         id = created.value.id
-        stream.conversationId = id
-        setActiveConversationId(id)
-        if (navigationToken === conversationSelection.current) {
-          const pendingDraft = drafts.current.get(JSON.stringify([agent.id, ''])) ?? ''
-          drafts.current.set(JSON.stringify([agent.id, id]), pendingDraft)
-          visibleConversation.current = { owner: agent.id, id }
+        if (token === conversationSelection.current && currentAgent.current === owner) {
+          visible.current = { owner, id }
           setConversationId(id)
         }
-        await refreshList()
+        await refreshList(owner)
       }
-
-      const result = await window.granite.stream(
-        requestId,
-        agent.id,
-        id,
-        connection.id,
-        text,
-        connection.provider === 'chatgpt' ? modelSelection.model : undefined,
-        modelSelection.effort
-      )
-
+      responseClock.begin(requestId)
+      beginTiming(requestId)
+      // IPC remains pending until a new run settles; a steering submission
+      // returns immediately and names the existing run. Neither blocks navigation.
+      const pending = window.granite.stream(requestId, owner, id, connection.id, text,
+        connection.provider === 'chatgpt' ? modelSelection.model : undefined, modelSelection.effort, intent)
+      submissions.current.delete(submitKey)
+      setSubmitting(submissions.current.size > 0)
+      const result = await pending
       finishTiming(requestId)
-      if (!result.ok && isViewing(agent.id, id)) {
-        setError(result.error)
+      if (!result.ok) {
+        if (isViewing(owner, id)) setError(result.error)
+        await refreshRecovery()
       }
-
-      await finishConversation(id, agent.id, requestId)
-      await refreshList()
+      if (result.ok && result.value.steered) {
+        // The live run already emitted its accepted message snapshot. Reading a
+        // throttled database snapshot here could overwrite newer streamed text.
+        await refreshList(owner)
+        return
+      }
+      const detail = await finishConversation(owner, id, requestId)
+      if (!result.ok && text && isViewing(owner, id) && !detail?.messages.some(message => message.role === 'user' && message.runId === requestId)) setDraft(text)
     } catch (error) {
-      const message = error instanceof Error ? error.message : bridgeError
-      stream.messages = stream.messages.map(reply => reply.id === requestId
-        ? { ...reply, status: 'error', error: message, interrupted: true }
-        : reply)
-      if (isViewing(agent.id, id)) {
-        setMessages(stream.messages)
-        setError(message)
-        setDraft(text)
+      if (isViewing(owner, id)) {
+        setError(error instanceof Error ? error.message : bridgeError)
+        if (text) setDraft(text)
       }
     } finally {
+      submissions.current.delete(submitKey)
+      setSubmitting(submissions.current.size > 0)
       finishTiming(requestId)
-      run.current = null
-      activeStream.current = null
-      setActiveConversationId('')
-      setApproval(null)
-      setBusy(false)
-      setStopping(false)
     }
   }
 
   async function stop() {
-    if (!run.current) {
-      return
-    }
-
-    setStopping(true)
-
-    try {
-      await window.granite.stop(run.current)
-    } catch {
-      setError(bridgeError)
-      setStopping(false)
-    }
+    if (!viewRun || !isLiveRun(viewRun)) return
+    try { await window.granite.stop(viewRun.id) }
+    catch { setError(bridgeError) }
   }
 
   async function renameConversation(id: string, title: string) {
-    if (run.current || agentOperation.current || !loaded) return false
+    if (agentOperation.current || !loaded) return false
     agentOperation.current = true
     setManagingAgents(true)
     setError('')
     try {
       const result = await window.granite.conversations.rename(agentId, id, title)
-      if (!result.ok) {
-        setError(result.error)
-        return false
-      }
-      setConversations(current => current.map(chat => chat.id === id ? { ...chat, title: title.trim() } : chat))
+      if (!result.ok) throw new Error(result.error)
+      await refreshList()
       return true
-    } catch {
-      setError(bridgeError)
-      return false
-    } finally {
-      agentOperation.current = false
-      setManagingAgents(false)
-    }
+    } catch (error) { setError(error instanceof Error ? error.message : bridgeError); return false }
+    finally { agentOperation.current = false; setManagingAgents(false) }
   }
 
   async function deleteConversation(id: string) {
-    if (run.current || agentOperation.current || !loaded) {
-      return false
-    }
-
+    if (agentOperation.current || !loaded) return false
     agentOperation.current = true
     setManagingAgents(true)
     setError('')
-
     try {
       const result = await window.granite.conversations.delete(agentId, id)
-      if (!result.ok) {
-        setError(result.error)
-        return false
-      }
-
+      if (!result.ok) throw new Error(result.error)
       setConversations(current => current.filter(chat => chat.id !== id))
-      if (localStorage.getItem(`granite.conversation.${agentId}`) === id) {
-        localStorage.removeItem(`granite.conversation.${agentId}`)
-      }
-      if (agentId === 'atlas' && localStorage.getItem('granite.conversation') === id) {
-        localStorage.removeItem('granite.conversation')
-      }
+      for (const [key, run] of runRecords.current) if (run.conversationId === id) runRecords.current.delete(key)
+      for (const [key, stream] of streams.current) if (stream.conversationId === id) streams.current.delete(key)
+      setRuns([...runRecords.current.values()])
+      localStorage.removeItem(`granite.conversation.${agentId}`)
+      if (agentId === 'atlas') localStorage.removeItem('granite.conversation')
       if (conversationId === id) {
         ++conversationSelection.current
-        visibleConversation.current = { owner: agentId, id: '' }
-        setConversationId('')
-        setMessages([])
-        setDraft('')
+        visible.current = { owner: agentId, id: '' }
+        setConversationId(''); setMessages([]); setDraft('')
       }
       return true
-    } catch {
-      setError(bridgeError)
-      return false
-    } finally {
-      agentOperation.current = false
-      setManagingAgents(false)
-    }
+    } catch (error) { setError(error instanceof Error ? error.message : bridgeError); return false }
+    finally { agentOperation.current = false; setManagingAgents(false) }
   }
 
   async function deleteAgent(id: string) {
-    if (run.current || agentOperation.current) {
-      return false
-    }
-
+    if (agentOperation.current) return false
     agentOperation.current = true
     setManagingAgents(true)
     setError('')
-
     try {
       const result = await window.granite.agents.delete(id)
-
-      if (!result.ok) {
-        setError(result.error)
-
-        return false
-      }
-
+      if (!result.ok) throw new Error(result.error)
       const remaining = agents.filter(agent => agent.id !== id)
       setAgents(remaining)
+      for (const [key, run] of runRecords.current) if (run.agentId === id) runRecords.current.delete(key)
+      setRuns([...runRecords.current.values()])
       localStorage.removeItem(`granite.conversation.${id}`)
-
-      if (id === 'atlas') {
-        localStorage.removeItem('granite.conversation')
-      }
-
-      if (id === currentAgent.current) {
-        await selectAgent(remaining[0]?.id ?? '')
-      }
-
+      if (id === currentAgent.current) await selectAgent(remaining[0]?.id ?? '')
       return true
-    } catch {
-      setError(bridgeError)
-
-      return false
-    } finally {
-      agentOperation.current = false
-      setManagingAgents(false)
-    }
+    } catch (error) { setError(error instanceof Error ? error.message : bridgeError); return false }
+    finally { agentOperation.current = false; setManagingAgents(false) }
   }
 
   async function changeOrganization(action: () => Promise<Result<unknown>>) {
-    if (run.current || agentOperation.current || !loaded || !agentId) return false
+    if (agentOperation.current || !loaded || !agentId) return false
     const owner = agentId
     agentOperation.current = true
     setManagingAgents(true)
@@ -536,96 +373,55 @@ export function useAgentSession() {
       if (!layout.ok) throw new Error(layout.error)
       if (currentAgent.current !== owner) return false
       setOrganization(layout.value)
-      await refreshList()
+      await refreshList(owner)
       return true
-    } catch (error) {
-      setError(error instanceof Error ? error.message : bridgeError)
-      return false
-    } finally {
-      agentOperation.current = false
-      setManagingAgents(false)
-    }
+    } catch (error) { setError(error instanceof Error ? error.message : bridgeError); return false }
+    finally { agentOperation.current = false; setManagingAgents(false) }
   }
-
   async function moveConversation(id: string, destination: ConversationLocation) {
+    if (runs.some(run => run.conversationId === id && locksChat(run))) return false
     return changeOrganization(async () => {
       const result = await window.granite.conversations.move(agentId, id, destination)
       if (result.ok && isViewing(agentId, id)) updateLocation(destination)
       return result
     })
   }
-
   function selectLocation(next: ConversationLocation) {
     if (!loaded || agentOperation.current) return
     updateLocation(next)
     ++conversationSelection.current
-    visibleConversation.current = { owner: currentAgent.current, id: '' }
-    setConversationId('')
-    setMessages([])
-    setError('')
-    setDraft('')
+    visible.current = { owner: currentAgent.current, id: '' }
+    setConversationId(''); setMessages([]); setError(''); setDraft('')
     follow.current = true
   }
-
   function newChat() {
-    if (run.current || agentOperation.current || !loaded || !agentId) return
+    if (agentOperation.current || !loaded || !agentId) return
     const general = organization.sections.find(section => section.kind === 'general')
     if (general) selectLocation({ sectionId: general.id, projectId: null })
   }
 
   return {
-    agents,
-    managingAgents,
-    agentId,
-    agent,
-    connections,
-    setConnections,
-    selectedId,
-    setSelectedId,
-    connection,
-    modelSelection,
-    conversations,
-    organization,
-    location,
-    runUnavailable,
-    selectLocation,
-    changeOrganization,
-    moveConversation,
-    conversationId,
-    loaded,
-    messages,
-    draft,
-    setDraft,
-    busy,
-    activeConversationId,
-    viewBusy: busy && conversationId === activeConversationId,
-    stopping,
-    approval,
-    async approve(allow: boolean) {
-      if (!approval || approval.requestId !== run.current) {
-        return
-      }
-
-      const result = await window.granite.harness.approve(approval.requestId, approval.id, allow)
-
-      if (!result.ok) {
-        setError(result.error)
-      }
+    agents, managingAgents, agentId, agent, connections, setConnections, selectedId, setSelectedId, connection,
+    modelSelection, conversations, organization, location, runUnavailable, selectLocation, changeOrganization,
+    moveConversation, conversationId, loaded, messages, draft, setDraft, busy, viewBusy, viewRun, runs, submitting,
+    activeConversationId, stopping, approval, activity, elapsed, error, setError, end, follow,
+    loadConversation, selectAgent, stop, deleteAgent, deleteConversation, renameConversation, newChat,
+    send: () => submit(), continueRun: () => submit('continue'), runPending: () => submit('pending'), recovery,
+    async cancelPending() {
+      const result = await window.granite.runs.cancelPending(agentId, conversationId)
+      if (!result.ok) setError(result.error)
+      else { await refreshRecovery(); await loadConversation(conversationId) }
     },
-    activity,
-    elapsed,
-    error,
-    setError,
-    end,
-    follow,
-    loadConversation,
-    selectAgent,
-    send,
-    stop,
-    deleteAgent,
-    deleteConversation,
-    renameConversation,
-    newChat,
+    async dismissRecovery() {
+      const result = await window.granite.runs.dismissRecovery()
+      if (result.ok) setRecovery(null)
+      else setError(result.error)
+    },
+    async approve(allow: boolean) {
+      if (!approval) return
+      const result = await window.granite.harness.approve(approval.requestId, approval.id, allow)
+      if (!result.ok) setError(result.error)
+    },
     async addAgent(created: Agent) {
       setAgents(current => [...current, created])
       await selectAgent(created.id)

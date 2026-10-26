@@ -11,10 +11,12 @@ import type {
 import type { NativeItem } from '../harness/types.ts'
 import { OrganizationStore } from './organization.ts'
 import type { ChatRetention, ConversationLocation } from '../../shared/organization.ts'
+import { RunStore } from './runs.ts'
 
 export class AgentStore {
   saver: SqliteSaver
   organization: OrganizationStore
+  runs: RunStore
 
   constructor(path: string) {
     this.saver = SqliteSaver.fromConnString(path)
@@ -87,6 +89,7 @@ export class AgentStore {
       data: string
     }[]
 
+    let interruptedReplies = 0
     for (const row of rows) {
       const message = JSON.parse(row.data) as AgentMessage
 
@@ -95,6 +98,7 @@ export class AgentStore {
       }
 
       message.status = 'interrupted'
+      interruptedReplies++
       message.interrupted = true
       message.tools = message.tools?.map(tool =>
         tool.status === 'running' ? { ...tool, status: 'interrupted' } : tool
@@ -104,6 +108,8 @@ export class AgentStore {
         .prepare('UPDATE conversations SET recover = 1 WHERE id = ?')
         .run(row.conversationId)
     }
+    this.runs = new RunStore(this)
+    this.runs.recover(interruptedReplies)
   }
 
   list(agentId: string): Conversation[] {
@@ -190,12 +196,8 @@ export class AgentStore {
       .run(Date.now(), conversationId)
   }
 
-  begin(agentId: string, conversationId: string, text: string, model: string, engine = 'openai') {
+  begin(agentId: string, conversationId: string, text: string, model: string, engine = 'openai', accepted?: AgentMessage[], runId?: string) {
     const detail = this.get(agentId, conversationId)
-
-    if (detail.messages.length >= 200) {
-      throw new Error('This conversation is full. Start a new conversation.')
-    }
 
     const row = this.saver.db
       .prepare('SELECT graphId, recover, engine FROM conversations WHERE id = ?')
@@ -203,7 +205,8 @@ export class AgentStore {
     const recovered = Boolean(row.recover) || row.engine !== engine
     const graphId = recovered ? randomUUID() : row.graphId
     const message: AgentMessage = {
-      id: randomUUID(),
+      id: runId ?? randomUUID(),
+      ...(runId ? { runId } : {}),
       role: 'assistant',
       content: '',
       model,
@@ -225,7 +228,7 @@ export class AgentStore {
           'INSERT OR IGNORE INTO conversation_threads (graphId, conversationId) VALUES (?, ?)'
         )
         .run(graphId, conversationId)
-      this.saveMessage(conversationId, { id: randomUUID(), role: 'user', content: text })
+      if (!accepted) this.saveMessage(conversationId, { id: randomUUID(), role: 'user', content: text })
       this.saveMessage(conversationId, message)
     })()
 
@@ -234,7 +237,8 @@ export class AgentStore {
       graphId,
       recovered,
       interrupted: Boolean(row.recover),
-      history: detail.messages
+      history: detail.messages.filter(message => !accepted?.some(item => item.id === message.id) &&
+        message.delivery !== 'pending' && message.delivery !== 'cancelled')
     }
   }
 
@@ -296,6 +300,8 @@ export class AgentStore {
       }
 
       this.saver.db.prepare('DELETE FROM harness_state WHERE conversationId = ?').run(id)
+      this.saver.db.prepare('DELETE FROM runs WHERE conversationId = ?').run(id)
+      this.saver.db.prepare('DELETE FROM chat_sessions WHERE conversationId = ?').run(id)
       this.saver.db.prepare('DELETE FROM messages WHERE conversationId = ?').run(id)
       this.saver.db.prepare('DELETE FROM conversation_threads WHERE conversationId = ?').run(id)
       this.saver.db.prepare('DELETE FROM conversations WHERE id = ? AND agentId = ?').run(id, agentId)
@@ -304,6 +310,9 @@ export class AgentStore {
 
   deleteAgent(agentId: string) {
     this.saver.db.transaction(() => {
+      for (const table of ['runs', 'chat_sessions']) {
+        this.saver.db.prepare(`DELETE FROM ${table} WHERE conversationId IN (SELECT id FROM conversations WHERE agentId = ?)`).run(agentId)
+      }
       this.saver.db
         .prepare(
           'DELETE FROM harness_state WHERE conversationId IN (SELECT id FROM conversations WHERE agentId = ?)'

@@ -81,7 +81,9 @@ export default function MessageList({
             {message.role === 'user' ? 'You' : `${agent?.name ?? 'Agent'} · ${message.model ?? ''}`}
           </span>
 
-          {message.role === 'assistant' && <ResponseDuration message={message} />}
+          {message.role === 'assistant' && message.status !== 'interrupted' && <ResponseDuration message={message} />}
+          {message.delivery === 'pending' && <span className="message-delivery">Received · pending</span>}
+          {message.delivery === 'cancelled' && <span className="message-delivery">Not processed · cancelled</span>}
 
           {!!message.tools?.length && (
             <div className="tool-activity" aria-label="Tool activity">
@@ -136,7 +138,7 @@ export default function MessageList({
             </span>
           )}
 
-          {message.interrupted && (
+          {message.interrupted && !message.notice?.startsWith('Provisional reply interrupted') && (
             <span className="interrupted">
               {message.status === 'error'
                 ? message.error

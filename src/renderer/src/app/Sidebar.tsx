@@ -9,6 +9,7 @@ import NotesTree from '../features/workspace/NotesTree'
 import type { TreeDialogAction } from '../features/organization/TreeDialog'
 import { defaultTreeSort, readTreeSort, sortTreeEntries, type TreeSort } from './tree-sort'
 import Chevron from '../components/Chevron'
+import type { RunSnapshot } from '../../../shared/run'
 
 type Props = {
   page: Page
@@ -16,6 +17,7 @@ type Props = {
   agentId: string
   agent: Agent | undefined
   busy: boolean
+  runs: RunSnapshot[]
   loaded: boolean
   identityDirty: boolean
   conversations: Conversation[]
@@ -38,7 +40,7 @@ type Props = {
   onPageChange: (page: Page) => void
 }
 
-export default function Sidebar({ page, agents, agentId, agent, busy, loaded, identityDirty, conversations,
+export default function Sidebar({ page, agents, agentId, agent, busy, runs, loaded, identityDirty, conversations,
   organization, location, selectedFile, fileRevision, onOpenFile, onDialog, onRefreshFiles, onSelectLocation,
   onMoveConversation, conversationId, onSelectAgent, onDeleteAgent, onDeleteConversation,
   onRenameConversation, onNewChat, onSelectConversation, onPageChange }: Props) {
@@ -52,7 +54,7 @@ export default function Sidebar({ page, agents, agentId, agent, busy, loaded, id
     } catch { return {} }
   })
   const disabled = !loaded || identityDirty
-  const actionsDisabled = disabled || busy
+  const actionsDisabled = disabled
   useEffect(() => {
     setCollapsed(previous => {
       const next = new Set(previous)
@@ -84,7 +86,7 @@ export default function Sidebar({ page, agents, agentId, agent, busy, loaded, id
   }
   function chatList(chats: Conversation[]) {
     return <ConversationList conversations={chats} organization={organization}
-      selectedId={page === 'chat' ? conversationId : ''} disabled={disabled} actionsDisabled={actionsDisabled}
+      selectedId={page === 'chat' ? conversationId : ''} disabled={disabled} actionsDisabled={actionsDisabled} runs={runs}
       onSelect={onSelectConversation} onRename={onRenameConversation} onDelete={onDeleteConversation} onMove={onMoveConversation} />
   }
   function projectTree(project: Project) {
@@ -136,7 +138,7 @@ export default function Sidebar({ page, agents, agentId, agent, busy, loaded, id
         <button className={`tree-entry ${page === 'tools' ? 'selected' : ''}`} disabled={actionsDisabled}
           onClick={() => onPageChange('tools')}><span className="tree-file-icon" aria-hidden="true">▱</span><span>tools &amp; skills/</span></button>
         <NotesTree key={agent.id} agentId={agent.id} disabled={disabled} selectedFile={page === 'file' ? selectedFile : ''}
-          actionsDisabled={actionsDisabled} revision={fileRevision} onOpen={onOpenFile} onCreate={() => onDialog({ type: 'note-create' })}
+          actionsDisabled={disabled || busy} revision={fileRevision} onOpen={onOpenFile} onCreate={() => onDialog({ type: 'note-create' })}
           onRename={path => onDialog({ type: 'note-rename', path })} />
         <div className="tree-row sections-tree-header">
           <button className="tree-entry" disabled={disabled} aria-expanded={sectionsOpen} onClick={() => setSectionsOpen(open => !open)}>

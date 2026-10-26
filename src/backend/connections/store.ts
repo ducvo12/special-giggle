@@ -29,6 +29,11 @@ function validateDraft(draft: ConnectionDraft) {
     validateConnection(draft)
   }
 
+  if (draft.maxConcurrentRequests !== undefined &&
+      (!Number.isInteger(draft.maxConcurrentRequests) || draft.maxConcurrentRequests < 1 || draft.maxConcurrentRequests > 32)) {
+    throw new Error('Concurrent model requests must be between 1 and 32.')
+  }
+
   if (draft.protocol !== undefined && !['chat-completions', 'responses'].includes(draft.protocol)) {
     throw new Error('Choose a supported API protocol.')
   }
@@ -87,6 +92,7 @@ export class ConnectionStore {
               !['chat-completions', 'responses'].includes(item.protocol)) ||
             (item.codexPath !== undefined && typeof item.codexPath !== 'string') ||
             (item.effort !== undefined && typeof item.effort !== 'string') ||
+            (item.maxConcurrentRequests !== undefined && (!Number.isInteger(item.maxConcurrentRequests) || item.maxConcurrentRequests < 1 || item.maxConcurrentRequests > 32)) ||
             (item.encryptedKey !== undefined && typeof item.encryptedKey !== 'string')
         )
       ) {
@@ -188,7 +194,8 @@ export class ConnectionStore {
           name: draft.name.trim(),
           baseUrl: '',
           model: draft.model.trim(),
-          effort: draft.effort || ''
+          effort: draft.effort || '',
+          maxConcurrentRequests: draft.maxConcurrentRequests
         }
         await this.persist([...this.records.filter(item => item.id !== record.id), record])
 
@@ -223,7 +230,8 @@ export class ConnectionStore {
         model: draft.model.trim(),
         encryptedKey,
         protocol: draft.protocol ?? 'chat-completions',
-        effort: draft.effort || ''
+        effort: draft.effort || '',
+        maxConcurrentRequests: draft.maxConcurrentRequests
       }
       await this.persist([...this.records.filter(item => item.id !== record.id), record])
 
@@ -262,6 +270,7 @@ export class ConnectionStore {
         protocol: record.protocol,
         accountId: record.accountId,
         effort: record.effort,
+        maxConcurrentRequests: record.maxConcurrentRequests,
         baseUrl: record.baseUrl,
         model: model?.trim() ?? record.model,
         apiKey:

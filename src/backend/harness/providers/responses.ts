@@ -1,6 +1,6 @@
 import { parseContextUsage } from '../../models/usage.ts'
 import type { ModelAdapter, ModelOptions, NativeItem, ToolCall } from '../types.ts'
-import { HarnessError } from '../types.ts'
+import { HarnessError, ModelConnectionError } from '../types.ts'
 import { modelRequest } from './http.ts'
 import { readModelEvents } from './stream.ts'
 
@@ -41,6 +41,9 @@ export function responsesAdapter(options: ModelOptions): ModelAdapter {
       const items = new Map<number, NativeItem>()
       await readModelEvents(response, event => {
         if (event.type === 'error' || event.type === 'response.failed') {
+          if (['server_error', 'internal_error', 'timeout'].includes(event.response?.error?.code ?? event.code)) {
+            throw new ModelConnectionError('The model server temporarily failed. Completed actions are kept.')
+          }
           throw new HarnessError(
             'The model could not finish. Check account limits, model access, and the connection.'
           )
@@ -56,6 +59,8 @@ export function responsesAdapter(options: ModelOptions): ModelAdapter {
         if (usage) options.onUsage?.(usage)
 
         if (event.type === 'response.output_text.delta') {
+          if (typeof event.delta !== 'string') throw new HarnessError('The model returned invalid text data.')
+          if (event.delta) options.onResponseData?.()
           text += event.delta
           options.onText(event.delta)
         }
@@ -64,12 +69,17 @@ export function responsesAdapter(options: ModelOptions): ModelAdapter {
           event.type === 'response.reasoning_summary_text.delta' ||
           event.type === 'response.reasoning_text.delta'
         ) {
+          options.onResponseData?.()
           options.onReasoning(typeof event.delta === 'string' ? event.delta.length : 0)
         }
 
         if (event.type === 'response.output_item.done') {
+          if (!event.item || typeof event.item !== 'object') throw new HarnessError('The model returned an invalid response item.')
+          if (event.item.type === 'function_call') options.onResponseData?.()
           items.set(event.output_index, event.item)
         }
+        if (event.type === 'response.function_call_arguments.delta' ||
+          event.type === 'response.output_item.added' && event.item?.type === 'function_call') options.onResponseData?.()
 
         if (event.type !== 'response.completed') {
           return false
@@ -85,6 +95,16 @@ export function responsesAdapter(options: ModelOptions): ModelAdapter {
 
         if (!Array.isArray(output)) {
           throw new HarnessError('The model returned an invalid response.')
+        }
+        if (output.some(item => !item || typeof item !== 'object' || typeof item.type !== 'string' ||
+          item.status && item.status !== 'completed')) {
+          throw new HarnessError('The model returned an incomplete response item. No proposed actions ran.')
+        }
+        for (const item of output.filter(item => item.type === 'message')) {
+          if (!Array.isArray(item.content) || item.content.some((part: any) => !part ||
+              part.type === 'output_text' && typeof part.text !== 'string')) {
+            throw new HarnessError('The model returned an invalid message. No proposed actions ran.')
+          }
         }
 
         return true

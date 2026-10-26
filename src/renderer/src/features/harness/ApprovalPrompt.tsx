@@ -31,12 +31,11 @@ export default function ApprovalPrompt({
   }
 
   return (
-    <div className="approval-backdrop">
+      <div className="approval-panel">
       <div
         className="approval-dialog"
         ref={dialog}
-        role="alertdialog"
-        aria-modal="true"
+        role="region"
         aria-labelledby="approval-title"
         aria-describedby="approval-detail"
         onKeyDown={event => {
@@ -45,21 +44,6 @@ export default function ApprovalPrompt({
             void answer(false)
           }
 
-          if (event.key === 'Tab') {
-            const buttons = [
-              ...dialog.current!.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')
-            ]
-            const first = buttons[0],
-              last = buttons.at(-1)
-
-            if (event.shiftKey && document.activeElement === first) {
-              event.preventDefault()
-              last?.focus()
-            } else if (!event.shiftKey && document.activeElement === last) {
-              event.preventDefault()
-              first?.focus()
-            }
-          }
         }}
       >
         <div className="eyebrow">

@@ -7,6 +7,10 @@ import MessageList from './MessageList'
 import ChatModelPicker from './ChatModelPicker'
 import type { ModelSelection } from './useConnectionModel'
 import type { Project, Section } from '../../../../shared/organization'
+import type { RunSnapshot } from '../../../../shared/run'
+import RunControls, { runLabel } from './RunControls'
+import ApprovalPrompt from '../harness/ApprovalPrompt'
+import type { ApprovalRequest } from '../../../../shared/harness'
 
 type Props = {
   conversationId: string
@@ -19,6 +23,13 @@ type Props = {
   connection: SavedConnection | undefined
   modelSelection: ModelSelection
   busy: boolean
+  run?: RunSnapshot
+  submitting: boolean
+  onContinue: () => Promise<void>
+  onRunPending: () => Promise<void>
+  onCancelPending: () => Promise<void>
+  approval: ApprovalRequest | null
+  onApprove: (allow: boolean) => Promise<void>
   requestPending: boolean
   onOpenActiveChat: () => void
   loaded: boolean
@@ -52,6 +63,13 @@ export default function ChatView({
   connection,
   modelSelection,
   busy,
+  run,
+  submitting,
+  onContinue,
+  onRunPending,
+  onCancelPending,
+  approval,
+  onApprove,
   requestPending,
   onOpenActiveChat,
   loaded,
@@ -77,7 +95,7 @@ export default function ChatView({
   const reasoningProgress = activity.reasoningCharacters
     ? ` · ${activity.reasoningCharacters.toLocaleString()} reasoning characters`
     : ''
-  const progress = `${agent?.name ?? 'Agent'} is working · ${elapsed}s${reasoningProgress}`
+  const progress = `${run ? runLabel(run) : 'Preparing reply'} · ${elapsed}s${reasoningProgress}`
 
   return (
     <main className="chat-main">
@@ -107,6 +125,9 @@ export default function ChatView({
       />
 
       <div className="composer-area">
+        <RunControls run={run} messages={messages} disabled={submitting || !loaded || Boolean(runUnavailable)}
+          onContinue={onContinue} onRunPending={onRunPending} onCancelPending={onCancelPending} />
+        {approval && <ApprovalPrompt key={approval.id} request={approval} onAnswer={onApprove} onStop={onStop} />}
         {runUnavailable && <p className="organization-notice" role="status">{runUnavailable}</p>}
         {requestPending && !busy && (
           <div className="background-response" role="status">
@@ -153,7 +174,7 @@ export default function ChatView({
               if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
                 event.preventDefault()
 
-                if (!requestPending) {
+                if (!submitting) {
                   void onSend()
                 }
               }
@@ -200,15 +221,16 @@ export default function ChatView({
                   disabled={stopping}
                   onClick={() => void onStop()}
                 >
-                  ■ {stopping ? 'Stopping…' : 'Stop'}
+                  ■ {stopping ? 'Stopping…' : run?.startedAt === null ? 'Cancel queued' : 'Stop'}
                 </button>
-              ) : (
+              ) : null}
+              {(
                 <button
                   type="submit"
                   className="send-button"
-                  aria-label="Send message"
-                  title="Send message"
-                  disabled={requestPending || !draft.trim() || !modelSelection.ready || !agent || !loaded || Boolean(runUnavailable)}
+                  aria-label={busy ? 'Send update' : 'Send message'}
+                  title={busy ? 'Send a message to steer this run' : 'Send message'}
+                  disabled={submitting || !draft.trim() || !modelSelection.ready || !agent || !loaded || Boolean(runUnavailable)}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M12 19V5m-6 6 6-6 6 6" />

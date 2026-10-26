@@ -1,5 +1,6 @@
 import { AgentRuntime } from './runtime.ts'
 import type { Connection, StreamDelta } from '../../shared/chat.ts'
+import type { RunIntent } from '../../shared/run.ts'
 import type { HarnessSettings } from '../../shared/harness.ts'
 import type { ConversationLocation, SectionMode } from '../../shared/organization.ts'
 
@@ -29,6 +30,22 @@ port.on('message', async ({ data }: { data: Request }) => {
 
     switch (action) {
       case 'init':
+        value = true
+        break
+      case 'runs:list':
+        value = agent.listRuns()
+        break
+      case 'runs:recovery':
+        value = agent.store.runs.recovery()
+        break
+      case 'runs:dismissRecovery':
+        value = agent.store.runs.dismissRecovery()
+        break
+      case 'runs:cancelPending':
+        value = agent.cancelPending(args[0] as string, args[1] as string)
+        break
+      case 'shutdown':
+        await agent.stopAll()
         value = true
         break
       case 'agents:list':
@@ -131,7 +148,8 @@ port.on('message', async ({ data }: { data: Request }) => {
               args[2] as string,
               args[3] as Connection,
               args[4] as string,
-              (delta: StreamDelta) => port.postMessage({ delta })
+              (delta: StreamDelta) => port.postMessage({ delta }),
+              args[5] as RunIntent | undefined
             )
           } finally {
             stopped.delete(args[0] as string)

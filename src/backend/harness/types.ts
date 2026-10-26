@@ -15,6 +15,7 @@ export interface ToolDefinition {
   description: string
   parameters: Record<string, unknown>
   permission: 'read' | 'write' | 'terminal' | 'mcp'
+  serverId?: string
   run: (args: any) => Promise<unknown>
 }
 
@@ -37,6 +38,16 @@ export interface ModelOptions {
   onText: (text: string) => void
   onUsage?: (usage: ContextUsage) => void
   onReasoning: (characters: number) => void
+  onResponseData?: () => void
 }
 
 export class HarnessError extends Error {}
+export class ModelConnectionError extends HarnessError {}
+export class HostCapacityError extends HarnessError {
+  delayMs: number
+  constructor(delayMs: number) {
+    super('Waiting for host capacity — position unavailable')
+    this.delayMs = delayMs
+  }
+}
+export class SteeringInterrupt extends Error {}

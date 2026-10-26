@@ -1,4 +1,4 @@
-import { HarnessError } from '../types.ts'
+import { HarnessError, ModelConnectionError } from '../types.ts'
 
 // Both model transports use SSE. Completion is determined by the adapter's
 // terminal event; a disconnected stream is never treated as a completed turn.
@@ -72,7 +72,7 @@ export async function readModelEvents(response: Response, dispatch: (event: any)
       size += value?.byteLength ?? 0
 
       if (pending.length > 4_000_000 || size > 24_000_000) {
-        throw new HarnessError('The model response exceeded the run budget.')
+        throw new HarnessError('This model response exceeded the supported response size. Partial output is kept.')
       }
 
       let match
@@ -95,12 +95,15 @@ export async function readModelEvents(response: Response, dispatch: (event: any)
 
         terminal ||= completedAtEof?.() ?? false
         if (!terminal) {
-          throw new HarnessError(
+          throw new ModelConnectionError(
             'The connection ended before the model finished. Partial text and completed actions are kept.'
           )
         }
       }
     }
+  } catch (error) {
+    if (error instanceof HarnessError) throw error
+    throw new ModelConnectionError('The model connection was interrupted. Partial output and completed actions are kept.')
   } finally {
     await reader.cancel().catch(() => {})
     reader.releaseLock()

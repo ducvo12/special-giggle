@@ -1,12 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { Conversation } from '../../../shared/agent'
 import { chatMoveProblem, type AgentOrganization, type ConversationLocation } from '../../../shared/organization'
+import { isLiveRun, locksChat, type RunSnapshot } from '../../../shared/run'
 
 type Props = {
   conversations: Conversation[]
   selectedId: string
   disabled: boolean
   actionsDisabled?: boolean
+  runs?: RunSnapshot[]
   onSelect: (id: string) => void
   onRename: (id: string, title: string) => Promise<boolean>
   onDelete: (id: string) => Promise<boolean>
@@ -16,7 +18,7 @@ type Props = {
 
 type Menu = { id: string; x: number; y: number; mode: 'options' | 'rename' | 'delete' | 'move' }
 
-export default function ConversationList({ conversations, selectedId, disabled, actionsDisabled = disabled, organization, onSelect, onRename, onDelete, onMove }: Props) {
+export default function ConversationList({ conversations, selectedId, disabled, actionsDisabled = disabled, runs = [], organization, onSelect, onRename, onDelete, onMove }: Props) {
   const [menu, setMenu] = useState<Menu | null>(null)
   const [title, setTitle] = useState('')
   const [saving, setSaving] = useState(false)
@@ -24,6 +26,15 @@ export default function ConversationList({ conversations, selectedId, disabled, 
   const popup = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement | null>(null)
   const chat = conversations.find(chat => chat.id === menu?.id)
+  const locked = runs.some(run => run.conversationId === chat?.id && locksChat(run))
+  const live = runs.some(run => run.conversationId === chat?.id && isLiveRun(run))
+  function badge(id: string) {
+    const run = runs.filter(run => run.conversationId === id && isLiveRun(run)).at(-1)
+    if (!run) return null
+    const text = run.phase === 'queued' ? `Queued${run.queue?.position ? ` ${run.queue.position}` : ''}`
+      : run.phase === 'approval' ? 'Approval' : run.phase === 'stopping' ? 'Stopping' : 'Working'
+    return <span className="chat-run-badge" title={run.queue?.reason ?? text}>{text}</span>
+  }
   const destinations = chat ? organization.sections.flatMap(section => [
     { location: { sectionId: section.id, projectId: null }, label: section.name },
     ...organization.projects.filter(project => project.sectionId === section.id).map(project => ({
@@ -73,7 +84,7 @@ export default function ConversationList({ conversations, selectedId, disabled, 
   }, [disabled, actionsDisabled, saving])
 
   async function submit() {
-    if (!menu || saving || disabled || actionsDisabled) return
+    if (!menu || saving || disabled || actionsDisabled || menu.mode === 'move' && locked || menu.mode === 'delete' && live) return
     setSaving(true)
     try {
       const success = menu.mode === 'move'
@@ -93,6 +104,7 @@ export default function ConversationList({ conversations, selectedId, disabled, 
         <div className={`conversation-row ${selectedId === chat.id ? 'selected' : ''} ${menu?.id === chat.id ? 'menu-open' : ''}`} key={chat.id}>
         <button
           title={chat.title}
+          aria-label={chat.title}
           className={`conversation-choice ${selectedId === chat.id ? 'selected' : ''}`}
           disabled={disabled || saving}
           aria-haspopup="menu"
@@ -113,7 +125,7 @@ export default function ConversationList({ conversations, selectedId, disabled, 
               setMenu({ id: chat.id, x: rect.left, y: rect.bottom, mode: 'options' })
             }
           }}
-        >{chat.title}</button>
+        >{chat.title}{badge(chat.id)}</button>
         <button
           className="conversation-more"
           aria-label={`Options for ${chat.title}`}
@@ -159,8 +171,8 @@ export default function ConversationList({ conversations, selectedId, disabled, 
         >
           {menu.mode === 'options' ? <>
             <button role="menuitem" onClick={() => { setTitle(chat.title); setMenu({ ...menu, mode: 'rename' }) }}>Rename chat</button>
-            <button role="menuitem" disabled={!destinations.length} onClick={() => { setDestination(''); setMenu({ ...menu, mode: 'move' }) }}>Move chat…</button>
-            <button role="menuitem" onClick={() => setMenu({ ...menu, mode: 'delete' })}>Delete chat</button>
+            <button role="menuitem" disabled={!destinations.length || locked} onClick={() => { setDestination(''); setMenu({ ...menu, mode: 'move' }) }}>Move chat…</button>
+            <button role="menuitem" disabled={live} onClick={() => setMenu({ ...menu, mode: 'delete' })}>Delete chat</button>
           </> : (
             <form onSubmit={event => { event.preventDefault(); void submit() }}>
               {menu.mode === 'rename' ? <>

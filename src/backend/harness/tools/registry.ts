@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import Ajv from 'ajv'
 import type { AgentFilesystem } from '../../workspace/filesystem.ts'
 import type { ApprovalRequest, HarnessSettings } from '../../../shared/harness.ts'
 import type { ToolActivity } from '../../../shared/agent.ts'
@@ -14,6 +15,8 @@ export async function createToolRegistry(options: {
   signal: AbortSignal
   approve: (kind: ApprovalRequest['kind'], title: string, detail: string) => Promise<boolean>
   onTool: (tool: ToolActivity) => void
+  getSettings?: () => Promise<HarnessSettings>
+  hasSteering?: () => boolean
 }) {
   const { workspace, settings, signal, approve } = options
   const skills = settings.skills ? await listSkills(workspace) : []
@@ -28,7 +31,7 @@ export async function createToolRegistry(options: {
     definitions.push({
       name: 'load_skill',
       description: 'Load the instructions of a skill listed in the available skills catalog.',
-      parameters: z.toJSONSchema(schema),
+      parameters: z.toJSONSchema(schema, { target: 'draft-7' }),
       permission: 'read',
       run: async raw => {
         const { name } = schema.parse(raw)
@@ -48,6 +51,19 @@ export async function createToolRegistry(options: {
   )
   definitions.push(...mcp.tools)
   const registry = new Map(definitions.map(tool => [tool.name, tool]))
+  const validator = new Ajv({ strict: false, validateFormats: false, addUsedSchema: false, useDefaults: true })
+  const schemas = new Map(definitions.map(tool => [tool.name, validator.compile<Record<string, any>>(tool.parameters)]))
+
+  const permitted = (tool: ToolDefinition, current: HarnessSettings) => {
+    if (tool.permission === 'terminal' && !current.terminal) return false
+    if (tool.name === 'load_skill' && !current.skills) return false
+    if (tool.permission === 'mcp') {
+      const before = settings.mcpServers.find(server => server.id === tool.serverId)
+      const after = current.mcpServers.find(server => server.id === tool.serverId)
+      return Boolean(after?.enabled && JSON.stringify(before) === JSON.stringify(after))
+    }
+    return true
+  }
 
   return {
     definitions,
@@ -72,32 +88,46 @@ export async function createToolRegistry(options: {
       options.onTool(activity)
       let result: unknown
       let success = true
+      let validationError = false
 
       try {
         if (call.namespace && call.namespace !== 'granite') {
+          validationError = true
           throw new Error('Unknown tool namespace.')
         }
 
         const tool = registry.get(call.name)
 
         if (!tool) {
+          validationError = true
           throw new Error('Unknown or disabled tool.')
         }
 
         if (call.arguments.length > 100_000) {
+          validationError = true
           throw new Error('Tool arguments are too large.')
         }
 
-        const args = JSON.parse(call.arguments)
+        let args: any
+        try { args = JSON.parse(call.arguments) }
+        catch { validationError = true; throw new SyntaxError('Invalid JSON') }
 
         if (!args || typeof args !== 'object' || Array.isArray(args)) {
+          validationError = true
           throw new Error('Tool arguments must be an object.')
         }
+        if (!schemas.get(call.name)!(args)) {
+          validationError = true
+          throw new Error('Invalid tool arguments. This action did not run.')
+        }
+        const current = await options.getSettings?.() ?? settings
+        if (!permitted(tool, current)) throw new Error('This tool is no longer permitted. This action did not run.')
+        if (options.hasSteering?.()) throw new Error('Superseded by a new user message. This action did not run.')
 
         if (
           tool.permission === 'terminal' ||
           tool.permission === 'mcp' ||
-          (tool.permission === 'write' && settings.approveWrites)
+          (tool.permission === 'write' && current.approveWrites)
         ) {
           let title = `Run ${tool.label ?? tool.name.replaceAll('_', ' ')}?`
           let detail = JSON.stringify(args, null, 2)
@@ -123,6 +153,12 @@ export async function createToolRegistry(options: {
         }
 
         signal.throwIfAborted()
+        const latest = await options.getSettings?.() ?? settings
+        if (!permitted(tool, latest)) throw new Error('Tool permissions changed. This action did not run.')
+        if (tool.permission === 'write' && latest.approveWrites && !current.approveWrites) {
+          throw new Error('Write approval is now required. Propose this action again with current permissions.')
+        }
+        if (options.hasSteering?.()) throw new Error('Superseded by a new user message. This action did not run.')
         result = await tool.run(args)
         success = !(
           result &&
@@ -157,7 +193,7 @@ export async function createToolRegistry(options: {
         status: success ? 'complete' : 'error'
       })
 
-      return { output, success }
+      return { output, success, validationError }
     }
   }
 }

@@ -20,6 +20,8 @@ Related: [[Harness Implementation Plan]] · [[Harness Design]] · [[Container & 
 
 ## Deliberate limits of this pass
 
+The broad run guard described below records the Pass 1 state. [[Pass 2 Implementation & Testing]] supersedes it with per-chat run state, model-capacity queues and navigation/creation during independent work.
+
 - The pre-scheduler implementation still uses one broad active-run guard for workspace/organization changes. The New chat button and section creation are currently disabled during a run. This is a temporary implementation limit, not the target concurrency rule: independent chats may run or queue in pass 2, and opening a draft/creating an unrelated section should not require stopping another chat. Relaxing these guards is separate from the note-renaming change.
 - General and Shared chat-only locations retain the existing chat functionality. Cross-chat retrieval and the full Shared/Closed memory policy arrive in pass 4.
 - Closed-section and repository-linked project runs are unavailable in both the interface and backend. Their controls arrive in the later context/repository passes; the saved organization can already be tested.

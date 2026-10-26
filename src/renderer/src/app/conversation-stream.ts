@@ -21,8 +21,10 @@ export class ConversationStream {
 
   apply(delta: StreamDelta) {
     if (delta.requestId !== this.requestId) return
+    const reply = [...this.messages].reverse().find(message => message.role === 'assistant' && message.status === 'running' &&
+      (message.runId === this.requestId || message.id === this.requestId))
     this.messages = this.messages.map(message => {
-      if (message.id !== this.requestId || message.role !== 'assistant') return message
+      if (message.id !== reply?.id || message.role !== 'assistant') return message
       const tools = delta.tool
         ? [...(message.tools ?? []).filter(tool => tool.id !== delta.tool!.id), delta.tool]
         : message.tools

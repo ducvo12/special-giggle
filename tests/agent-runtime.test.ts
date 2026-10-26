@@ -292,19 +292,10 @@ test(
       await atlas.run('identity', 'atlas', second.id, connection, 'Change identity', events)
       assert.match(await atlas.read('atlas', '/identity.md'), /# Atlas/)
       assert.equal(atlas.store.get('atlas', second.id).messages.at(-1)!.tools![0].status, 'error')
-      await atlas.run(
-        'empty-after-tool',
-        'atlas',
-        second.id,
-        connection,
-        'Tool without answer',
-        events
-      )
-      assert.equal(atlas.store.get('atlas', second.id).messages.at(-1)!.status, 'complete')
-      assert.match(
-        atlas.store.get('atlas', second.id).messages.at(-1)!.notice!,
-        /without a final message/
-      )
+      await assert.rejects(atlas.run(
+        'empty-after-tool', 'atlas', second.id, connection, 'Tool without answer', events
+      ), /no answer/)
+      assert.equal(atlas.store.get('atlas', second.id).messages.at(-1)!.status, 'error')
       const stateRow = atlas.store.saver.db
         .prepare('SELECT data FROM harness_state WHERE conversationId = ?')
         .get(chat.id) as { data: string }
@@ -319,10 +310,6 @@ test(
       })
       const pending = atlas.run('slow', 'atlas', chat.id, connection, 'Write then slow', events)
       await started
-      await assert.rejects(
-        atlas.run('duplicate', 'atlas', chat.id, connection, 'Quote', events),
-        /already working/
-      )
       atlas.stop('slow')
       assert.deepEqual(await pending, { stopped: true })
       assert.equal(atlas.store.get('atlas', chat.id).messages.at(-1)!.status, 'stopped')

@@ -1,6 +1,6 @@
 import { parseContextUsage } from '../../models/usage.ts'
 import type { ModelAdapter, ModelOptions, NativeItem, ToolCall } from '../types.ts'
-import { HarnessError } from '../types.ts'
+import { HarnessError, ModelConnectionError } from '../types.ts'
 import { modelRequest } from './http.ts'
 import { readModelEvents } from './stream.ts'
 
@@ -27,6 +27,9 @@ export function chatCompletionsAdapter(options: ModelOptions): ModelAdapter {
       })
       await readModelEvents(response, event => {
         if (event.error) {
+          if (['server_error', 'internal_error', 'timeout'].includes(event.error.code)) {
+            throw new ModelConnectionError('The model server temporarily failed. Completed actions are kept.')
+          }
           throw new HarnessError('The model server reported an error.')
         }
 
@@ -43,8 +46,13 @@ export function chatCompletionsAdapter(options: ModelOptions): ModelAdapter {
 
         const choice = event.choices?.[0]
         const delta = choice?.delta
+        if (delta?.content !== undefined && delta.content !== null && typeof delta.content !== 'string' ||
+            delta?.tool_calls !== undefined && !Array.isArray(delta.tool_calls)) {
+          throw new HarnessError('The model returned invalid reply data. No proposed actions ran.')
+        }
 
         if (typeof delta?.content === 'string') {
+          if (delta.content) options.onResponseData?.()
           text += delta.content
           options.onText(delta.content)
         }
@@ -52,12 +60,19 @@ export function chatCompletionsAdapter(options: ModelOptions): ModelAdapter {
         const reasoning = delta?.reasoning_content ?? delta?.reasoning ?? delta?.thinking
 
         if (typeof reasoning === 'string') {
+          if (reasoning) options.onResponseData?.()
           options.onReasoning(reasoning.length)
         }
 
         for (const item of delta?.tool_calls ?? []) {
-          if (!Number.isInteger(item.index) || item.index < 0 || item.index >= 40) {
+          options.onResponseData?.()
+          if (!item || !Number.isInteger(item.index) || item.index < 0 || item.index >= 40) {
             throw new HarnessError('The model returned too many tool calls.')
+          }
+          if (item.id !== undefined && typeof item.id !== 'string' ||
+              item.function?.name !== undefined && typeof item.function.name !== 'string' ||
+              item.function?.arguments !== undefined && typeof item.function.arguments !== 'string') {
+            throw new HarnessError('The model returned invalid tool-call data. No proposed actions ran.')
           }
 
           const call = calls.get(item.index) ?? { id: '', name: '', arguments: '' }
@@ -85,6 +100,9 @@ export function chatCompletionsAdapter(options: ModelOptions): ModelAdapter {
         return false
       }, () => Boolean(finish))
       const list = [...calls.entries()].sort(([a], [b]) => a - b).map(([, call]) => call)
+      if (finish === 'tool_calls' && !list.length || finish === 'stop' && list.length) {
+        throw new HarnessError('The model returned inconsistent tool-call completion data. No proposed actions ran.')
+      }
       const assistant: NativeItem = { role: 'assistant', content: text || null }
 
       if (list.length) {
