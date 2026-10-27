@@ -8,6 +8,8 @@ Start visually: [[Container & Settings.canvas]] · [[Repository Access.canvas]] 
 
 ## Delete the container and its contents
 
+October 27 extension: [[Repository Access & Worktree Plan]] (D-070–D-072) explicitly retains the attachment/no-release, bound-chat and missing-folder rules below. It adds same-section project edit grants and isolated worktree groups; its workspace scheduling replaces the blanket same-project serialization baseline where isolated groups are involved. Worktree-group closure after successful merge is distinct from deleting a project. Group-history retention and managed-workspace cleanup/parent-deletion details remain labeled design choices; do not infer a new deletion policy from physical sidebar nesting.
+
 Deleting a project, custom section or agent deletes its actual Granite-owned folder tree and all its descendant chat records in the database. A section includes its projects and direct chats; an agent includes all its sections, projects, chats, memory, notes and installed agent-local skills. General remains individually undeletable, but is removed with its parent agent.
 
 Delete associated summaries, indexes, provider continuation state and other owned data, and apply D-029 to references in surviving content. Other chats are not recursively rewritten or deleted. Independently supported facts can remain.

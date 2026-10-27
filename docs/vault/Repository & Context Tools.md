@@ -8,6 +8,8 @@ Related: [[Tool Selection & Context]] · [[Memory & Context Policy]] · [[Harnes
 
 ## Repository tools depend on membership
 
+**Planned amendment, October 27 (D-071/D-072):** the owner-only matrix below records the earlier baseline. [[Repository Access & Worktree Plan]] extends project chats with user-granted writes to other projects' repositories in the same section, while keeping other Shared sections read-only, other Closed sections unavailable, and temporary/section-level chats under their existing rules. Tool exposure and execution must validate each eligible granted target and the actual checkout; generic approval does not bypass this boundary. Worktree-group chats target their isolated checkout. This extension is not implemented by documenting it, and context retrieval below is unchanged.
+
 | Current chat location/retention | Repository reads | Repository edits |
 | --- | --- | --- |
 | General or a custom section, outside a repository project | Eligible repositories only | No repository-write tools exposed or executable |

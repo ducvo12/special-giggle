@@ -22,6 +22,10 @@ Tool inventory and reuse direction: [[Tooling Strategy]] — current implementat
 
 ## 1. Organizing the ideas
 
+Product vision and version priorities: [[Granite Vision & Roadmap]] (D-073/D-074) keeps the existing first-version plan as v0.1, broad practical capability as v0.2, and optimization plus parent-directed mixed-model/provider subagents as v0.3. The user reaffirms orchestration as a long-term goal. “No subagents in this version” below applies to the original v0.1 design, not a permanent rejection. Separate user-selectable agents, chat sessions and delegated subagents remain distinct concepts. Neither later version has implementation passes yet.
+
+Latest repository/workspace amendment, October 27: [[Repository Access & Worktree Plan]] (D-070–D-072) preserves one attachment/no release, adds user-granted same-section project edits and represents isolated worktrees as project subgroups that close after successful user-requested merge. It revises earlier owner-only editing/project-wide scheduling and deferred-worktree descriptions in this design where they conflict. Other-Shared-section repositories remain read-only, Closed boundaries remain enforced, and subagents remain deferred. Detailed scope and unsettled recommendations are in that note; this is not implementation status.
+
 There are three related parts to design:
 
 1. **Organization:** which agent, section, project, and chat something belongs to.

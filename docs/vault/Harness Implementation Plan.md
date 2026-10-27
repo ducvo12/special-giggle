@@ -6,6 +6,8 @@ Related: [[Harness Design]] · [[Remaining Harness Decisions]] · [[Decisions & 
 
 ## How the passes will work
 
+October 27 scope addition (D-070–D-072): [[Repository Access & Worktree Plan]] records retained one-repository/no-release behavior, user-granted same-section project edits and isolated worktree groups that close after successful user-requested merge. It is assigned to v0.2 in [[Granite Vision & Roadmap]] (D-073), with no new pass numbering. The existing six passes plus pass 3A define v0.1; preserve ongoing implementation and its recorded results. v0.2 broadens practical capability, and v0.3 covers the assigned optimizations and mixed-model subagents. Both later versions remain open feature lists.
+
 Audit the existing implementation before changing it, reuse working behavior and preserve existing user data and unrelated changes. Each pass includes the interface needed to use its features; pass 6 checks the whole application together. Features become available once their required behavior is implemented and verified.
 
 Use Granite's existing Electron-based test runner (`npm test`) and type checking (`npm run typecheck`) at each checkpoint. Extend meaningful behavior tests rather than replacing the test setup. Use isolated temporary databases/repositories, simulated model responses, local test servers and a controllable clock. Test destructive operations on disposable fixtures. Real-model checks supplement repeatable automated tests.
@@ -97,6 +99,6 @@ Finish navigation and status consistency across frontend/backend: preparing, str
 
 A pass is complete when its planned behavior and relevant interface work are implemented, its meaningful tests pass and any existing baseline failures or external blockers are documented. Fix regressions introduced by that pass before moving on. These are planned checks, not results already obtained.
 
-Automatic restoration/undo snapshots, subagents, semantic retrieval, advanced large-repository/context tuning, cross-project/worktree coordination and cross-provider session migration remain deferred. See [[Things to Optimize]] and [[Deferred File Restoration]].
+Automatic restoration/undo snapshots, subagents, semantic retrieval, advanced large-repository/context tuning and cross-provider session migration remain deferred. Isolated worktree groups and the coordination needed for their planned behavior are promoted into [[Repository Access & Worktree Plan]] (D-072), with same-section repository grants under D-071. Broader tuning remains in [[Things to Optimize]]; restoration remains in [[Deferred File Restoration]].
 
 October 26 clarification: pass 3 already includes repository terminal commands and explicitly authorized installation/network actions. Interactive terminal control, persistent/background sessions, fuller dependency/framework installation support and richer scoped network controls are future extensions in [[Things to Optimize]]. Granite currently owns the harness and calls model APIs directly; it does not inherit Codex's harness. Hosted web search and optional broader Codex reuse are separate evaluations in [[Tooling Strategy]] and [[Things to Optimize]], not currently enabled features.

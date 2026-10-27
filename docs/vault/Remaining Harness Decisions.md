@@ -6,6 +6,8 @@ Related: [[Harness Design]] · [[Run Lifecycle Design]] · [[Container & Setting
 
 ## Reviewed behavior groups
 
+October 27 extension: [[Repository Access & Worktree Plan]] (D-070–D-072) keeps the original one-attachment/no-release policy and adds planned same-section project edit grants plus isolated worktree groups with successful-merge closure. The R-02/R-06 descriptions below record the earlier baseline; worktree support is no longer only deferred optimization. The new note explicitly separates accepted scope from unsettled grant lifetime, cross-project isolation, merge/cleanup and creation-authority details. These features are not yet implemented; do not overwrite ongoing backend work to make the documentation appear current.
+
 - [x] **R-01 — Tool permissions and instruction authority.** D-050/D-051 settle execution defaults, MCP capabilities, instruction precedence and the action/recovery boundary (D-067 defers automatic restoration). D-065 now also permits a user-requested existing skill import under the agent’s tools folder, without automatically executing scripts or enabling capabilities. Tool-package selection is an engineering choice within these controls.
 
 - [x] **R-02 — Concurrent work, queues and limits.** D-052/D-053/D-054 settle one active run per chat, sequential tools, host/model capacity queues with reason/position, shared-file conflict checks, no whole-run budgets and held queued-temporary timers. D-062 revises global repository ownership: serialize within a project, allow duplicate folder links across projects with a warning, and defer stronger cross-project coordination. See [[Concurrency & Limits]].
@@ -32,17 +34,19 @@ Choose database schema, source-reference representation, folder IDs, transaction
 
 Keep passive browsing/selection distinct from explicit chat activity when choosing timer UI defaults; no extra activity log is needed. Exact event classification is not a new broad design review. Unsupported model/tool combinations should report their limitation; do not silently change the fixed session model or pretend unavailable capabilities exist.
 
-Cross-provider session migration, autonomous skill authoring/configuration expansion, subagents, automatic file restoration/undo snapshots (D-067), and the dedicated old-run Undo interface are deferred. Advanced repository maps, cross-project/worktree coordination, semantic retrieval, context packing and provider caching remain in [[Things to Optimize]]. No new memory-method research is required before implementation.
+Cross-provider session migration, autonomous skill authoring/configuration expansion, subagents, automatic file restoration/undo snapshots (D-067), and the dedicated old-run Undo interface are deferred. Advanced repository maps, semantic retrieval, context packing, provider caching and coordination beyond the accepted worktree scope remain in [[Things to Optimize]]. Same-section grants and isolated worktree groups now have their own planned scope in [[Repository Access & Worktree Plan]]. No new memory-method research is required before implementation.
 
 If an engineering choice would materially change sharing, deletion, approvals, Stop/rollback or the fixed-session model rule, bring that behavioral change back for review. Otherwise choose a practical implementation default.
 
 ## Next handoff
+
+Versioned direction (D-073/D-074): finish the existing six-pass/3A plan as v0.1. [[Granite Vision & Roadmap]] assigns worktrees/access, concurrency, platform/terminal support, shared caches, networking, web search and provider tools to v0.2; large-repository/context/tool-discovery/command-tracking optimization and mixed-model subagent orchestration to v0.3. The later releases remain open feature lists without implementation passes. Their assigned scope is no longer an unspecified backlog, and current v0.1 work/results remain intact.
 
 The requested six-pass breakdown and planned tests are recorded in [[Harness Implementation Plan]]. Pass 1’s original criteria were confirmed against recorded results. Pass 2 is implemented with light verification and a broader follow-up checklist in [[Pass 2 Implementation & Testing]]. Pass 3 is implemented with basic verification in [[Pass 3 Implementation & Testing]]. Passes 4–6 remain planned.
 
 1. Consolidate the accepted notes/canvases into a first-version implementation plan, clearly separating the target from prototype behavior.
 2. Define observable acceptance cases for each slice; [[Container & Settings Rules]] already includes examples for the latest decisions.
 3. Implement and verify in small slices: text-only run, read tools, edits/change display, Stop with edits retained/process recovery, scoped context/memory, then container/attachment/settings flows.
-4. Evaluate deferred optimizations after the basic behavior works.
+4. Schedule [[Repository Access & Worktree Plan]] as a separate change set, resolving its listed behavior choices without disturbing concurrent implementation. Continue passes 4–6 and evaluate the remaining deferred optimizations after their basic behavior works.
 
 No further broad harness-behavior discussion is required before preparing this implementation plan. This does not cover a separate full redesign of Granite’s app interface.

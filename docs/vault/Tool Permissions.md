@@ -6,6 +6,8 @@ Related: [[Tooling Strategy]] · [[Harness Design]] · [[Remaining Harness Decis
 
 ## Existing constraints
 
+**Planned amendment, October 27 (D-071/D-072):** [[Repository Access & Worktree Plan]] adds user-granted writes from project chats to another project's repository in the same section. The owner-only constraints below are the earlier baseline, not a prohibition on implementing that explicit exception. Other sections' Shared repositories remain read-only; other Closed sections stay unavailable. File/terminal/Git/MCP paths must validate target, grant and actual workspace. Original no-release attachment rules and separate Git/network/remote authorization stay intact. This is planned policy, not a claim that the current backend already supports it.
+
 Repository-project membership grants ordinary local repository read/write access without per-edit approval. Outside chats retain only their permitted reads; gaining a generic tool approval cannot bypass project membership or section scope. Identity changes retain the exact-action approval flow. Keep and project entry happen between runs. These constraints already apply across file, terminal and MCP paths.
 
 ## Agreed defaults
