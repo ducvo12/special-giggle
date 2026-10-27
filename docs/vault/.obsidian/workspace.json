@@ -222,6 +222,11 @@
   },
   "active": "e922a7c1ec2ef0eb",
   "lastOpenFiles": [
+    "Granite Vision & Roadmap.md",
+    "Repository Access & Worktree Plan.md",
+    "Pass 3A.2 Implementation & Testing.md",
+    "Pass 3A.1 Implementation & Testing.md",
+    "Repository Project Setup Plan.md",
     "Pass 3 Implementation & Testing.md",
     "Pass 2 Focused Verification Results.md",
     "Pass 2 Tests to Run Later.md",
@@ -252,11 +257,6 @@
     "Run Lifecycle - Chat Deletion.canvas",
     "Run Lifecycle - Temporary Expiry.canvas",
     "Things to Optimize.md",
-    "Run Lifecycle Design.md",
-    "Harness Design.md",
-    "Memory & Context Policy.md",
-    "Decisions & Questions.md",
-    "Harness Overview.md",
-    "Run Lifecycle.md"
+    "Run Lifecycle Design.md"
   ]
 }
