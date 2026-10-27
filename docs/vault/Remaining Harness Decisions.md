@@ -1,6 +1,6 @@
 # Remaining Harness Decisions
 
-> Behavior review complete at the initial-version level, October 25, 2026. D-059–D-066 settle the final four main groups and both optional proposals; D-067 subsequently defers automatic file restoration. This is planning, not a claim that the functionality is implemented. Exact engineering choices and stated deferrals remain below.
+> Behavior review complete at the initial-version level, October 25, 2026. D-059–D-066 settle the final four main groups and both optional proposals; D-067 subsequently defers automatic file restoration. On October 26, D-068 adds planned pass 3A for autonomous project setup, with documentation required before implementation. D-069 splits the work into two passes; [[Pass 3A.1 Implementation & Testing]] records the implemented command foundation, and [[Pass 3A.2 Implementation & Testing]] records questions, workflow permissions, managed previews and real-agent acceptance on October 27. Exact engineering choices and stated deferrals remain below.
 
 Related: [[Harness Design]] · [[Run Lifecycle Design]] · [[Container & Settings Rules]] · [[Container & Settings.canvas]] · [[Decisions & Questions]] · [[Things to Optimize]]
 
@@ -42,11 +42,11 @@ If an engineering choice would materially change sharing, deletion, approvals, S
 
 Versioned direction (D-073/D-074): finish the existing six-pass/3A plan as v0.1. [[Granite Vision & Roadmap]] assigns worktrees/access, concurrency, platform/terminal support, shared caches, networking, web search and provider tools to v0.2; large-repository/context/tool-discovery/command-tracking optimization and mixed-model subagent orchestration to v0.3. The later releases remain open feature lists without implementation passes. Their assigned scope is no longer an unspecified backlog, and current v0.1 work/results remain intact.
 
-The requested six-pass breakdown and planned tests are recorded in [[Harness Implementation Plan]]. Pass 1’s original criteria were confirmed against recorded results. Pass 2 is implemented with light verification and a broader follow-up checklist in [[Pass 2 Implementation & Testing]]. Pass 3 is implemented with basic verification in [[Pass 3 Implementation & Testing]]. Passes 4–6 remain planned.
+The original six-pass breakdown and planned tests are recorded in [[Harness Implementation Plan]]. Pass 1’s original criteria were confirmed against recorded results. Pass 2 is implemented with light verification and a broader follow-up checklist in [[Pass 2 Implementation & Testing]]. Pass 3 is implemented with basic verification in [[Pass 3 Implementation & Testing]]. D-068/D-069 insert **Pass 3A — Autonomous Project Setup** before passes 4–6. The first pass is implemented and verified in [[Pass 3A.1 Implementation & Testing]]. The second pass is implemented with results in [[Pass 3A.2 Implementation & Testing]]. Passes 4–6 remain planned. The detailed handoff is [[Repository Project Setup Plan]]: interactive sessions, user questions, safe links, environment/publication, bounded workflow authorization, preview lifetimes and real Vite/Next.js acceptance. Do not leave this scope in the deferred optimization queue or treat baseline pass-3 verification as its completion.
 
-1. Consolidate the accepted notes/canvases into a first-version implementation plan, clearly separating the target from prototype behavior.
-2. Define observable acceptance cases for each slice; [[Container & Settings Rules]] already includes examples for the latest decisions.
-3. Implement and verify in small slices: text-only run, read tools, edits/change display, Stop with edits retained/process recovery, scoped context/memory, then container/attachment/settings flows.
+1. Preserve the implemented pass-1–3 behavior, existing data, uncommitted fixes and recorded verification; do not relabel skipped baseline tests complete.
+2. Preserve both implemented 3A passes and their recorded limits. [[Pass 3A.2 Implementation & Testing]] covers questions/continuation, setup/retry grants, managed previews and real-agent acceptance; keep this evidence separate from the target matrix and future package/model compatibility.
+3. Record real command/model acceptance and remaining external blockers separately from the plan. A scaffold alone does not complete the setup workflow.
 4. Schedule [[Repository Access & Worktree Plan]] as a separate change set, resolving its listed behavior choices without disturbing concurrent implementation. Continue passes 4–6 and evaluate the remaining deferred optimizations after their basic behavior works.
 
 No further broad harness-behavior discussion is required before preparing this implementation plan. This does not cover a separate full redesign of Granite’s app interface.

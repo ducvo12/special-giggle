@@ -32,7 +32,7 @@ export default function ConversationList({ conversations, selectedId, disabled, 
     const run = runs.filter(run => run.conversationId === id && isLiveRun(run)).at(-1)
     if (!run) return null
     const text = run.phase === 'queued' ? `Queued${run.queue?.position ? ` ${run.queue.position}` : ''}`
-      : run.phase === 'approval' ? 'Approval' : run.phase === 'stopping' ? 'Stopping' : 'Working'
+      : run.phase === 'question' ? 'Answer needed' : run.phase === 'approval' ? 'Approval' : run.phase === 'stopping' ? 'Stopping' : 'Working'
     return <span className="chat-run-badge" title={run.queue?.reason ?? text}>{text}</span>
   }
   const destinations = chat ? organization.sections.flatMap(section => [

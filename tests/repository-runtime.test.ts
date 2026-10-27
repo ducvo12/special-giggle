@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer, type ServerResponse } from 'node:http'
-import { mkdtemp, mkdir, readFile, writeFile, rm, link, truncate } from 'node:fs/promises'
+import { mkdtemp, mkdir, readFile, writeFile, rm, link, truncate, lstat } from 'node:fs/promises'
 import { execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -48,6 +48,44 @@ test('a repository run reads then edits without per-edit approval and publishes 
   assert.equal(report.changes[0].added,1);assert.equal(report.changes[0].removed,1)
   assert.match(report.changes[0].diff,/-original\n\+updated/)
   assert.equal(f.runtime.listRuns()[0].repository?.files,1)
+ }finally{await f.close()}
+})
+
+test('the model loop drives an isolated interactive session through input, polling and publication', {skip:process.platform!=='darwin'},async()=>{
+ const f=await fixture((body,res)=>{
+  const last=body.messages.filter((m:any)=>m.role==='tool').at(-1)
+  if(!last){call(res,'repo_command_start',{command:'printf "Name? "; read name; printf "%s" "$name" > created.txt',interactive:true});return}
+  const state=JSON.parse(last.content)
+  if(state.status==='complete'){answer(res,'Setup complete');return}
+  if(state.inputRevision===0&&state.output.includes('Name?'))call(res,'repo_command_input',{session_id:state.id,input_revision:0,data:'supplied-name\r'})
+  else call(res,'repo_command_read',{session_id:state.id,offset:0,wait_ms:100})
+ })
+ try{
+  await f.runtime.saveSettings(f.agent.id,{...defaultHarnessSettings,terminal:true})
+  await f.runtime.run('interactive-setup',f.agent.id,f.chat.id,f.connection,'Run the setup and use supplied-name for the name',()=>{})
+  assert.equal(await readFile(join(f.root,'created.txt'),'utf8'),'supplied-name')
+  assert.equal(f.runtime.listRuns()[0].phase,'complete')
+  const record=f.runtime.repositories.records().find(r=>r.runId==='interactive-setup')!
+  assert.equal(record.report.commands?.[0].status,'complete')
+  assert.equal(record.report.commands?.[0].publication,'applied')
+  assert.equal(record.environment,undefined,'run completion removes its isolated HOME/cache')
+  assert.equal(record.pending,undefined)
+ }finally{await f.close()}
+})
+
+test('a final answer cannot leave an interactive session running or silently publish its unfinished output', {skip:process.platform!=='darwin'},async()=>{
+ const f=await fixture((body,res)=>{
+  if(body.messages.some((m:any)=>m.role==='tool'))answer(res,'Done')
+  else call(res,'repo_command_start',{command:'printf staged > unfinished.txt; printf waiting; read answer',interactive:true})
+ })
+ try{
+  await f.runtime.saveSettings(f.agent.id,{...defaultHarnessSettings,terminal:true})
+  await assert.rejects(f.runtime.run('unfinished-session',f.agent.id,f.chat.id,f.connection,'Run setup',()=>{}),/still running/)
+  await assert.rejects(lstat(join(f.root,'unfinished.txt')),{code:'ENOENT'})
+  const record=f.runtime.repositories.records().find(r=>r.runId==='unfinished-session')!
+  assert.equal(record.report.commands?.[0].status,'stopped')
+  assert.equal(record.report.commands?.[0].publication,'discarded')
+  assert.equal(record.environment,undefined)
  }finally{await f.close()}
 })
 
@@ -141,4 +179,108 @@ test('stale edits receive one corrected attempt without overwriting external cha
  projectId=f.project.id
  try{await f.runtime.run('stale',f.agent.id,f.chat.id,f.connection,'Update',()=>{});assert.equal(await readFile(join(f.root,'app.txt'),'utf8'),'corrected\n')}
  finally{await f.close()}
+})
+
+test('questions wait without holding model capacity, preserve their answer association and reject duplicate answers',async()=>{
+ const f=await fixture((body,res)=>{
+  const user=body.messages.filter((m:any)=>m.role==='user').at(-1).content
+  if(user==='Independent'){answer(res,'Independent finished');return}
+  const tools=body.messages.filter((m:any)=>m.role==='tool')
+  if(!tools.length)call(res,'ask_user',{questions:[{title:'Which styling should this project use?',options:['Plain CSS','Tailwind']}]})
+  else {assert.match(tools.at(-1).content,/Tailwind/);answer(res,'Choice received')}
+ })
+ try{
+  const connection={...f.connection,maxConcurrentRequests:1}
+  const first=f.runtime.run('question',f.agent.id,f.chat.id,connection,'Set up the project',()=>{})
+  await until(()=>f.runtime.listRuns().find(run=>run.id==='question')?.phase==='question')
+  const question=f.runtime.listRuns().find(run=>run.id==='question')!.question!
+  const queuedChat=await f.runtime.createConversation(f.agent.id,{sectionId:f.section.id,projectId:f.project.id})
+  const queued=f.runtime.run('question-project-queue',f.agent.id,queuedChat.id,connection,'Independent',()=>{})
+  await until(()=>f.runtime.listRuns().find(run=>run.id==='question-project-queue')?.queue?.reason==='Queued for repository project')
+  const other=await f.runtime.createConversation(f.agent.id)
+  await f.runtime.run('independent',f.agent.id,other.id,connection,'Independent',()=>{})
+  assert.equal(f.runtime.listRuns().find(run=>run.id==='independent')?.phase,'complete')
+  assert.throws(()=>f.runtime.answerQuestion('other',question.id,['Tailwind']),/no longer pending/)
+  assert.throws(()=>f.runtime.answerQuestion('question',question.id,[]),/no longer pending/)
+  f.runtime.answerQuestion('question',question.id,['Tailwind'])
+  assert.throws(()=>f.runtime.answerQuestion('question',question.id,['Plain CSS']),/no longer pending/)
+  await first;await queued
+  const messages=f.runtime.store.get(f.agent.id,f.chat.id).messages
+  assert.equal(messages.at(-1)?.role,'assistant','the resumed reply follows its user answer in history')
+  assert.equal(messages.at(-1)?.content,'Choice received')
+  assert.equal(messages.find(message=>message.questions)?.questions?.[0].status,'answered')
+  assert.equal(messages.find(message=>message.questionId)?.questionId,question.id)
+  assert.match(messages.find(message=>message.questionId)!.content,/Tailwind/)
+ }finally{await f.close()}
+})
+
+test('new direction withdraws a pending question and Stop invalidates its replacement',async()=>{
+ const f=await fixture((body,res)=>{
+  const user=body.messages.filter((m:any)=>m.role==='user').at(-1).content
+  if(user==='Use defaults'){answer(res,'Using defaults');return}
+  call(res,'ask_user',{questions:[{title:'Choose a language',options:['TypeScript','JavaScript']}]})
+ })
+ try{
+  const first=f.runtime.run('withdraw-question',f.agent.id,f.chat.id,f.connection,'Create project',()=>{})
+  await until(()=>f.runtime.listRuns().find(run=>run.id==='withdraw-question')?.question!==undefined)
+  const old=f.runtime.listRuns().find(run=>run.id==='withdraw-question')!.question!
+  await f.runtime.run('steer-question',f.agent.id,f.chat.id,f.connection,'Use defaults',()=>{})
+  await first
+  assert.throws(()=>f.runtime.answerQuestion('withdraw-question',old.id,['TypeScript']),/no longer pending/)
+  const second=f.runtime.run('stop-question',f.agent.id,f.chat.id,f.connection,'Create project',()=>{})
+  await until(()=>f.runtime.listRuns().find(run=>run.id==='stop-question')?.question!==undefined)
+  const pending=f.runtime.listRuns().find(run=>run.id==='stop-question')!.question!
+  f.runtime.stop('stop-question');await second
+  assert.throws(()=>f.runtime.answerQuestion('stop-question',pending.id,['TypeScript']),/no longer pending/)
+ }finally{await f.close()}
+})
+
+test('agent-chosen previews need no authorization, survive the final reply, release project capacity, become stale after edits and stop with their chat', {skip:process.platform!=='darwin'},async()=>{
+ let projectId=''
+ const command=`node -e 'const fs=require("node:fs");require("node:http").createServer((q,r)=>r.end(fs.readFileSync("app.txt"))).listen(Number(process.env.PORT),process.env.HOST)'`
+ const f=await fixture((body,res)=>{
+  const user=body.messages.filter((m:any)=>m.role==='user').at(-1).content
+  const outputs=body.messages.slice(body.messages.findLastIndex((m:any)=>m.role==='user')+1).filter((m:any)=>m.role==='tool')
+  if(user==='Edit source'){
+   if(!outputs.length)call(res,'repo_read',{project_id:projectId,path:'app.txt'})
+   else if(outputs.length===1)call(res,'repo_edit',{path:'app.txt',revision:JSON.parse(outputs[0].content).revision,old_string:'original',new_string:'updated'})
+   else answer(res,'Updated')
+  }else if(!outputs.length)call(res,'repo_preview_start',{command})
+  else{const state=JSON.parse(outputs.at(-1).content);if(state.status==='ready')answer(res,'Preview ready');else call(res,'repo_preview_read',{preview_id:state.id,wait_ms:100})}
+ })
+ projectId=f.project.id
+ try{
+  await f.runtime.saveSettings(f.agent.id,{...defaultHarnessSettings,terminal:true})
+  let approvals=0
+  // Historical preview approvals/revocations no longer govern this capability.
+  f.runtime.authorization.save({id:'old-preview-grant',runId:'preview',agentId:f.agent.id,conversationId:f.chat.id,projectId:f.project.id,
+   origin:{approvalId:'old-approval'},operation:'preview',state:'revoked',createdAt:Date.now(),reason:'Legacy preview approval'})
+  await f.runtime.run('preview',f.agent.id,f.chat.id,f.connection,'Check the app',delta=>{
+   if(delta.approval){approvals++;f.runtime.approvals.answer('preview',delta.approval.id,false)}
+  })
+  assert.equal(approvals,0)
+  const preview=f.runtime.previews.list(f.agent.id,f.chat.id)[0]
+  assert.equal(preview.status,'ready');assert.equal(f.runtime.listRuns()[0].phase,'complete')
+  assert.equal(await(await fetch(preview.url)).text(),'original\n')
+  const editing=await f.runtime.createConversation(f.agent.id,{sectionId:f.section.id,projectId:f.project.id})
+  await f.runtime.run('edit-preview',f.agent.id,editing.id,f.connection,'Edit source',()=>{})
+  assert.equal(f.runtime.previews.list(f.agent.id,f.chat.id)[0].stale,true)
+  assert.equal(await(await fetch(preview.url)).text(),'original\n')
+  await f.runtime.deleteConversation(f.agent.id,f.chat.id)
+  await assert.rejects(fetch(preview.url))
+ }finally{await f.close()}
+})
+
+test('a final reply cannot abandon an unready preview or claim that spawn means ready', {skip:process.platform!=='darwin'},async()=>{
+ const f=await fixture((body,res)=>{
+  if(body.messages.some((m:any)=>m.role==='tool'))answer(res,'Preview ready')
+  else call(res,'repo_preview_start',{command:'node -e \'require("node:http").createServer((q,r)=>{r.statusCode=503;r.end("not ready")}).listen(Number(process.env.PORT),process.env.HOST)\''})
+ })
+ try{
+  await f.runtime.saveSettings(f.agent.id,{...defaultHarnessSettings,terminal:true})
+  await assert.rejects(f.runtime.run('unready-preview',f.agent.id,f.chat.id,f.connection,'Start a local preview server',()=>{}),/not become ready/)
+  const preview=f.runtime.previews.list(f.agent.id,f.chat.id)[0]
+  assert.equal(preview.status,'stopped')
+  await assert.rejects(fetch(preview.url))
+ }finally{await f.close()}
 })

@@ -8,6 +8,10 @@ Related: [[Harness Design]] · [[Remaining Harness Decisions]] · [[Run Lifecycl
 
 Reuse established repository tools where the work is the same as other coding harnesses. Build Granite-specific behavior around those implementations rather than rewriting ordinary repository operations without a concrete need.
 
+## Project-setup extension — October 26
+
+[[Repository Project Setup Plan]] defines pass 3A (D-068), promoted from [[Things to Optimize]] before pass 4. Reuse a maintained PTY implementation behind Granite's scoped supervisor, add session/input/question tools and UI, support validated package-manager links and consistent setup state, then verify full framework installs/builds and managed local previews. The first of two passes is implemented in [[Pass 3A.1 Implementation & Testing]]: it uses Microsoft’s MIT-licensed `node-pty` 1.1.0 behind Granite’s supervisor and macOS sandbox. Native helpers are prepared during install/build/test and unpacked in the desktop package. The second pass is implemented October 27 in [[Pass 3A.2 Implementation & Testing]]: question UI/continuation, origin-linked bounded grants using `shell-quote` 1.12.0, and independently supervised local previews. No external agent loop was adopted. The October 23 inventory below is historical; pass 3/3A.1 add dedicated repository tools and standing member edits beyond that baseline. Hosted web search and broader Codex embedding remain separate evaluations; neither is required to test supplied scaffold commands.
+
 ## Model access, hosted tools and the Codex harness — October 26 clarification
 
 Granite currently calls the Responses API directly, through either its own ChatGPT-plan sign-in or an API-key connection, and owns its model/tool loop. It does not launch Codex or inherit Codex's local tools, approvals, terminal sessions, compaction or application integrations by choosing an OpenAI model. This is already explicit in `docs/harness.md`; the earlier Codex app-server adapter was removed. D-066 adopts a Codex-style tool-discovery pattern, not the Codex runtime itself.

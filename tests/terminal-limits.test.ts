@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtemp, mkdir, lstat, readFile, realpath, rm, writeFile, open, symlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { setTimeout as pause } from 'node:timers/promises'
 import { terminalTool } from '../src/backend/harness/tools/terminal.ts'
 import { AgentFilesystem } from '../src/backend/workspace/filesystem.ts'
@@ -20,6 +20,41 @@ async function ready(path: string) {
   }
   throw new Error('Command did not start.')
 }
+
+test('command scratch paths resolve aliases without granting access to sibling temporary files', { skip: process.platform !== 'darwin' }, async () => {
+  const parent = await directory(), root = join(parent, 'repository')
+  const storage = join(parent, 'temp-storage'), alias = join(parent, 'temp-alias')
+  const previousTemp = process.env.TMPDIR
+  try {
+    await mkdir(root); await mkdir(storage); await symlink(storage, alias)
+    await writeFile(join(parent, 'secret'), 'outside-secret')
+    process.env.TMPDIR = alias
+    const result = await runRepositoryProcess({ root, privateRoot: join(parent, 'private'), cwd: root,
+      executable: '/bin/sh', args: ['-c', `set -e
+mkdir -p "$HOME/.npm/_cacache"
+printf cache > "$HOME/.npm/_cacache/probe"
+printf temp > "$TMPDIR/probe"
+printf '%s\\n%s\\n' "$HOME" "$TMPDIR"
+if cat '${join(parent, 'secret')}'; then exit 41; fi
+if printf forbidden > '${join(parent, 'outside-write')}'; then exit 42; fi
+if printf forbidden > "$TMPDIR/../outside-scratch"; then exit 43; fi
+cat "$HOME/.npm/_cacache/probe" "$TMPDIR/probe"`],
+      signal: new AbortController().signal, writable: true, onStart: () => {} })
+    assert.equal(result.exitCode, 0, JSON.stringify(result))
+    const [home, temp] = result.output.split('\n')
+    assert.equal(dirname(home), storage)
+    assert.equal(temp, home)
+    assert.ok(result.output.endsWith('cachetemp'))
+    assert.ok(!result.output.includes('outside-secret'))
+    await assert.rejects(lstat(home), { code: 'ENOENT' }, 'command scratch is removed on completion')
+    await assert.rejects(lstat(join(parent, 'outside-write')), { code: 'ENOENT' })
+    await assert.rejects(lstat(join(storage, 'outside-scratch')), { code: 'ENOENT' })
+  } finally {
+    if (previousTemp === undefined) delete process.env.TMPDIR
+    else process.env.TMPDIR = previousTemp
+    await rm(parent, { recursive: true, force: true })
+  }
+})
 
 for (const kind of ['repository', 'workspace'] as const) {
   test(`${kind} commands survive the former deadline and retain sandbox confinement`, { skip: process.platform !== 'darwin', timeout: 20_000 }, async t => {

@@ -16,6 +16,7 @@ export interface RepositoryRecord {
   internalRoot?: string
   baseline: TreeState
   touched: string[]
+  environment?: string
   report: RepositoryReport
   pending?: { kind: 'file' | 'command'; process?: ProcessRecord; external?: boolean; workspace?: string }
 }
@@ -77,6 +78,18 @@ export class RepositoryStore {
           if ((await lstat(workspace)).isSymbolicLink()) throw new Error('Command-copy recovery path became a symbolic link.')
           await rm(workspace, { recursive: true, force: true })
         } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
+      }
+      if (record.environment) {
+        const environment = record.environment
+        if (dirname(environment) !== await realpath(tmpdir()) || !basename(environment).startsWith('granite-repository-environment-') || (await lstat(environment).catch(() => null))?.isSymbolicLink()) throw new Error('Invalid command environment recovery path.')
+        await rm(environment, { recursive: true, force: true })
+        delete record.environment
+      }
+      for (const command of record.report.commands ?? []) {
+        if (['starting', 'running', 'publishing'].includes(command.status)) {
+          command.status = 'stopped'
+          command.publication = command.publication === 'partial' ? 'partial' : 'discarded'
+        }
       }
       if (record.pending?.kind === 'command' && !record.pending.workspace) {
         const current = await scanTree(new RepositoryPaths(record.root, this.privateRoot, record.internalRoot))

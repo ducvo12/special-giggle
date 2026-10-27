@@ -7,8 +7,10 @@ export default function RepositoryChanges({ agentId, conversationId, run }: { ag
   const [error, setError] = useState('')
   const [working, setWorking] = useState(false)
   const [open, setOpen] = useState(false)
+  const [visibleLimit, setVisibleLimit] = useState(200)
   const disclosure = useRef<HTMLDetailsElement>(null)
   const signature = JSON.stringify(run?.repository)
+  useEffect(() => setVisibleLimit(200), [conversationId, run?.id])
   useEffect(() => {
     let current = true
     setError('')
@@ -75,16 +77,23 @@ export default function RepositoryChanges({ agentId, conversationId, run }: { ag
       </summary>
       <p>Changes from this run. Unchanged files are excluded. Edits to these files made outside Granite may also appear. Stop keeps completed changes.</p>
       {report.error && <p role="alert">{report.error}</p>}
+      {(report.commands ?? []).slice(-5).map(command => <details key={command.id} className="repository-file-change" open={['starting','running','publishing'].includes(command.status)}>
+        <summary>Command · {command.status} · {command.publication === 'staged' ? 'changes staged' : command.publication === 'applied' ? 'changes applied' : command.publication === 'partial' ? 'some changes applied' : 'staged changes discarded'}</summary>
+        <code>{command.command}</code>
+        {command.output && <pre aria-label="Command output">{command.output}</pre>}
+        {command.error && <p role="alert">{command.error}</p>}
+      </details>)}
       {report.state === 'attention' && <div className="repository-review-actions">
         <button type="button" disabled={working} onClick={() => void review(report, false)}>Recheck stopped work</button>
         <button type="button" disabled={working} onClick={() => void review(report, true)}>I’ve reviewed the remaining outcome</button>
       </div>}
-      {report.changes.map(change => <details key={change.path} className="repository-file-change">
+      {[...report.changes].sort((a, b) => Number(Boolean(a.generated)) - Number(Boolean(b.generated))).slice(0, visibleLimit).map(change => <details key={change.path} className="repository-file-change">
         <summary>{change.previousPath ? `${change.previousPath} → ` : ''}{change.path} · {change.directory ? 'folder · ' : ''}{change.kind}
           {change.modeChanged ? ' · permissions changed' : ''}
-          {change.binary ? ' · binary' : change.large ? ' · large file' : ` · +${change.added} −${change.removed}`}</summary>
-        {change.diff ? <pre>{change.diff}{change.truncated ? '\n[Diff shortened for display.]' : ''}</pre> : <p>{change.directory ? 'Folder structure or permissions changed.' : change.binary ? 'Binary contents changed.' : change.large ? 'Contents changed; this file is too large for the inline diff.' : change.kind === 'renamed' ? 'Contents unchanged.' : 'No text lines changed.'}</p>}
+          {change.symbolicLink ? ' · symbolic link' : change.generated ? ' · dependency/generated output' : change.binary ? ' · binary' : change.large ? ' · large file' : ` · +${change.added} −${change.removed}`}</summary>
+        {change.diff ? <pre>{change.diff}{change.truncated ? '\n[Diff shortened for display.]' : ''}</pre> : <p>{change.directory ? 'Folder structure or permissions changed.' : change.generated ? 'Dependency/generated output changed; individual text-line counts are omitted.' : change.binary ? 'Binary contents changed.' : change.large ? 'Contents changed; this file is too large for the inline diff.' : change.kind === 'renamed' ? 'Contents unchanged.' : 'No text lines changed.'}</p>}
       </details>)}
+      {report.changes.length > visibleLimit && <button type="button" onClick={() => setVisibleLimit(count => count + 200)}>Show more changes · {report.changes.length - visibleLimit} remaining</button>}
     </details>)}
     </div>
   </details>

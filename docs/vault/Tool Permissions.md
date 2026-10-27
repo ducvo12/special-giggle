@@ -17,6 +17,7 @@ Repository-project membership grants ordinary local repository read/write access
 | List, search and read permitted files | Automatic. |
 | Ordinary local code edits in the chat's own repository project | Automatic under the agreed standing permission; show actual changes. |
 | Local tests, builds, formatters and linters | Automatic when execution is confined to permitted locations and repository mutations are covered by change/outcome tracking. Use isolated temporary/cache locations where needed. Network access is separate. |
+| Start/manage a local repository preview | Automatic at the agent’s discretion when terminal is enabled and the preview stays in its isolated copy on its assigned loopback port. No separate preview request, grant or approval. Honor explicit opt-outs and Stop. Does not grant downloads, Internet access or deployment. |
 | Git inspection: status, diffs and history | Automatic through bounded inspection operations. |
 | Git mutations: staging, commits, branch/worktree changes, restore/reset/clean and history rewriting | Require explicit user authorization for the operation. Destructive operations must identify what work/history would be affected. Ordinary editing permission alone is insufficient. |
 | Public web search and page reading | Automatic when web tools are enabled and relevant to the task. Tool availability does not expose extra local data. |
@@ -40,6 +41,10 @@ The model should use controlled Git operations for inspection or authorized muta
 - A materially changed operation/target requires fresh authorization unless the user's existing request clearly covers it. Approval does not grant unrelated commands or all future network access.
 - Apply the existing exact-action waiting, steering, Stop and deletion invalidation behavior to interactive prompts. Do not repeatedly ask for an action the user already authorized.
 - Denial returns a permission result to the model. It must not retry the action through another tool to evade the decision.
+
+## Planned project-setup extension — D-068
+
+Pass 3A in [[Repository Project Setup Plan]] applies these rules to supervised interactive sessions and complete setup workflows. Clear task/retry intent can supply bounded authorization for necessary dependency downloads; an exact-command match in only the current run is not the intended complete policy. Persist the originating human action and its scope, revalidate targets and respect denial/revocation rather than granting blanket access. Question answers resolve choices and do not create unrelated permissions. Every session/input action remains owner-scoped and permission-checked. Package-manager links may be used/published only after containment validation; this never authorizes host filesystem access. Local preview-server access, remote deployment and public web search remain distinct capabilities. In 3A.1, owner-scoped session controls, live terminal-setting checks and validated installer links are implemented; see [[Pass 3A.1 Implementation & Testing]]. 3A.2 now adds origin-linked setup/dependency grants (separate preview grants were removed by the October 27 user revision), fresh authorization for a clear retry of the immediately preceding eligible task, scoped denials/revocation, question answers and managed local previews. Unsupported/compound network commands still require concrete approval. See [[Pass 3A.2 Implementation & Testing]] for implemented recognition, enforcement and limits.
 
 ## Related agreed skill/MCP rules
 

@@ -6,9 +6,9 @@ import { copyVerifiedFile, inspectFile } from './files.ts'
 
 // Command subprocesses never receive write access to the live repository. Even
 // deliberately detached descendants can only change this disposable copy.
-export async function copyCommandWorkspace(source: string, destination: string, git: boolean) {
+export async function copyCommandWorkspace(source: string, destination: string, git: boolean, signal?: AbortSignal) {
   await cp(source, destination, { recursive: true, dereference: false, verbatimSymlinks: true, preserveTimestamps: true,
-    filter: path => git || !path.slice(source.length).split('/').some(part => part.toLowerCase() === '.git') })
+    filter: path => { signal?.throwIfAborted(); return git || !path.slice(source.length).split('/').some(part => part.toLowerCase() === '.git') } })
 }
 
 export async function gitManifest(root: string, signal?: AbortSignal): Promise<TreeState> {

@@ -10,6 +10,8 @@ import type { Project, Section } from '../../../../shared/organization'
 import type { RunSnapshot } from '../../../../shared/run'
 import RunControls, { runLabel } from './RunControls'
 import RepositoryChanges from './RepositoryChanges'
+import ProjectActivity from './ProjectActivity'
+import QuestionPrompt from './QuestionPrompt'
 import ProjectEntryPrompt from './ProjectEntryPrompt'
 import ApprovalPrompt from '../harness/ApprovalPrompt'
 import type { ApprovalRequest } from '../../../../shared/harness'
@@ -32,6 +34,7 @@ type Props = {
   onRunPending: () => Promise<void>
   onCancelPending: () => Promise<void>
   approval: ApprovalRequest | null
+  onAnswerQuestion: (answers: string[]) => Promise<boolean>
   onApprove: (allow: boolean) => Promise<void>
   requestPending: boolean
   onOpenActiveChat: () => void
@@ -74,6 +77,7 @@ export default function ChatView({
   onCancelPending,
   approval,
   onApprove,
+  onAnswerQuestion,
   requestPending,
   onOpenActiveChat,
   loaded,
@@ -132,6 +136,8 @@ export default function ChatView({
         <ProjectEntryPrompt key={conversationId} run={run} currentProject={project?.id} onMove={onEnterProject} />
         <RunControls run={run} messages={messages} disabled={submitting || !loaded || Boolean(runUnavailable)}
           onContinue={onContinue} onRunPending={onRunPending} onCancelPending={onCancelPending} />
+        {agent && conversationId && project?.repositoryPath && <ProjectActivity key={`${agent.id}:${conversationId}`} agentId={agent.id} chatId={conversationId} busy={busy} />}
+        {run?.question && <QuestionPrompt key={run.question.id} question={run.question} onAnswer={onAnswerQuestion} onStop={onStop} />}
         {approval && <ApprovalPrompt key={approval.id} request={approval} onAnswer={onApprove} onStop={onStop} />}
         {runUnavailable && <p className="organization-notice" role="status">{runUnavailable}</p>}
         {requestPending && !busy && (

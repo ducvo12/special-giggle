@@ -1,6 +1,6 @@
 # Harness Implementation Plan
 
-> Planned October 25, 2026. Pass 1’s original acceptance criteria are supported by the recorded implementation/testing review. Pass 2 is implemented; selected reply, steering, queue and Stop/Continue checks passed in [[Pass 2 Focused Verification Results]]. Broader verification remains pending in [[Pass 2 Tests to Run Later]]. Pass 3 is implemented with basic verification in [[Pass 3 Implementation & Testing]]; passes 4–6 remain planned. Based on the accepted harness decisions through D-067. Automatic restoration of file edits is deferred: Stop, crash recovery and chat deletion keep completed repository edits.
+> Planned October 25, 2026; extended October 26. Pass 1’s original acceptance criteria are supported by the recorded implementation/testing review. Pass 2 is implemented; selected reply, steering, queue and Stop/Continue checks passed in [[Pass 2 Focused Verification Results]]. Broader verification remains pending in [[Pass 2 Tests to Run Later]]. Pass 3 is implemented with basic verification in [[Pass 3 Implementation & Testing]]. Both 3A implementation passes are implemented; evidence and limits are in [[Pass 3A.1 Implementation & Testing]] and [[Pass 3A.2 Implementation & Testing]]. Passes 4–6 remain planned. Based on the accepted harness decisions through D-069. Automatic restoration of file edits is deferred: Stop, crash recovery and chat deletion keep completed repository edits.
 
 Related: [[Harness Design]] · [[Remaining Harness Decisions]] · [[Decisions & Questions]] · [[Run Lifecycle Design]] · [[Container & Settings Rules]] · [[Things to Optimize]]
 
@@ -53,6 +53,23 @@ Deliver all native repository operations: listing/search/range reads; create/edi
 - Change a file between read and edit: reject the stale write, allow the agreed fresh-read correction and preserve another writer's contents. Same-project runs queue; different linked projects are not forced into a global lock.
 - Stop or crash after one completed edit and during a long command: settle owned writers, retain edits, show actual outcomes and the crash popup where applicable. Unknown effects are checked without blind replay.
 
+## Pass 3A — Autonomous Project Setup
+
+**Status:** scope accepted and documented October 26, then split into two implementation passes at the user’s request (D-068/D-069). **3A.1 is implemented:** supervised interactive commands/output, safe installer links, isolated run HOME/cache, guarded publication and Stop/crash cleanup, with actual Vite/Next.js builds. See [[Pass 3A.1 Implementation & Testing]]. **3A.2 is implemented October 27:** question tool/answer UI and continuation, bounded setup/retry grants, managed local previews surviving a final reply, and real-model setup verification. See [[Pass 3A.2 Implementation & Testing]] for actual evidence and external-package limits. Detailed scope/lifetimes and the full acceptance matrix: [[Repository Project Setup Plan]]. Do not treat this as a promise that every future registry release, installer or model succeeds; retain the documented failure and recovery behavior.
+
+**Planned changes**
+
+Support requests such as “Make this repository a Next.js project” and complete supplied scaffold commands. Add supervised interactive terminal sessions, incremental output and session/input/stop controls; a dedicated question tool and answer interface for missing choices; safe publication/use of repository-contained relative package-manager links; a consistent isolated setup environment/cache across related commands; bounded setup/retry authorization; and managed local preview-server status/termination. The agent inspects existing work, resolves necessary choices, scaffolds, installs dependencies, verifies a production build and reports actual results. Preserve repository-copy/macOS isolation, scope, revision guards, user-controlled terminal enablement and Stop/crash retention. No web-search implementation or Codex runtime adoption is required.
+
+**Tests**
+
+- Exercise an interactive fixture with both agent-known answers and user-required choices; resume once, reject stale answers and release model capacity during waits.
+- Give full recorded commands for disposable Vite and Next.js projects; run scaffold → dependency installation → actual successful build. Verify generated executable links in subsequent commands. Offline fixtures supplement, but do not replace, real download/install acceptance.
+- Test nonempty repositories, conflict-safe checkpoints, escaping/protected/cyclic links, disabled networking and cross-chat/session access. Do not turn an actual user repository into a test project.
+- Verify bounded authorization from the task and clear retries avoids duplicate download prompts without enabling unrelated remote actions. Preserve denial/revocation and current permission checks.
+- Stop/crash while waiting for input, installing, publishing and serving. Keep applied edits, discard unfinished staged work, settle owned processes and invalidate old questions; no automatic process restart or tool replay.
+- Verify agent-chosen previews need no separate authorization, with readiness/status/output, explicit termination, later-code refresh and release of model/project capacity when only a managed idle preview remains. Finish a real-model walkthrough, type check, build and relevant automated/desktop checks; record evidence separately from this plan.
+
 ## Pass 4 — Context, Memory and Retrieval
 
 **Planned changes**
@@ -101,4 +118,4 @@ A pass is complete when its planned behavior and relevant interface work are imp
 
 Automatic restoration/undo snapshots, subagents, semantic retrieval, advanced large-repository/context tuning and cross-provider session migration remain deferred. Isolated worktree groups and the coordination needed for their planned behavior are promoted into [[Repository Access & Worktree Plan]] (D-072), with same-section repository grants under D-071. Broader tuning remains in [[Things to Optimize]]; restoration remains in [[Deferred File Restoration]].
 
-October 26 clarification: pass 3 already includes repository terminal commands and explicitly authorized installation/network actions. Interactive terminal control, persistent/background sessions, fuller dependency/framework installation support and richer scoped network controls are future extensions in [[Things to Optimize]]. Granite currently owns the harness and calls model APIs directly; it does not inherit Codex's harness. Hosted web search and optional broader Codex reuse are separate evaluations in [[Tooling Strategy]] and [[Things to Optimize]], not currently enabled features.
+October 26 revision: pass 3 already includes repository terminal commands and explicitly authorized installation/network actions. Interactive control, user questions, safe installer links, complete dependency/framework setup, workflow authorization and managed preview sessions are now scheduled together as pass 3A in [[Repository Project Setup Plan]]. General domain/proxy controls, shared-cache optimization, hosted search and broader Codex reuse remain deferred in [[Things to Optimize]]. Granite owns the harness and calls model APIs directly; it does not inherit Codex's harness.

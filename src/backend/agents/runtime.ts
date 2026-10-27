@@ -6,6 +6,8 @@ import { isLiveRun, locksChat, type RunIntent, type RunPhase, type RunSnapshot }
 import type { AgentMessage } from '../../shared/agent.ts'
 import { ModelScheduler } from '../harness/scheduler.ts'
 import { repositoryAccess, internalRepository } from '../repositories/access.ts'
+import { SetupAuthorization } from '../repositories/authorization.ts'
+import { PreviewManager } from '../repositories/previews.ts'
 import { RepositoryStore } from '../repositories/store.ts'
 import { RepositorySession } from '../repositories/session.ts'
 import { RepositoryPaths, within } from '../repositories/paths.ts'
@@ -17,6 +19,7 @@ import { AgentFilesystem } from '../workspace/filesystem.ts'
 import type { ConversationLocation, SectionMode } from '../../shared/organization.ts'
 import { AgentStore } from './store.ts'
 import { AgentRegistry } from './registry.ts'
+import { QuestionQueue } from '../harness/questions.ts'
 import { ApprovalQueue } from '../harness/approvals.ts'
 import { runHarness } from '../harness/loop.ts'
 import { HarnessError, ModelAccessError, SteeringInterrupt, type NativeItem } from '../harness/types.ts'
@@ -34,6 +37,7 @@ Identity, agent configuration, harness settings, and skills are read-only to too
 For a simple question, answer directly. Use plans and tools only when they help complete the user's request. For file changes, actually call tools and report their outcome.
 Load a relevant skill from the available catalog before applying its instructions. MCP and terminal tools are available only if the user enabled them.
 Granite enforces permissions independently of your instructions. Respect a denied action; do not attempt a different tool to bypass it.
+For project setup, inspect existing files first. Use ask_user for consequential choices you cannot infer; honor supplied commands, prior answers and requested defaults. Answer routine installer prompts yourself when their answer is known. Never ask for credentials in chat. Use interactive sessions for prompting commands and verify successful builds before claiming setup is done.
 Completed actions remain after Stop or a failed run. Inspect current files before continuing interrupted work; never assume unfinished actions succeeded.`
 
 type Job = {
@@ -49,9 +53,12 @@ export class AgentRuntime {
   registry: AgentRegistry
   active: { id: string; controller: AbortController } | null = null
   approvals = new ApprovalQueue()
+  questions = new QuestionQueue()
   private scheduler = new ModelScheduler()
   private projectScheduler = new ModelScheduler()
   repositories: RepositoryStore
+  authorization: SetupAuthorization
+  previews: PreviewManager
   private jobs = new Map<string, Job>()
   private chats = new Map<string, Job>()
 
@@ -91,6 +98,8 @@ export class AgentRuntime {
     this.store = store
     this.registry = registry
     this.repositories = new RepositoryStore(store, directory)
+    this.authorization = new SetupAuthorization(store)
+    this.previews = new PreviewManager(store, directory)
   }
 
   static async open(directory: string) {
@@ -106,6 +115,8 @@ export class AgentRuntime {
         const workspace = await registry.workspace(agent.id)
         ensureOrganizationStorage(workspace.root, runtime.store.organization.snapshot(agent.id))
       }
+      await runtime.previews.recover()
+      for (const grant of runtime.authorization.all()) if (grant.state === 'active') runtime.authorization.end(grant.runId)
       await runtime.repositories.recoverAll()
       return runtime
     } catch (error) {
@@ -115,7 +126,7 @@ export class AgentRuntime {
   }
 
   recovery() {
-    return { ...this.store.runs.recovery(), repositories: this.repositories.records().filter(record => record.report.state === 'attention').length }
+    return { ...this.store.runs.recovery(), previews: this.previews.interruptedCount(), repositories: this.repositories.records().filter(record => record.report.state === 'attention').length }
   }
 
   async createRepository(agentId: string, projectId: string) {
@@ -197,10 +208,13 @@ export class AgentRuntime {
 
     try {
       const workspace = await this.registry.workspace(agentId)
+      await this.previews.stopAgent(agentId)
 
       // Run in the worker, synchronously inside the transaction: a filesystem
       // failure rolls back database deletion, and no other request interleaves.
       this.store.saver.db.transaction(() => {
+        this.previews.remove(agentId)
+        this.authorization.remove(agentId)
         this.repositories.removeRecords(agentId)
         this.store.deleteAgent(agentId)
         rmSync(workspace.root, { recursive: true })
@@ -339,7 +353,10 @@ export class AgentRuntime {
 
     try {
       await this.registry.get(agentId)
+      await this.previews.stopChat(agentId, id)
       this.store.saver.db.transaction(() => {
+        this.previews.remove(agentId, id)
+        this.authorization.remove(agentId, id)
         this.repositories.removeRecords(agentId, id)
         this.store.deleteConversation(agentId, id)
       })()
@@ -351,15 +368,30 @@ export class AgentRuntime {
   stop(id: string) {
     if (this.active?.id === id) this.active.controller.abort()
     const job = this.jobs.get(id)
-    if (!job || job.controller.signal.aborted) return
+    if (!job || job.controller.signal.aborted) { void this.previews.stopRun(id).catch(() => {}); return }
     this.publish(job, 'stopping')
     job.controller.abort()
+  }
+
+  answerQuestion(runId: string, questionId: string, answers: string[]) {
+    const job = this.jobs.get(runId)
+    if (!job || job.controller.signal.aborted || job.run.question?.id !== questionId || !Array.isArray(answers) || answers.length !== job.run.question.questions.length) throw new Error('This question is no longer pending.')
+    this.questions.answer(runId, questionId, answers)
   }
 
   async stopAll() {
     const jobs = [...this.jobs.values()]
     for (const job of jobs) this.stop(job.run.id)
     await Promise.allSettled(jobs.map(job => job.done))
+    await this.previews.stopAll()
+  }
+
+  async restartPreview(agentId: string, chatId: string, id: string) {
+    const chat = this.store.get(agentId, chatId)
+    if ((await this.settings(agentId)).terminal !== true) throw new Error('Enable terminal tools before restarting a preview.')
+    if ([...this.jobs.values()].some(job => this.store.get(job.run.agentId, job.run.conversationId).projectId === chat.projectId)) throw new Error('Finish this project’s active work before refreshing the preview.')
+    if (chat.projectId) this.repositories.assertAvailable(chat.projectId)
+    return this.previews.restart(agentId, chatId, id, new AbortController().signal)
   }
 
   cancelPending(agentId: string, id: string) {
@@ -432,11 +464,14 @@ export class AgentRuntime {
     const current = this.chats.get(conversationId)
     if (current && current.run.phase !== 'stopping') {
       if (intent !== 'message') throw new Error('This chat already has pending or active work.')
-      this.store.runs.append(current.run, text.trim())
+      const message = this.store.runs.append(current.run, text.trim())
+      const projectId = this.store.get(agentId, conversationId).projectId
+      if (projectId) this.authorization.message(current.run.id, agentId, conversationId, projectId, message)
       this.publishMessages(current)
       if (current.run.startedAt !== null) {
         current.generation?.abort(new SteeringInterrupt())
         this.approvals.withdraw(current.run.id)
+        this.questions.withdraw(current.run.id)
       }
       return { stopped: false, steered: true, runId: current.run.id }
     }
@@ -478,19 +513,23 @@ export class AgentRuntime {
       if (!repository) return
       const report = repository.record.report
       run.repository = { projectId: report.projectId, name: report.name, state: report.state, error: report.error,
+        commandVersion: report.commandVersion,
         files: report.changes.length, added: report.changes.reduce((sum, change) => sum + change.added, 0), removed: report.changes.reduce((sum, change) => sum + change.removed, 0) }
       this.publish(job)
     }
     const settleRepository = async () => {
       if (!repository) return
       try {
+        await repository.close()
         await this.repositories.refresh(repository.record)
         if (repository.record.report.state !== 'attention') repository.record.report.state = 'settled'
       } catch (error) {
         repository.record.report.state = 'attention'; repository.record.report.error = error instanceof Error ? error.message : 'Could not verify repository changes.'
       }
       this.repositories.save(repository.record); updateRepository()
+      await this.previews.refreshProject(repository.record.projectId).catch(() => {})
     }
+    const completedQuestionTools = new Set<string>()
     let pausedIntegrations = false
     const integrationNotice = 'Connected integrations are paused while this agent has Closed sections or repositories. Scoped integrations are not available yet.'
     const activity = { reasoningCharacters: 0, answerCharacters: 0 }
@@ -554,6 +593,7 @@ export class AgentRuntime {
           report: { runId: run.id, projectId: project.id, name: project.name, state: 'active' as const, changes: [], preExisting: 0 } }
         this.repositories.save(record)
         repository = new RepositorySession(record, this.repositories, signal, updateRepository)
+        this.authorization.begin(run.id, agentId, conversationId, project.id, this.store.get(agentId, conversationId).messages)
         updateRepository()
       }
       const profile = await this.registry.get(agentId)
@@ -565,9 +605,9 @@ export class AgentRuntime {
           connection, workspace, settings: await settings(), instructions: '', history: [], text: '', state,
           signal,
           repository: {
-            signal, owner: repository,
+            signal, owner: repository, authorization: this.authorization, previews: this.previews,
             access: () => repositoryAccess(this.store, this.directory, agentId, conversationId),
-            userMessages: () => this.store.get(agentId, conversationId).messages.filter(message => message.role === 'user' && message.runId === run.id).map(message => message.content),
+            userMessages: () => this.store.get(agentId, conversationId).messages.filter(message => message.role === 'user' && !message.questionId && message.runId === run.id).map(message => message.content),
             requestEntry: projectId => {
               const target = repositoryAccess(this.store, this.directory, agentId, conversationId).find(target => target.projectId === projectId)
               if (!target) throw new Error('Repository is unavailable.')
@@ -600,6 +640,8 @@ export class AgentRuntime {
             return [instructions, turn?.interrupted ? 'The previous run was interrupted. Completed file changes remain. Inspect current files before continuing unfinished work.' : '',
               '<agent_profile>', JSON.stringify(profile), '</agent_profile>', '<identity>', identity, '</identity>',
               '<user_memory>', memory, '</user_memory>',
+              '<task_permissions>', JSON.stringify(this.authorization.list(agentId, conversationId).filter(grant => grant.runId === run.id && grant.operation !== 'preview')), '</task_permissions>',
+              'For setup, use one supported package-manager command per tool call. Pass network:true for authorized downloads. A setup grant covers related npm/pnpm/yarn/bun install/create or supported npx scaffold commands; compound shell commands and other network actions require their own approval. Build with networking disabled unless a separate needed action is authorized. Check resulting files and build output even if a CLI exits zero. Use ask_user for missing choices, then keep working in the same task. You may start a local preview whenever useful for the task without asking for authorization. Respect an explicit instruction not to preview and user Stop actions. Use repo_preview_start with the supplied HOST/PORT environment and wait for actual ready status. A ready preview can remain after your final reply, but it serves its recorded snapshot; refresh after edits.',
               '<repositories>', JSON.stringify(repositoryAccess(this.store, this.directory, agentId, conversationId).map(({ paths, ...access }) => access)), '</repositories>',
               'Repository tools use relative paths. Read before editing and use the returned revision. Only this chat’s own repository project is writable. If outside a project, ask to move using request_repository_edit, then finish the run. Never use workspace, terminal or MCP paths to bypass membership. Git mutations and network actions require explicit user authorization.'].join('\n')
           },
@@ -644,6 +686,7 @@ export class AgentRuntime {
           },
           onTool: tool => {
             signal.throwIfAborted()
+            if (completedQuestionTools.has(tool.id)) return
             const message = initialize().message
             const index = message.tools!.findIndex(item => item.id === tool.id)
             if (index < 0) message.tools!.push(tool)
@@ -651,12 +694,43 @@ export class AgentRuntime {
             persist()
             job.emit({ requestId: run.id, text: '', tool })
           },
+          askQuestion: async questions => {
+            const message = initialize().message
+            let pending: NonNullable<AgentMessage['questions']>[number] | undefined
+            this.publish(job, 'question')
+            try {
+              const result = await this.questions.ask(run.id, questions, signal, question => {
+                if (question) {
+                  run.question = question
+                  pending = { ...question, status: 'pending' }
+                  ;(message.questions ??= []).push(pending)
+                } else {
+                  delete run.question
+                  if (pending?.status === 'pending') pending.status = signal.aborted ? 'interrupted' : 'withdrawn'
+                }
+                persist(); this.publish(job); this.publishMessages(job)
+              })
+              if (result.answers) {
+                pending!.status = 'answered'; pending!.answers = result.answers
+                for (const tool of message.tools ?? []) if (tool.name === 'ask_user' && tool.status === 'running') {
+                  tool.status = 'complete'; tool.output = JSON.stringify(result).slice(0, 4000); completedQuestionTools.add(tool.id)
+                }
+                message.status = 'complete'; message.interrupted = false; persist()
+                this.store.saveMessage(conversationId, { id: randomUUID(), role: 'user', runId: run.id, questionId: result.id,
+                  delivery: 'processed', content: questions.map((question, index) => `${question.title}\n${result.answers![index]}`).join('\n\n') })
+                turn!.message = { id: randomUUID(), runId: run.id, role: 'assistant', content: '', status: 'running', tools: [],
+                  model: run.model, connectionId: run.connectionId, effort: run.effort }
+                persist(); this.publishMessages(job)
+              }
+              return result
+            } finally { if (!signal.aborted) this.publish(job, 'tools') }
+          },
           approve: async (kind, title, detail) => {
             initialize()
             this.publish(job, 'approval')
             try {
               return await this.approvals.ask({ requestId: run.id, agentId, kind, title, detail }, signal,
-                approval => job.emit({ requestId: run.id, text: '', approval }))
+                approval => { if (approval) this.authorization.noteApproval(run.id, approval.id); job.emit({ requestId: run.id, text: '', approval }) })
             } finally { if (!signal.aborted) this.publish(job, 'tools') }
           }
         })
@@ -675,6 +749,7 @@ export class AgentRuntime {
       this.publishMessages(job)
       return { stopped: false }
     } catch (error) {
+      await this.previews.stopRun(run.id).catch(() => {}) // durable preview record retains cleanup failures for review
       await settleRepository()
       const stopped = signal.aborted
       const safe = error instanceof HarnessError || error instanceof Error && !turn
@@ -693,11 +768,11 @@ export class AgentRuntime {
       if (stopped) return { stopped: true }
       if (error instanceof ModelAccessError) throw error
       throw new Error(safe)
-    } finally { releaseProject?.() }
+    } finally { this.authorization.end(run.id); releaseProject?.() }
   }
 
   close() {
-    if (this.active || this.jobs.size) throw new Error('Stop the agent before closing the runtime.')
+    if (this.active || this.jobs.size || this.previews.hasActive()) throw new Error('Stop the agent before closing the runtime.')
     this.store.close()
   }
 }

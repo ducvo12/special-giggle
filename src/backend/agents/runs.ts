@@ -121,6 +121,7 @@ export class RunStore {
         }
         run.endedAt = Date.now()
         delete run.queue
+        delete run.question
         this.save(run)
       }
       // AgentStore already marks old running replies interrupted, including

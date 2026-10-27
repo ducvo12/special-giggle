@@ -108,6 +108,7 @@ export interface GraniteBridge {
     save: (agentId: string, settings: HarnessSettings) => Promise<Result<HarnessSettings>>
     skills: (agentId: string) => Promise<Result<{ name: string; content: string }[]>>
     saveSkill: (agentId: string, name: string, content: string) => Promise<Result<void>>
+    answer: (requestId: string, questionId: string, answers: string[]) => Promise<Result<void>>
     approve: (requestId: string, approvalId: string, allow: boolean) => Promise<Result<void>>
   }
   conversations: {
@@ -135,6 +136,16 @@ export interface GraniteBridge {
     read: (agentId: string, path: string) => Promise<Result<string>>
     save: (agentId: string, path: string, content: string, expected: string | null) => Promise<Result<string>>
     renameNote: (agentId: string, path: string, name: string) => Promise<Result<string>>
+  }
+  setup: {
+    grants: (agentId: string, chatId: string) => Promise<Result<import('./setup').SetupGrant[]>>
+    revoke: (agentId: string, chatId: string, grantId: string) => Promise<Result<void>>
+  }
+  previews: {
+    list: (agentId: string, chatId: string) => Promise<Result<import('./setup').PreviewSnapshot[]>>
+    stop: (agentId: string, chatId: string, previewId: string) => Promise<Result<import('./setup').PreviewSnapshot>>
+    restart: (agentId: string, chatId: string, previewId: string) => Promise<Result<import('./setup').PreviewSnapshot>>
+    open: (agentId: string, chatId: string, previewId: string) => Promise<Result<void>>
   }
   repositories: {
     editors: () => Promise<Result<RepositoryEditorChoices>>

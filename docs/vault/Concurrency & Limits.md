@@ -87,3 +87,7 @@ A permanent approval wait has no extra default expiration. Temporary retention f
 8. An external host queues the submitted request but provides no internal rank. Show that the host is busy with position unavailable; do not display a fabricated position.
 
 Exact scheduler/storage implementation and resource-key normalization are engineering choices. The behavior above must remain consistent with repository ownership, steering, approval invalidation and recovery. Larger read parallelism and scheduling/performance tuning remain later optimizations.
+
+## Implemented question and preview behavior — October 27
+
+In pass 3A.2, a question wait retains its run/project reservation but releases the model lease. Independent chats can proceed; another same-project run queues until the answer/task settles. A verified ready managed preview may outlive the answer without occupying model or project capacity. It serves a labeled isolated snapshot and is refreshed explicitly at a safe boundary after later edits. Unfinished ordinary sessions and unready previews cannot be silently abandoned by a successful final reply. Preview probes/read waits and bounded output protect resources without a fixed server or command lifetime deadline. Implementation and test evidence: [[Pass 3A.2 Implementation & Testing]].

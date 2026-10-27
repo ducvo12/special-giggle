@@ -15,6 +15,7 @@ export async function createToolRegistry(options: {
   workspace: AgentFilesystem
   settings: HarnessSettings
   signal: AbortSignal
+  askQuestion?: (questions: import('../../../shared/run.ts').UserQuestion['questions']) => Promise<unknown>
   approve: (kind: ApprovalRequest['kind'], title: string, detail: string) => Promise<boolean>
   onTool: (tool: ToolActivity) => void
   getSettings?: () => Promise<HarnessSettings>
@@ -24,8 +25,14 @@ export async function createToolRegistry(options: {
   const { workspace, settings, signal, approve } = options
   const skills = settings.skills ? await listSkills(workspace) : []
   const definitions = fileTools(workspace)
+  if (options.askQuestion) {
+    const schema = z.object({ questions: z.array(z.object({ title: z.string().min(1).max(1000), options: z.array(z.string().min(1).max(200)).min(2).max(6).optional() })).min(1).max(3) })
+    definitions.push({ name: 'ask_user', description: 'Ask the user for missing consequential choices and wait for their answer in this task. Provide concise questions with optional suggested choices; free text is always supported. Reuse known choices and requested defaults. Ask before replacing existing work if authorization is unclear. Never request passwords, tokens or credentials in chat. Stop or new direction withdraws the question; do not feed withdrawn/stale answers to a command.',
+      parameters: z.toJSONSchema(schema, { target: 'draft-7' }), permission: 'read',
+      run: async raw => options.askQuestion!(schema.parse(raw).questions) })
+  }
 
-  if (options.repository) definitions.push(...repositoryTools(options.repository).filter(tool => tool.name !== 'repo_command' || settings.terminal))
+  if (options.repository) definitions.push(...repositoryTools(options.repository).filter(tool => (!tool.name.startsWith('repo_command') && !tool.name.startsWith('repo_preview')) || settings.terminal))
 
   if (settings.terminal && !options.repository?.owner) {
     definitions.push(terminalTool(workspace, signal))
@@ -131,7 +138,11 @@ export async function createToolRegistry(options: {
         if (options.hasSteering?.()) throw new Error('Superseded by a new user message. This action did not run.')
 
         const preview = await tool.approval?.(args)
-        if (preview && !(await approve(preview.kind, preview.title, preview.detail))) throw new Error('Permission denied by the user. This action did not run.')
+        if (preview) {
+          const allowed = await approve(preview.kind, preview.title, preview.detail)
+          if (!options.hasSteering?.()) tool.approved?.(args, allowed)
+          if (!allowed) throw new Error('Permission denied by the user. This action did not run.')
+        }
 
         if (!tool.approval && (
           tool.permission === 'terminal' ||

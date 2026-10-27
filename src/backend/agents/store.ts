@@ -98,6 +98,7 @@ export class AgentStore {
       }
 
       message.status = 'interrupted'
+      for (const question of message.questions ?? []) if (question.status === 'pending') question.status = 'interrupted'
       interruptedReplies++
       message.interrupted = true
       message.tools = message.tools?.map(tool =>

@@ -9,6 +9,8 @@ export interface RepositoryChange {
   path: string
   previousPath?: string
   directory?: boolean
+  symbolicLink?: boolean
+  generated?: boolean
   kind: 'added' | 'modified' | 'deleted' | 'renamed'
   binary: boolean
   large?: boolean
@@ -27,5 +29,20 @@ export interface RepositoryReport {
   changes: RepositoryChange[]
   gitChanged?: boolean
   preExisting: number
+  error?: string
+  commands?: RepositoryCommandSnapshot[]
+  commandVersion?: number
+}
+
+export interface RepositoryCommandSnapshot {
+  id: string
+  command: string
+  cwd: string
+  interactive: boolean
+  status: 'starting' | 'running' | 'publishing' | 'complete' | 'failed' | 'stopped'
+  publication: 'staged' | 'applied' | 'discarded' | 'partial'
+  inputRevision: number
+  output: string
+  exitCode?: number | null
   error?: string
 }

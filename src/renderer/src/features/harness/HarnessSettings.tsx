@@ -172,12 +172,12 @@ export default function HarnessSettings({
               onChange={event => setSettings({ ...settings, terminal: event.target.checked })}
             />
 
-            Enable terminal commands · always ask first
+            Enable terminal commands
           </label>
 
           <small>
             {window.granite.platform === 'darwin'
-              ? 'Commands run in a workspace sandbox until completion or Stop, with network access blocked. Identity, settings, and skills stay protected.'
+              ? 'Commands run in a sandbox until completion or Stop. Workspace commands ask for approval; repository commands use project permissions, with separate authorization for downloads and network access. Identity, settings, and skills stay protected.'
               : 'The terminal sandbox currently supports macOS. File tools, skills, and MCP are available on other platforms.'}
           </small>
 

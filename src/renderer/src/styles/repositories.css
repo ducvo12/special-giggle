@@ -10,6 +10,7 @@
 .repository-changes summary { cursor: pointer; overflow-wrap: anywhere; }
 .repository-changes p { color: var(--text-muted); line-height: 1.5; }
 .repository-file-change { margin: 10px 0; }
+.repository-file-change > code { display: block; white-space: pre-wrap; overflow-wrap: anywhere; padding: 8px 0; font-size: 12px; }
 .repository-file-change pre { white-space: pre; overflow: auto; max-height: 260px; padding: 12px; background: var(--surface); border-radius: 8px; }
 .diff-added { color: #78c99a; } .diff-removed { color: #e99696; }
 .repository-review-actions, .project-entry-prompt { display: flex; gap: 8px; flex-wrap: wrap; }

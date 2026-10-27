@@ -11,3 +11,22 @@
 .approval-panel { margin-bottom: 10px; }
 .approval-panel .approval-dialog { width: 100%; max-height: 32vh; overflow: auto; padding: 16px; }
 .approval-panel .approval-dialog pre { max-height: 13vh; }
+
+.question-panel { border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; max-height: 45vh; overflow-y: auto; }
+.question-panel fieldset { border: 0; margin: 0 0 14px; padding: 0; }
+.question-panel legend { padding: 0; margin-bottom: 10px; font-weight: 500; }
+.question-panel label { display: grid; gap: 6px; font-size: 13px; }
+.question-panel input { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; color: inherit; background: transparent; }
+.question-options, .question-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.question-options button, .question-actions button { border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; }
+.question-options button[aria-pressed=true] { outline: 2px solid currentColor; }
+.question-actions { justify-content: flex-end; margin: 0; }
+
+.project-activity { margin-bottom: 10px; max-height: 30vh; overflow: auto; font-size: 13px; }
+.project-activity details { border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin: 6px 0; }
+.project-activity summary { cursor: pointer; }
+.project-activity p { color: var(--muted); line-height: 1.5; }
+.project-activity pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 140px; overflow: auto; }
+.preview-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.project-activity button { padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; margin-left: 6px; }
+.question-history { color: var(--muted); font-size: 14px; }

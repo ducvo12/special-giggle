@@ -30,7 +30,7 @@ async function fixture() {
   const controller = new AbortController()
   const session = new RepositorySession(record, runtime.repositories, controller.signal, () => {})
   return { runtime, directory, root: canonicalRoot, data: canonicalData, agent, section, project, chat, session, controller,
-    async close() { await runtime.stopAll(); runtime.close(); await rm(directory, { recursive: true, force: true }) } }
+    async close() { await session.close(); await runtime.stopAll(); runtime.close(); await rm(directory, { recursive: true, force: true }) } }
 }
 
 test('repository file tools preserve stale content, binary files, renames and run-local diffs', async () => {

@@ -99,13 +99,16 @@ export default function MessageList({
                     …
                   </span>
                 </span>
-              ) : message.notice ? null : (
+              ) : message.notice || message.questions?.length ? null : (
                 <span className="interrupted">
                   No answer received
                 </span>
               ))}
           </div>
 
+          {message.questions?.map(question => <div className="question-history" key={question.id}>
+            {question.questions.map((item, index) => <p key={index}>{item.title}{question.answers ? ` — ${question.answers[index]}` : ` · ${question.status === 'pending' ? 'Awaiting answer' : question.status}`}</p>)}
+          </div>)}
           {message.role === 'assistant' && <ResponseTimings messageId={message.id} />}
 
           {message.notice && (

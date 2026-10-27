@@ -33,6 +33,21 @@ port.on('message', async ({ data }: { data: Request }) => {
       case 'init':
         value = true
         break
+      case 'setup:grants':
+        value = agent.authorization.list(args[0] as string, args[1] as string)
+        break
+      case 'setup:revoke':
+        value = agent.authorization.revoke(args[0] as string, args[1] as string, args[2] as string)
+        break
+      case 'previews:list':
+        value = agent.previews.list(args[0] as string, args[1] as string)
+        break
+      case 'previews:stop':
+        value = await agent.previews.stop(args[0] as string, args[1] as string, args[2] as string)
+        break
+      case 'previews:restart':
+        value = await agent.restartPreview(args[0] as string, args[1] as string, args[2] as string)
+        break
       case 'repositories:reports':
         value = agent.repositories.reports(args[0] as string, args[1] as string)
         break
@@ -49,6 +64,7 @@ port.on('message', async ({ data }: { data: Request }) => {
         value = agent.recovery()
         break
       case 'runs:dismissRecovery':
+        agent.previews.dismissRecovery()
         value = agent.store.runs.dismissRecovery()
         break
       case 'runs:cancelPending':
@@ -81,6 +97,9 @@ port.on('message', async ({ data }: { data: Request }) => {
         break
       case 'harness:saveSkill':
         value = await agent.saveSkill(args[0] as string, args[1] as string, args[2] as string)
+        break
+      case 'harness:answer':
+        value = agent.answerQuestion(args[0] as string, args[1] as string, args[2] as string[])
         break
       case 'harness:approve':
         agent.approvals.answer(args[0] as string, args[1] as string, args[2] as boolean)

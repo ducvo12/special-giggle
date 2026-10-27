@@ -1,5 +1,10 @@
 export type RunPhase = 'queued' | 'preparing' | 'streaming' | 'tools' | 'approval' |
-  'reconnecting' | 'stopping' | 'complete' | 'stopped' | 'error' | 'interrupted' | 'not_started'
+  'question' | 'reconnecting' | 'stopping' | 'complete' | 'stopped' | 'error' | 'interrupted' | 'not_started'
+
+export interface UserQuestion {
+  id: string
+  questions: { title: string; options?: string[] }[]
+}
 
 export interface RunSnapshot {
   id: string
@@ -15,7 +20,8 @@ export interface RunSnapshot {
   messageIds: string[]
   queue?: { reason: string; position?: number }
   error?: string
-  repository?: { projectId: string; name: string; files: number; added: number; removed: number; state: 'active' | 'settled' | 'attention'; error?: string }
+  repository?: { projectId: string; name: string; files: number; added: number; removed: number; state: 'active' | 'settled' | 'attention'; error?: string; commandVersion?: number }
+  question?: UserQuestion
   projectEntry?: { projectId: string; name: string }
 }
 
@@ -23,6 +29,7 @@ export interface RecoveryNotice {
   active: number
   pending: number
   repositories?: number
+  previews?: number
 }
 
 export type RunIntent = 'message' | 'continue' | 'pending'

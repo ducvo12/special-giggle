@@ -164,7 +164,7 @@ export function useAgentSession() {
       }
       setRuns(saved.value)
     }
-    if (notice.ok && (notice.value.active || notice.value.pending || notice.value.repositories)) setRecovery(notice.value)
+    if (notice.ok && (notice.value.active || notice.value.pending || notice.value.repositories || notice.value.previews)) setRecovery(notice.value)
   }
 
   useEffect(() => {
@@ -422,6 +422,12 @@ export function useAgentSession() {
       const result = await window.granite.runs.dismissRecovery()
       if (result.ok) setRecovery(null)
       else setError(result.error)
+    },
+    async answerQuestion(answers: string[]) {
+      if (!viewRun?.question) return false
+      const result = await window.granite.harness.answer(viewRun.id, viewRun.question.id, answers)
+      if (!result.ok) setError(result.error)
+      return result.ok
     },
     async approve(allow: boolean) {
       if (!approval) return

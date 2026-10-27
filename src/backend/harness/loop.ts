@@ -27,6 +27,7 @@ export async function runHarness(options: {
   onRateLimits?: (windows: RateLimitWindow[]) => void
   onReasoning: (characters: number) => void
   onTool: (tool: ToolActivity) => void
+  askQuestion?: (questions: import('../../shared/run.ts').UserQuestion['questions']) => Promise<unknown>
   approve: (kind: ApprovalRequest['kind'], title: string, detail: string) => Promise<boolean>
   initialize?: () => InitialInput
   acquire?: (signal: AbortSignal) => Promise<() => void>
@@ -160,6 +161,8 @@ export async function runHarness(options: {
       input.push(...response.output)
       if (!response.calls.length) {
         if (options.hasSteering?.()) continue
+        if (options.repository?.owner?.hasActiveCommands()) throw new HarnessError('A repository command is still running. It was stopped when this reply ended; unfinished staged changes were not applied. Continue and inspect its outcome before retrying.')
+        if (options.repository?.owner && options.repository.previews?.unfinished(options.repository.owner.record.runId)) throw new HarnessError('The preview has not become ready. It was stopped; inspect its output before restarting.')
         if (!response.text.trim()) throw new HarnessError('The model returned no answer. Partial output and completed actions are kept. You can Continue.')
         return { state: input, withoutAnswer: false }
       }
@@ -176,6 +179,10 @@ export async function runHarness(options: {
         }
         const result = await registry.execute(call)
         input.push(adapter(signal).toolResult(call, result.output))
+        if (call.name === 'ask_user' && result.success) {
+          const answer = JSON.parse(result.output)
+          if (answer.answers) input.push(adapter(signal).user(`User answer to question ${answer.id}:\n${answer.questions.map((question: { title: string }, index: number) => `${question.title}\n${answer.answers[index]}`).join('\n\n')}`))
+        }
         if (result.stalePath) {
           const failures = (staleEdits.get(result.stalePath) ?? 0) + 1
           staleEdits.set(result.stalePath, failures)

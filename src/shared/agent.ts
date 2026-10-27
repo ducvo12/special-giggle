@@ -14,6 +14,8 @@ export interface ToolActivity {
 
 export interface AgentMessage extends Message {
   runId?: string
+  questionId?: string
+  questions?: { id: string; questions: import('./run').UserQuestion['questions']; status: 'pending' | 'answered' | 'withdrawn' | 'interrupted'; answers?: string[] }[]
   delivery?: 'pending' | 'processed' | 'cancelled'
   contextUsage?: ContextUsage
   responseDurationMs?: number

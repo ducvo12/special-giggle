@@ -219,6 +219,11 @@ export function registerIpc(directory: string) {
 
     return agents.call('harness:save', agentId, settings)
   })
+  ipcMain.handle('harness:answer', (event, runId, questionId, answers) => {
+    trusted(event)
+    if ([runId, questionId].some(value => typeof value !== 'string' || !value || value.length > 100) || !Array.isArray(answers) || answers.length < 1 || answers.length > 3 || answers.some(value => typeof value !== 'string' || !value.trim() || value.length > 4000)) return { ok: false, error: 'Invalid question answer.' }
+    return agents.call('harness:answer', runId, questionId, answers)
+  })
   ipcMain.handle(
     'harness:approve',
     (event, requestId: string, approvalId: string, allow: boolean) => {
@@ -256,6 +261,18 @@ export function registerIpc(directory: string) {
     return agents.call('workspace:save', agentId, path, content, expected)
   })
 
+  ipcMain.handle('previews:open', (event, agentId, chatId, id) => {
+    trusted(event)
+    return safely(async () => {
+      if ([agentId, chatId, id].some(value => typeof value !== 'string' || !value || value.length > 100)) throw new Error('Invalid preview.')
+      const result = await agents.call('previews:list', agentId, chatId)
+      if (!result.ok) throw new Error(result.error)
+      const preview = (result.value as import('../shared/setup').PreviewSnapshot[]).find(preview => preview.id === id && preview.status === 'ready')
+      if (!preview || preview.url !== `http://127.0.0.1:${preview.port}` || !Number.isInteger(preview.port) || preview.port < 1024 || preview.port > 65535) throw new Error('This preview is not ready.')
+      await shell.openExternal(preview.url)
+    })
+  })
+
   ipcMain.handle('repositories:review', (event, agentId, id, runId, acknowledge) => {
     trusted(event)
     if ([agentId,id,runId].some(value => typeof value !== 'string' || !value || value.length > 100) || typeof acknowledge !== 'boolean') return { ok: false, error: 'Invalid repository review.' }
@@ -263,6 +280,11 @@ export function registerIpc(directory: string) {
   })
 
   const routes: Record<string, { action: string; limits: number[] }> = {
+    'setup:grants': { action: 'setup:grants', limits: [64, 100] },
+    'setup:revoke': { action: 'setup:revoke', limits: [64, 100, 100] },
+    'previews:list': { action: 'previews:list', limits: [64, 100] },
+    'previews:stop': { action: 'previews:stop', limits: [64, 100, 100] },
+    'previews:restart': { action: 'previews:restart', limits: [64, 100, 100] },
     'repositories:reports': { action: 'repositories:reports', limits: [64, 100] },
     'organization:createRepository': { action: 'organization:createRepository', limits: [64, 100] },
     'runs:list': { action: 'runs:list', limits: [] },

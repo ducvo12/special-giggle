@@ -37,6 +37,7 @@ contextBridge.exposeInMainWorld('granite', {
     skills: agentId => ipcRenderer.invoke('harness:skills', agentId),
     saveSkill: (agentId, name, content) =>
       ipcRenderer.invoke('harness:saveSkill', agentId, name, content),
+    answer: (requestId, questionId, answers) => ipcRenderer.invoke('harness:answer', requestId, questionId, answers),
     approve: (requestId, approvalId, allow) =>
       ipcRenderer.invoke('harness:approve', requestId, approvalId, allow)
   },
@@ -65,6 +66,16 @@ contextBridge.exposeInMainWorld('granite', {
     read: (agentId, path) => ipcRenderer.invoke('workspace:read', agentId, path),
     save: (agentId, path, content, expected) => ipcRenderer.invoke('workspace:save', agentId, path, content, expected),
     renameNote: (agentId, path, name) => ipcRenderer.invoke('workspace:renameNote', agentId, path, name)
+  },
+  setup: {
+    grants: (agentId, chatId) => ipcRenderer.invoke('setup:grants', agentId, chatId),
+    revoke: (agentId, chatId, grantId) => ipcRenderer.invoke('setup:revoke', agentId, chatId, grantId)
+  },
+  previews: {
+    list: (agentId, chatId) => ipcRenderer.invoke('previews:list', agentId, chatId),
+    stop: (agentId, chatId, id) => ipcRenderer.invoke('previews:stop', agentId, chatId, id),
+    restart: (agentId, chatId, id) => ipcRenderer.invoke('previews:restart', agentId, chatId, id),
+    open: (agentId, chatId, id) => ipcRenderer.invoke('previews:open', agentId, chatId, id)
   },
   repositories: {
     editors: () => ipcRenderer.invoke('repositories:editors'),

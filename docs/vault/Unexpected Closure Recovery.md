@@ -41,3 +41,7 @@ Resume an already-requested deletion only after writers and genuinely uncertain 
 - A second closure during cleanup reconciles the same run/job state without replaying tools or resetting temporary expiry repeatedly.
 
 The earlier guarded restoration design is preserved only as future work in [[Deferred File Restoration]] and [[Deferred File Restoration.canvas]].
+
+## Implemented setup recovery extension — October 27
+
+Pass 3A.2 additionally invalidates pending question IDs/answers, marks unanswered transcript questions interrupted and ends active task grants on startup. Clear retries derive fresh bounded scope from the immediately preceding eligible user task; no grant or action is replayed merely by opening Granite. Managed previews retain durable supervisor, storage and snapshot identity independently of a finished reply. Startup settles verified owned processes, discards their isolated copies and reports an interrupted preview requiring explicit restart. Unidentifiable process/cleanup outcomes remain visible and their recovery data cannot be deleted. The owning user can stop or restart from the preview panel. Actual owner-death, reopen/no-replay and desktop evidence: [[Pass 3A.2 Implementation & Testing]].

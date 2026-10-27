@@ -60,15 +60,17 @@ The starting point remains bounded listing/search/range reads, batching when sup
 - [ ] Optimize the initial complete manifest and temporary command-copy approach (see [[Pass 3 Implementation & Testing]]) for larger repositories: incremental scans, safe dependency/cache reuse, bounded diff storage and streaming change publication. Preserve command isolation, revision checks, visible outcomes and the rule that Stop retains already applied edits.
 - [ ] Broaden Git metadata layouts and command platforms beyond the linked-worktree support required by [[Repository Access & Worktree Plan]], while keeping authorization and process/outcome tracking enforced. Required worktree metadata handling belongs to D-072; broader compatibility is later extension work.
 
-## Interactive terminal control and network access
+## Project setup — promoted into the implementation plan
+
+On October 26, the user moved interactive terminal control, missing-choice questions, safe installer-created links, a consistent isolated setup environment/cache, workflow/download/retry authorization and managed local preview sessions out of this deferred backlog. They are now **Pass 3A — Autonomous Project Setup**, to be implemented together before pass 4. See [[Repository Project Setup Plan]] and [[Harness Implementation Plan]] (D-068). The user chose two passes (D-069). The command foundation is now implemented and verified in [[Pass 3A.1 Implementation & Testing]]; 3A.2 now implements questions, bounded setup/retry grants and managed previews, with real-agent verification in [[Pass 3A.2 Implementation & Testing]]. Fixed command timers and repository size/count ceilings were already removed.
+
+The broader optimizations remaining here are:
 
 **Version: v0.2** for the shared-cache, broader-network and platform/terminal capability items below. Existing pass-3A setup/session/preview behavior is retained in v0.1.
 
-Basic repository commands and bounded authorization for installations/network access are already included in pass 3 and [[Tool Permissions]]. The following extensions were added October 26, 2026; they remain future work. Fixed command timers and repository size/count ceilings have already been removed, not deferred.
-
-- [ ] Add interactive terminal sessions: PTY/stdin support for answering scaffold/installer prompts, streamed output, session status and explicit termination. Evaluate persistent sessions and background development servers without holding the entire model/tool loop open. Preserve the isolated command environment, owned-process cleanup, repository membership and Stop/crash outcome handling; define when files from a still-running session become visible in the live repository.
-- [ ] Complete dependency/framework installation workflows, including safe publication of repository-contained relative symbolic links (such as `node_modules/.bin`), isolated reusable caches and environment persistence. Reject escaping/protected targets and never grant installers access to host secrets. Verify a disposable Vite scaffold → dependency install → build → development-server flow. Existing relative links are preserved in command copies; newly created links currently block publication.
-- [ ] Improve authorized command networking: scoped grants that cover the requested installation/workflow without repeated download prompts, visible/revocable grants, and evaluation of domain/proxy controls, loopback development-server access and credential handling. Keep downloads, remote writes/deployments and local file edits distinct; public web search does not grant a shell network access. Preserve existing authorization rules and isolate all command children.
+- [ ] Evaluate cross-project/shared cache reuse with scope and credential isolation. Within-workflow cache/environment continuity is required by pass 3A and must not wait for this optimization.
+- [ ] Evaluate general domain/proxy network-policy controls beyond the bounded installation and local-preview access needed for pass 3A. Preserve existing authorization; public web search does not grant a shell network access.
+- [ ] Extend command platforms and advanced terminal tooling beyond the initial macOS supervised setup/session workflow, without weakening isolation or lifecycle ownership.
 
 ## Provider tools and Codex reuse
 

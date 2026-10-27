@@ -306,3 +306,9 @@ D-052/D-062 select one active run per chat, whole-run reservations within each r
 11. **Container/settings review complete:** [[Container & Settings Rules]] records D-059–D-066 for deletion, current editable files, relinking/duplicate links, fixed session model, live permission timing, skill imports and optional tool lookup. [[Remaining Harness Decisions]] now tracks specification handoff and explicit deferrals.
 
 Performance and richer context/repository retrieval remain in [[Things to Optimize]] after the basics.
+
+## Implemented project-setup lifetimes — October 27
+
+[[Pass 3A.2 Implementation & Testing]] records the implemented extension: `ask_user` waits in a separate question state, keeps the active task/project reservation and releases model capacity. Answers are tied to that exact pending question; Stop/closure invalidates them and steering withdraws them. A resumed assistant reply follows the persisted user answer. Ordinary terminal sessions settle at run end. Only a verified ready managed preview has an independent chat/project-owned lifetime after the reply; it holds neither a model lease nor the project reservation while idle. Preview Stop/refresh/deletion/closure and bounded setup/retry grant lifetimes are documented with their verification results. This does not mark the remaining memory/temporary/container passes implemented.
+
+October 27 preview-autonomy amendment: the agent may start a useful local preview without separate authorization or approval. Explicit user opt-outs and Stop still apply; terminal enablement, scope/isolation and readiness requirements remain.

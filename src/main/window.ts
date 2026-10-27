@@ -1,5 +1,6 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, dialog, shell } from 'electron'
 import { join } from 'node:path'
+import { externalWebUrl } from './web-links'
 
 export function createWindow(): void {
   const window = new BrowserWindow({
@@ -21,7 +22,17 @@ export function createWindow(): void {
     }
   })
 
-  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    const target = externalWebUrl(url)
+    if (target) void shell.openExternal(target).catch(() => {
+      void dialog.showMessageBox(window, {
+        type: 'error', message: 'Could not open this link in your browser.',
+        detail: target, buttons: ['OK']
+      })
+    })
+    // Web content stays in the user's browser, outside Granite's renderer.
+    return { action: 'deny' }
+  })
   window.webContents.on('will-navigate', event => event.preventDefault())
 
   if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) {
