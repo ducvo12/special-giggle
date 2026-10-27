@@ -1,16 +1,22 @@
 :root {
-  /* Neutral surfaces and typography, inspired by OpenCode’s dark theme. */
-  --overlay: #0a0a0a;
-  --surface-inset: #101010;
-  --surface-sidebar: #141414;
-  --surface: #181818;
-  --surface-raised: #202020;
-  --surface-hover: #292929;
-  --surface-selected: #303030;
-  --border: #383838;
-  --border-strong: #4a4a4a;
-  --focus: #808080;
-  --text-faint: #929292;
+  /* Surface hierarchy:
+     1. Canvas (chat background) - darkest
+     2. Sidebar & Header - structural framing
+     3. Raised / Supporting boxes (composer, panels, cards)
+  */
+  --overlay: #080808;
+  --surface-canvas: #0c0c0c;
+  --surface-inset: #111111;
+  --surface-sidebar: #161616;
+  --surface: #1a1a1a;
+  --surface-raised: #222222;
+  --surface-hover: #282828;
+  --surface-selected: #323232;
+  --border-subtle: #212121;
+  --border: #2d2d2d;
+  --border-strong: #3f3f3f;
+  --focus: #757575;
+  --text-faint: #8e8e8e;
   --text-muted: #a3a3a3;
   --text-secondary: #b8b8b8;
   --text: #d4d4d4;
@@ -19,7 +25,7 @@
 
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: var(--text-strong);
-  background: var(--surface);
+  background: var(--surface-canvas);
   font-synthesis: none;
   -webkit-font-smoothing: antialiased;
   color-scheme: dark;
@@ -98,7 +104,7 @@ main {
 header {
   height: 70px;
   flex-shrink: 0;
-  border-bottom: 1px solid var(--surface-selected);
+  border-bottom: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
   justify-content: space-between;

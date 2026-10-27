@@ -14,7 +14,7 @@
 .repository-file-change pre { white-space: pre; overflow: auto; max-height: 260px; padding: 12px; background: var(--surface); border-radius: 8px; }
 .diff-added { color: #78c99a; } .diff-removed { color: #e99696; }
 .repository-review-actions, .project-entry-prompt { display: flex; gap: 8px; flex-wrap: wrap; }
-.project-entry-prompt { padding: 12px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 12px; font-size: 13px; }
+.project-entry-prompt { padding: 12px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 12px; font-size: 13px; background: var(--surface); }
 .project-entry-prompt p { margin: 0 0 6px; width: 100%; }
 .repository-launcher { min-width: 0; }
 .repository-launcher .repository-tree-link { flex: 1; min-width: 0; }
