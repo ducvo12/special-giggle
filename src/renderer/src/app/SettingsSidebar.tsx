@@ -67,6 +67,29 @@ export default function SettingsSidebar({
       </nav>
 
       <div className="sidebar-footer">
+        <button
+          type="button"
+          className="sidebar-settings quiet-button selected"
+          aria-label="Back to workspace"
+          title="Back to workspace"
+          onClick={onBack}
+        >
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m9.5 3-.6 2.3-1.4.8L5.2 5.5 2.7 9.8l1.7 1.7v1.6l-1.7 1.7 2.5 4.3 2.3-.6 1.4.8.6 2.3h5l.6-2.3 1.4-.8 2.3.6 2.5-4.3-1.7-1.7v-1.6l1.7-1.7-2.5-4.3-2.3.6-1.4-.8L14.5 3Z" />
+            <circle cx="12" cy="12.3" r="3" />
+          </svg>
+        </button>
+
         <ConnectionUsageCircles connections={connections} />
       </div>
     </aside>
