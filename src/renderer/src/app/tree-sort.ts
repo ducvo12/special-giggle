@@ -18,7 +18,9 @@ export function sortTreeEntries<T extends TreeEntry>(entries: T[], chats: Conver
   const activity = (entry: TreeEntry) => {
     if ('lastChattedAt' in entry) return entry.lastChattedAt ?? 0
     const children = chats.filter(chat => 'sectionId' in entry ? chat.projectId === entry.id : chat.sectionId === entry.id)
-    return children.reduce((latest, chat) => Math.max(latest, chat.lastChattedAt ?? 0), 0)
+    // New projects are recent even before their first chat.
+    const createdAt = 'sectionId' in entry ? entry.createdAt : 0
+    return children.reduce((latest, chat) => Math.max(latest, chat.lastChattedAt ?? 0), createdAt)
   }
   return [...entries].sort((a, b) => {
     const value = sort.by === 'name' ? name(a).localeCompare(name(b), undefined, { numeric: true, sensitivity: 'base' })

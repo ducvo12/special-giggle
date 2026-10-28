@@ -27,3 +27,20 @@ test('folder activity includes nested project chats and sorting tolerates invali
   for (const value of [null, 'bad JSON', '{}', 'null', '{"by":"invalid","direction":"asc"}']) assert.deepEqual(readTreeSort(value), { by: 'activity', direction: 'desc' })
   assert.deepEqual(readTreeSort('{"by":"name","direction":"asc"}'), { by: 'name', direction: 'asc' })
 })
+
+test('new projects count as recent activity before their first chat', () => {
+  const older: Project = { id: 'older', agentId: 'agent', sectionId: 's1', name: 'Alpha', repositoryPath: null, createdAt: 100 }
+  const newer: Project = { ...older, id: 'newer', name: 'Zebra', createdAt: 500 }
+  const empty: Project = { ...older, id: 'empty', name: 'Empty', createdAt: 200 }
+  const nested: Conversation = { ...chats[0], id: 'nested', projectId: older.id, lastChattedAt: 400 }
+  const direct: Conversation = { ...chats[0], id: 'direct', lastChattedAt: 450 }
+  const entries = [older, empty, direct, newer]
+  const history = [nested, direct]
+
+  assert.deepEqual(ids(sortTreeEntries(entries, history, { by: 'activity', direction: 'desc' })), ['newer', 'direct', 'older', 'empty'])
+  assert.deepEqual(ids(sortTreeEntries(entries, history, { by: 'activity', direction: 'asc' })), ['empty', 'older', 'direct', 'newer'])
+  assert.deepEqual(ids(sortTreeEntries(entries, [{ ...nested, lastChattedAt: 600 }, direct], { by: 'activity', direction: 'desc' })), ['older', 'newer', 'direct', 'empty'])
+  assert.deepEqual(ids(sortTreeEntries([empty, newer], [], { by: 'activity', direction: 'desc' })), ['newer', 'empty'])
+  assert.deepEqual(ids(sortTreeEntries([older, newer], history, { by: 'name', direction: 'asc' })), ['older', 'newer'])
+  assert.deepEqual(ids(sortTreeEntries([older, newer], history, { by: 'created', direction: 'desc' })), ['newer', 'older'])
+})
