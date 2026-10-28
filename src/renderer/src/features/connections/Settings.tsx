@@ -205,71 +205,117 @@ export default function Settings({
     }
   }
 
+  function handleConnect(type: 'openai' | 'custom') {
+    if (type === 'openai') {
+      setEditing({
+        name: 'OpenAI',
+        baseUrl: '',
+        apiKey: '',
+        model: '',
+        provider: 'chatgpt',
+        protocol: 'responses'
+      })
+    } else {
+      setEditing({
+        name: 'OpenAI-compatible',
+        baseUrl: 'http://127.0.0.1:1234/v1',
+        apiKey: '',
+        model: '',
+        provider: 'openai',
+        protocol: 'chat-completions'
+      })
+    }
+    setModels([])
+    setError('')
+    setNotice('')
+    setDeleting(null)
+  }
+
   return (
     <main className="settings-main">
       <div className="settings-content">
-        <div className="section-heading">
-          <div>
-            <h1 className="settings-category-title">
-              Connections
-            </h1>
-
-            <p>
-              Connect a ChatGPT account, OpenAI, or a local model server.
-            </p>
-          </div>
-
-          {!editing && (
-            <button onClick={() => edit()}>
-              + Add connection
-            </button>
-          )}
-        </div>
-
-        {error && (
-          <div className="error" role="alert">
-            {error}
-          </div>
-        )}
-
-        {notice && (
-          <div className="notice" role="status">
-            {notice}
-          </div>
-        )}
-
         {editing ? (
-          <ConnectionEditor
-            connections={connections}
-            editing={editing}
-            original={original}
-            models={models}
-            busy={busy}
-            nameInput={nameInput}
-            field={field}
-            onSave={save}
-            onCancel={() => {
-              setEditing(null)
-              setError('')
-              setNotice('')
-            }}
-            onLoadModels={loadModels}
-          />
-        ) : (
-          <ConnectionList
-            connections={connections}
-            deleting={deleting}
-            busy={busy}
-            onEdit={edit}
-            onRefresh={refreshModels}
-            onDeleteRequest={setDeleting}
-            onDelete={remove}
-          />
-        )}
+          <>
+            <button
+              type="button"
+              className="settings-back quiet-button"
+              onClick={() => {
+                setEditing(null)
+                setError('')
+                setNotice('')
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M19 12H5m7 7-7-7 7-7" />
+              </svg>
+              <span>Back to providers</span>
+            </button>
 
-        <p className="settings-footnote">
-          Connections are saved on this device. Granite manages agent behavior. Inference runs with the provider you choose.
-        </p>
+            {error && (
+              <div className="error" role="alert">
+                {error}
+              </div>
+            )}
+
+            {notice && (
+              <div className="notice" role="status">
+                {notice}
+              </div>
+            )}
+
+            <ConnectionEditor
+              connections={connections}
+              editing={editing}
+              original={original}
+              models={models}
+              busy={busy}
+              nameInput={nameInput}
+              field={field}
+              onSave={save}
+              onCancel={() => {
+                setEditing(null)
+                setError('')
+                setNotice('')
+              }}
+              onLoadModels={loadModels}
+            />
+          </>
+        ) : (
+          <>
+            <div className="settings-header">
+              <h1 className="settings-category-title">
+                Providers
+              </h1>
+            </div>
+
+            {error && (
+              <div className="error" role="alert">
+                {error}
+              </div>
+            )}
+
+            {notice && (
+              <div className="notice" role="status">
+                {notice}
+              </div>
+            )}
+
+            <ConnectionList
+              connections={connections}
+              deleting={deleting}
+              busy={busy}
+              onEdit={edit}
+              onConnect={handleConnect}
+              onRefresh={refreshModels}
+              onDeleteRequest={setDeleting}
+              onDelete={remove}
+            />
+
+            <p className="settings-footnote">
+              Connections are saved on this device. Granite manages agent behavior. Inference runs with the provider you choose.
+            </p>
+          </>
+        )}
       </div>
     </main>
   )

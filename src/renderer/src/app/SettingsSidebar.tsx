@@ -44,13 +44,13 @@ export default function SettingsSidebar({
       <nav className="settings-nav" aria-label="Settings categories">
         <button
           type="button"
-          className={`settings-nav-item ${activeTab === 'connections' ? 'active' : ''}`}
-          aria-current={activeTab === 'connections' ? 'page' : undefined}
-          onClick={() => onSelectTab?.('connections')}
+          className={`settings-nav-item ${activeTab === 'providers' || activeTab === 'connections' ? 'active' : ''}`}
+          aria-current={activeTab === 'providers' || activeTab === 'connections' ? 'page' : undefined}
+          onClick={() => onSelectTab?.('providers')}
         >
           <svg
-            width="15"
-            height="15"
+            width="16"
+            height="16"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -59,10 +59,11 @@ export default function SettingsSidebar({
             strokeLinejoin="round"
             aria-hidden="true"
           >
-            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+            <rect x="4" y="4" width="16" height="16" rx="2" />
+            <rect x="9" y="9" width="6" height="6" />
+            <path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3" />
           </svg>
-          <span>Connections</span>
+          <span>Providers</span>
         </button>
       </nav>
 
