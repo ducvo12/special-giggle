@@ -2,9 +2,17 @@ import { useRef, useState } from 'react'
 import { isLiveRun, type RunSnapshot } from '../../../../shared/run'
 import PromptChoices from './PromptChoices'
 
-export default function ProjectEntryPrompt({ run, currentProject, onMove }: {
+type Props = {
   run?: RunSnapshot; currentProject?: string | null; onMove: (projectId: string) => Promise<boolean>
-}) {
+}
+
+export default function ProjectEntryPrompt(props: Props) {
+  const entry = props.run?.projectEntry
+  if (!entry || props.currentProject === entry.projectId) return null
+  return <ProjectEntryRequest key={`${props.run!.id}:${entry.projectId}`} {...props} />
+}
+
+function ProjectEntryRequest({ run, currentProject, onMove }: Props) {
   const [confirm, setConfirm] = useState(false)
   const [dismissed, setDismissed] = useState(false)
   const [working, setWorking] = useState(false)

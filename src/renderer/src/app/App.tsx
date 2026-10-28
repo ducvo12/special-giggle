@@ -5,6 +5,7 @@ import FileView from '../features/workspace/FileView'
 import CreateAgent from '../features/agents/CreateAgent'
 import ChatView from '../features/chat/ChatView'
 import Sidebar from './Sidebar'
+import SettingsSidebar from './SettingsSidebar'
 import HarnessSettings from '../features/harness/HarnessSettings'
 import type { Page } from './navigation'
 import { useAgentSession } from './useAgentSession'
@@ -80,16 +81,19 @@ export default function App() {
   } = useAgentSession()
 
   useEffect(() => {
-    const openSettings = (event: KeyboardEvent) => {
+    const handleKeyDown = (event: KeyboardEvent) => {
       if (!identityDirty && !dialog && (event.metaKey || event.ctrlKey) && event.key === ',') {
         event.preventDefault()
-        setPage('settings')
+        setPage(current => current === 'settings' ? 'chat' : 'settings')
+      } else if (page === 'settings' && event.key === 'Escape' && !dialog) {
+        event.preventDefault()
+        setPage('chat')
       }
     }
-    window.addEventListener('keydown', openSettings)
+    window.addEventListener('keydown', handleKeyDown)
 
-    return () => window.removeEventListener('keydown', openSettings)
-  }, [identityDirty, dialog])
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [identityDirty, dialog, page])
 
   useEffect(() => {
     if (follow.current) {
@@ -141,52 +145,59 @@ export default function App() {
 
       <div className="app-body">
         {sidebarVisible && (
-          <Sidebar
-          key={agentId}
-          page={page}
-          agents={agents}
-          agentId={agentId}
-          agent={agent}
-          connections={connections}
-          busy={busy}
-          runs={runs}
-          loaded={loaded && !managingAgents}
-          identityDirty={identityDirty || Boolean(dialog)}
-          selectedFile={selectedFile}
-          fileRevision={fileRevision}
-          onOpenFile={path => { setSelectedFile(path); setPage('file') }}
-          onDialog={setDialog}
-          conversations={conversations}
-          organization={organization}
-          location={location}
-          onSelectLocation={next => { selectLocation(next); setPage('chat') }}
-          onMoveConversation={moveConversation}
-          conversationId={conversationId}
-          onRenameConversation={renameConversation}
-          onDeleteConversation={deleteConversation}
-          onSelectAgent={id => { setPage('chat'); void selectAgent(id) }}
-          onNewChat={openNewChat}
-          onDeleteAgent={async id => {
-            const deleted = await deleteAgent(id)
+          page === 'settings' ? (
+            <SettingsSidebar
+              onBack={() => setPage('chat')}
+              connections={connections}
+            />
+          ) : (
+            <Sidebar
+              key={agentId}
+              page={page}
+              agents={agents}
+              agentId={agentId}
+              agent={agent}
+              connections={connections}
+              busy={busy}
+              runs={runs}
+              loaded={loaded && !managingAgents}
+              identityDirty={identityDirty || Boolean(dialog)}
+              selectedFile={selectedFile}
+              fileRevision={fileRevision}
+              onOpenFile={path => { setSelectedFile(path); setPage('file') }}
+              onDialog={setDialog}
+              conversations={conversations}
+              organization={organization}
+              location={location}
+              onSelectLocation={next => { selectLocation(next); setPage('chat') }}
+              onMoveConversation={moveConversation}
+              conversationId={conversationId}
+              onRenameConversation={renameConversation}
+              onDeleteConversation={deleteConversation}
+              onSelectAgent={id => { setPage('chat'); void selectAgent(id) }}
+              onNewChat={openNewChat}
+              onDeleteAgent={async id => {
+                const deleted = await deleteAgent(id)
 
-            if (!deleted || id === agentId) {
-              setPage('chat')
-            }
+                if (!deleted || id === agentId) {
+                  setPage('chat')
+                }
 
-            return deleted
-          }}
-          onSelectConversation={id => {
-            setPage('chat')
-            setError('')
-            void loadConversation(id)
-          }}
-          onPageChange={next => {
-            if (next === 'settings') {
-              setSettingsVisit(visit => visit + 1)
-            }
-            setPage(next)
-          }}
-          />
+                return deleted
+              }}
+              onSelectConversation={id => {
+                setPage('chat')
+                setError('')
+                void loadConversation(id)
+              }}
+              onPageChange={next => {
+                if (next === 'settings') {
+                  setSettingsVisit(visit => visit + 1)
+                }
+                setPage(next)
+              }}
+            />
+          )
         )}
 
         {page === 'settings' ? (
