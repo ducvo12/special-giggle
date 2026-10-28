@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import TreeActionIcon from './TreeActionIcon'
 
 export type TreeMenuItem = { label: string; action?: () => void; checked?: boolean; disabled?: boolean }
 
@@ -38,7 +39,7 @@ export default function TreeMenu({ label, items, disabled, plus = false }: {
   }, [open])
   return <>
     <button ref={trigger} className="tree-action" aria-label={label} title={label} aria-haspopup="menu" aria-expanded={open}
-      disabled={disabled} onClick={() => setOpen(value => !value)}>{plus ? '+' : '…'}</button>
+      disabled={disabled} onClick={() => setOpen(value => !value)}><TreeActionIcon plus={plus} /></button>
     {open && createPortal(<div ref={popup} className="tree-menu" role="menu" aria-label={label}
       onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setOpen(false) }}
       onKeyDown={event => {

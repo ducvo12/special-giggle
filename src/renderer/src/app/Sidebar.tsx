@@ -9,6 +9,7 @@ import NotesTree from '../features/workspace/NotesTree'
 import type { TreeDialogAction } from '../features/organization/TreeDialog'
 import { defaultTreeSort, readTreeSort, sortTreeEntries, type TreeSort } from './tree-sort'
 import Chevron from '../components/Chevron'
+import TreeActionIcon from '../components/TreeActionIcon'
 import type { RunSnapshot } from '../../../shared/run'
 import RepositoryLink, { useRepositoryEditors } from '../features/organization/RepositoryLink'
 import type { SavedConnection } from '../../../shared/chat'
@@ -110,7 +111,7 @@ export default function Sidebar({ page, agents, agentId, agent, connections, bus
           { label: 'Project settings', disabled: actionsDisabled, action: () => onDialog({ type: 'project-settings', projectId: project.id }) }
         ]} />
         <button className="tree-action" aria-label={`New chat in ${project.name}`} title="New chat" disabled={actionsDisabled}
-          onClick={() => onSelectLocation({ sectionId: project.sectionId, projectId: project.id })}>+</button>
+          onClick={() => onSelectLocation({ sectionId: project.sectionId, projectId: project.id })}><TreeActionIcon plus /></button>
       </div>
       {open && <div className="organization-children">
         {project.repositoryPath && <RepositoryLink agentId={agentId} project={project} disabled={actionsDisabled}
@@ -127,7 +128,7 @@ export default function Sidebar({ page, agents, agentId, agent, connections, bus
     <div className="agent-tree-header">
       <AgentDropdown agents={agents} selectedId={agentId} disabled={actionsDisabled}
         onSelect={onSelectAgent} onDelete={onDeleteAgent} onCreate={() => onPageChange('create-agent')} />
-      <button className="tree-action" aria-label="Create agent" title="New agent" disabled={actionsDisabled} onClick={() => onPageChange('create-agent')}>+</button>
+      <button className="tree-action" aria-label="Create agent" title="New agent" disabled={actionsDisabled} onClick={() => onPageChange('create-agent')}><TreeActionIcon plus /></button>
     </div>
     {agent && <div className="agent-file-tree">
       <div className="agent-files">
@@ -145,7 +146,7 @@ export default function Sidebar({ page, agents, agentId, agent, connections, bus
             <span className="tree-chevron" aria-hidden="true"><Chevron expanded={sectionsOpen} /></span><span>sections/</span>
           </button>
           <TreeMenu label="Sections options" disabled={disabled} items={sortItems('sections', 'sections')} />
-          <button className="tree-action" aria-label="New section" title="New section" disabled={actionsDisabled} onClick={() => onDialog({ type: 'section-create' })}>+</button>
+          <button className="tree-action" aria-label="New section" title="New section" disabled={actionsDisabled} onClick={() => onDialog({ type: 'section-create' })}><TreeActionIcon plus /></button>
         </div>
         {sectionsOpen && <div className="organization-navigation organization-children" aria-label="Sections and projects">
           {sortTreeEntries(organization.sections, conversations, sort('sections')).map(section => {

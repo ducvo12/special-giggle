@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { Conversation } from '../../../shared/agent'
 import { chatMoveProblem, type AgentOrganization, type ConversationLocation } from '../../../shared/organization'
 import { isLiveRun, locksChat, type RunSnapshot } from '../../../shared/run'
+import TreeActionIcon from '../components/TreeActionIcon'
 
 type Props = {
   conversations: Conversation[]
@@ -139,11 +140,7 @@ export default function ConversationList({ conversations, selectedId, disabled, 
             setMenu({ id: chat.id, x: rect.left, y: rect.bottom + 3, mode: 'options' })
           }}
         >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-            <circle cx="3" cy="8" r="1.2" />
-            <circle cx="8" cy="8" r="1.2" />
-            <circle cx="13" cy="8" r="1.2" />
-          </svg>
+          <TreeActionIcon />
         </button>
         </div>
       ))}

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { WorkspaceEntry } from '../../../../shared/agent'
 import TreeMenu from '../../components/TreeMenu'
 import Chevron from '../../components/Chevron'
+import TreeActionIcon from '../../components/TreeActionIcon'
 
 export default function NotesTree({ agentId, path = '/notes/', disabled, actionsDisabled = disabled, selectedFile, revision, onOpen, onCreate, onRename }: {
   agentId: string; path?: string; disabled: boolean; selectedFile: string; revision: number
@@ -31,7 +32,7 @@ export default function NotesTree({ agentId, path = '/notes/', disabled, actions
       <button className="tree-entry" aria-expanded={open} disabled={disabled} onClick={() => setOpen(value => !value)}>
         <span className="tree-chevron" aria-hidden="true"><Chevron expanded={open} /></span><span>{name}/</span>
       </button>
-      {path === '/notes/' && <button className="tree-action" aria-label="New note" title="New note" disabled={actionsDisabled} onClick={onCreate}>+</button>}
+      {path === '/notes/' && <button className="tree-action" aria-label="New note" title="New note" disabled={actionsDisabled} onClick={onCreate}><TreeActionIcon plus /></button>}
     </div>
     {open && <div className="organization-children">
       {loading && <div className="tree-empty">Loading…</div>}
