@@ -1,21 +1,21 @@
 :root {
   /* Surface hierarchy:
-     1. Canvas (chat background) - darkest
-     2. Sidebar & Header - structural framing
+     1. Canvas (chat background) - softened dark charcoal
+     2. Sidebar & Header - structural framing, lighter than canvas
      3. Raised / Supporting boxes (composer, panels, cards)
   */
-  --overlay: #080808;
-  --surface-canvas: #0c0c0c;
-  --surface-inset: #111111;
-  --surface-sidebar: #161616;
-  --surface: #1a1a1a;
-  --surface-raised: #222222;
-  --surface-hover: #282828;
-  --surface-selected: #323232;
-  --border-subtle: #212121;
-  --border: #2d2d2d;
-  --border-strong: #3f3f3f;
-  --focus: #757575;
+  --overlay: #0a0a0a;
+  --surface-canvas: #121212;
+  --surface-inset: #161616;
+  --surface-sidebar: #191919;
+  --surface: #202020;
+  --surface-raised: #262626;
+  --surface-hover: #2c2c2c;
+  --surface-selected: #353535;
+  --border-subtle: #252525;
+  --border: #313131;
+  --border-strong: #444444;
+  --focus: #7a7a7a;
   --text-faint: #8e8e8e;
   --text-muted: #a3a3a3;
   --text-secondary: #b8b8b8;

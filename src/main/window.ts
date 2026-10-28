@@ -13,7 +13,7 @@ export function createWindow(): void {
       titleBarStyle: 'hiddenInset' as const,
       trafficLightPosition: { x: 16, y: 15 }
     }),
-    backgroundColor: '#0c0c0c',
+    backgroundColor: '#121212',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
