@@ -44,6 +44,8 @@ export default function App() {
     messages,
     draft,
     setDraft,
+    attachments,
+    setAttachments,
     busy,
     viewRun,
     runs,
@@ -260,6 +262,8 @@ export default function App() {
             follow={follow}
             error={error}
             draft={draft}
+            attachments={attachments}
+            onAttachmentsChange={setAttachments}
             elapsed={elapsed}
             stopping={stopping}
             runUnavailable={runUnavailable}

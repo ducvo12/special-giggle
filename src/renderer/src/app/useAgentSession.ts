@@ -1,3 +1,4 @@
+import { messageWithAttachments, type ChatAttachment } from '../features/chat/attachments'
 import { ConversationStream } from './conversation-stream'
 import { responseClock } from '../features/chat/response-clock'
 import { beginTiming, recordDelta, finishTiming, bindTiming } from '../features/chat/devTimings'
@@ -37,6 +38,8 @@ export function useAgentSession() {
   const [messages, setMessages] = useState<AgentMessage[]>([])
   const [draft, setDraftState] = useState('')
   const drafts = useRef(new Map<string, string>())
+  const [attachments, setAttachmentsState] = useState<ChatAttachment[]>([])
+  const attachmentDrafts = useRef(new Map<string, ChatAttachment[]>())
   const [error, setError] = useState('')
   const [managingAgents, setManagingAgents] = useState(false)
   const agentOperation = useRef(false)
@@ -75,6 +78,10 @@ export function useAgentSession() {
     drafts.current.set(JSON.stringify(visible.current), value)
     setDraftState(value)
   }
+  function setAttachments(files: ChatAttachment[]) {
+    attachmentDrafts.current.set(JSON.stringify(visible.current), files)
+    setAttachmentsState(files)
+  }
   function updateRun(run: RunSnapshot) {
     runRecords.current.set(run.id, run)
     const detail = runDetails.current.get(run.id)
@@ -98,6 +105,7 @@ export function useAgentSession() {
     visible.current = { owner, id }
     setConversationId(id)
     setDraftState(drafts.current.get(JSON.stringify({ owner, id })) ?? '')
+    setAttachmentsState(attachmentDrafts.current.get(JSON.stringify({ owner, id })) ?? [])
     setError('')
     follow.current = true
     setLoaded(false)
@@ -131,6 +139,7 @@ export function useAgentSession() {
     updateLocation({ sectionId: '', projectId: null })
     setConversationId('')
     setDraftState('')
+    setAttachmentsState([])
     setError('')
     if (!id) {
       localStorage.removeItem('granite.agent')
@@ -238,9 +247,13 @@ export function useAgentSession() {
 
   async function submit(intent: RunIntent = 'message') {
     if (agentOperation.current || !connection || !modelSelection.ready || !agent || runUnavailable || !loaded ||
-      intent === 'message' && !draft.trim()) return
+      intent === 'message' && !draft.trim() && !attachments.length) return
     const owner = agent.id
-    const text = intent === 'message' ? draft.trim() : ''
+    let text = ''
+    try { text = intent === 'message' ? messageWithAttachments(draft, attachments) : '' }
+    catch (error) { setError(error instanceof Error ? error.message : 'Could not prepare attachments.'); return }
+    const originalDraft = draft
+    const originalAttachments = attachments
     const submitKey = JSON.stringify(visible.current)
     if (submissions.current.has(submitKey)) return
     submissions.current.add(submitKey)
@@ -250,7 +263,7 @@ export function useAgentSession() {
     const token = conversationSelection.current
     let id = conversationId
     setError('')
-    if (intent === 'message') setDraft('')
+    if (intent === 'message') { setDraft(''); setAttachments([]) }
     follow.current = true
     try {
       if (!id) {
@@ -290,11 +303,11 @@ export function useAgentSession() {
         return
       }
       const detail = await finishConversation(owner, id, requestId)
-      if (!result.ok && text && isViewing(owner, id) && !detail?.messages.some(message => message.role === 'user' && message.runId === requestId)) setDraft(text)
+      if (!result.ok && text && isViewing(owner, id) && !detail?.messages.some(message => message.role === 'user' && message.runId === requestId)) { setDraft(originalDraft); setAttachments(originalAttachments) }
     } catch (error) {
       if (isViewing(owner, id)) {
         setError(error instanceof Error ? error.message : bridgeError)
-        if (text) setDraft(text)
+        if (text) { setDraft(originalDraft); setAttachments(originalAttachments) }
       }
     } finally {
       submissions.current.delete(submitKey)
@@ -340,7 +353,7 @@ export function useAgentSession() {
       if (conversationId === id) {
         ++conversationSelection.current
         visible.current = { owner: agentId, id: '' }
-        setConversationId(''); setMessages([]); setDraft('')
+        setConversationId(''); setMessages([]); setDraft(''); setAttachments([])
       }
       return true
     } catch (error) { setError(error instanceof Error ? error.message : bridgeError); return false }
@@ -397,7 +410,7 @@ export function useAgentSession() {
     updateLocation(next)
     ++conversationSelection.current
     visible.current = { owner: currentAgent.current, id: '' }
-    setConversationId(''); setMessages([]); setError(''); setDraft('')
+    setConversationId(''); setMessages([]); setError(''); setDraft(''); setAttachments([])
     follow.current = true
   }
   function newChat() {
@@ -409,7 +422,7 @@ export function useAgentSession() {
   return {
     agents, managingAgents, agentId, agent, connections, setConnections, selectedId, setSelectedId, connection,
     modelSelection, conversations, organization, location, runUnavailable, selectLocation, changeOrganization,
-    moveConversation, conversationId, loaded, messages, draft, setDraft, busy, viewBusy, viewRun, runs, submitting,
+    moveConversation, conversationId, loaded, messages, draft, setDraft, attachments, setAttachments, busy, viewBusy, viewRun, runs, submitting,
     activeConversationId, stopping, approval, activity, elapsed, error, setError, end, follow,
     loadConversation, selectAgent, stop, deleteAgent, deleteConversation, renameConversation, newChat,
     send: () => submit(), continueRun: () => submit('continue'), runPending: () => submit('pending'), recovery,

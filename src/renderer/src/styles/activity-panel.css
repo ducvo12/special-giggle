@@ -1,0 +1,45 @@
+.chat-workspace { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
+.chat-workspace-body { display: flex; flex: 1; min-width: 0; min-height: 0; position: relative; }
+.chat-workspace-body > .chat-main { flex: 1; min-width: 0; }
+.activity-toggle { display: flex; align-items: center; gap: 5px; flex-shrink: 0; padding: 5px; border: 0; font-size: 10px; }
+.chat-activity-panel { align-self: flex-start; flex: 0 0 280px; min-width: 0; max-height: calc(100% - 16px); margin: 8px 8px 8px 0; padding: 6px 14px; background: var(--surface-sidebar); border: 1px solid var(--surface-selected); border-radius: 10px; overflow: auto; }
+.activity-panel-body { min-height: 0; }
+.activity-section { padding: 6px 0; }
+.activity-section-heading { display: flex; align-items: center; gap: 10px; min-height: 24px; }
+.activity-section-heading h3 { flex: 1; min-width: 0; margin: 0; font-size: 12px; font-weight: 400; }
+.activity-disclosure { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; padding: 2px 0; border: 0; border-radius: 0; background: transparent; color: var(--text-secondary); font-size: inherit; font-weight: inherit; text-align: left; }
+.activity-disclosure:hover:not(:disabled) { background: transparent; color: var(--text-strong); }
+.activity-disclosure:hover .activity-section-label { text-decoration: underline; text-underline-offset: 3px; }
+.activity-count { color: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.activity-add { border: 0; border-radius: 0; background: transparent; padding: 2px 0; color: var(--text-muted); font-size: 10px; }
+.activity-add:hover:not(:disabled) { background: transparent; text-decoration: underline; text-underline-offset: 3px; }
+.activity-line-totals { display: inline-flex; gap: 8px; font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.activity-section-content:not([hidden]) { padding-top: 3px; }
+.activity-hint { margin: 6px 0; font-size: 10px; line-height: 1.6; color: var(--text-muted); overflow-wrap: anywhere; }
+.activity-error { margin: 6px 0; color: #e99696; font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
+.activity-attention { padding: 6px 0; font-size: 11px; }
+.activity-attention p { margin: 0 0 6px; }
+.activity-attention button { font-size: 10px; padding: 4px 6px; }
+.activity-item { margin: 3px 0; font-size: 11px; min-width: 0; }
+.activity-item > summary { display: flex; align-items: center; gap: 8px; padding: 5px 0; cursor: pointer; color: var(--text-secondary); list-style: none; }
+.activity-item > summary::-webkit-details-marker { display: none; }
+.activity-item > summary:hover { text-decoration: underline; text-underline-offset: 3px; }
+.activity-file-name { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activity-file-counts, .activity-status { flex-shrink: 0; font-size: 10px; }
+.activity-status { color: var(--text-muted); text-transform: capitalize; }
+.activity-status.is-active { color: #78c99a; }
+.activity-command { display: block; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+.activity-item pre { font-size: 10px; line-height: 1.6; white-space: pre; overflow: auto; max-height: 220px; padding: 8px; background: var(--surface-inset); border: 1px solid var(--surface-selected); border-radius: 6px; }
+.activity-item button { font-size: 10px; padding: 4px 6px; }
+.activity-file-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 11px; }
+.activity-file-row small { display: block; margin-top: 3px; color: var(--text-muted); font-size: 10px; }
+.activity-file-row button { border: 0; padding: 2px 4px; font-size: 14px; }
+.chat-activity-panel .preview-actions { gap: 6px; }
+@media (max-width: 1050px) {
+  .chat-workspace .chat-heading-status { display: none; }
+  .chat-workspace .composer-area { padding-left: 20px; padding-right: 20px; }
+  .chat-workspace .composer-actions { flex-wrap: wrap; justify-content: flex-end; }
+}
+@media (max-width: 850px) {
+  .chat-activity-panel { position: absolute; right: 0; top: 0; width: min(280px, 90%); z-index: 30; box-shadow: 0 6px 24px #0003; }
+}
