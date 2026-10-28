@@ -16,6 +16,9 @@ export class OrganizationStore {
 
   constructor(db: SqliteSaver['db']) {
     this.db = db
+    // Use the same Unicode-aware comparison for every database connection.
+    db.function('organization_name_key', { deterministic: true }, (value: unknown) =>
+      typeof value === 'string' ? value.trim().toLowerCase() : null)
     db.transaction(() => {
       db.exec(`
         CREATE TABLE IF NOT EXISTS sections (
@@ -33,6 +36,26 @@ export class OrganizationStore {
         CREATE INDEX IF NOT EXISTS project_section ON projects(agentId, sectionId);
         CREATE INDEX IF NOT EXISTS project_repository ON projects(repositoryPath);
       `)
+      for (const kind of ['section', 'project'] as const) {
+        const table = `${kind}s`
+        const scope = `entry.agentId = NEW.agentId${kind === 'project' ? ' AND entry.sectionId = NEW.sectionId' : ''}`
+        const custom = kind === 'section' ? "NEW.kind = 'custom' AND " : ''
+        const reserved = kind === 'section' ? "organization_name_key(NEW.name) = 'general' OR " : ''
+        const conflict = `${reserved}EXISTS (SELECT 1 FROM ${table} entry WHERE ${scope}
+          AND entry.id != NEW.id AND organization_name_key(entry.name) = organization_name_key(NEW.name))`
+        const message = kind === 'section'
+          ? 'A section with this name already exists for this agent. Choose a different name.'
+          : 'A project with this name already exists in this section. Choose a different name.'
+        // Triggers enforce all writes without renaming or removing legacy duplicates.
+        // Existing duplicate names can retain their spelling or change capitalization.
+        db.exec(`
+          CREATE TRIGGER IF NOT EXISTS ${kind}_name_insert BEFORE INSERT ON ${table}
+            WHEN ${custom}(${conflict}) BEGIN SELECT RAISE(ABORT, '${message}'); END;
+          CREATE TRIGGER IF NOT EXISTS ${kind}_name_update BEFORE UPDATE OF name ON ${table}
+            WHEN ${custom}organization_name_key(NEW.name) IS NOT organization_name_key(OLD.name)
+              AND (${conflict}) BEGIN SELECT RAISE(ABORT, '${message}'); END;
+        `)
+      }
       const columns = db.pragma('table_info(conversations)') as { name: string }[]
       for (const [column, definition] of [
         ['sectionId', 'TEXT'], ['projectId', 'TEXT'],

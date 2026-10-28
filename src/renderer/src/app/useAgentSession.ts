@@ -379,7 +379,7 @@ export function useAgentSession() {
     finally { agentOperation.current = false; setManagingAgents(false) }
   }
 
-  async function changeOrganization(action: () => Promise<Result<unknown>>) {
+  async function changeOrganization(action: () => Promise<Result<unknown>>, errorLocation: 'chat' | 'dialog' = 'chat') {
     if (agentOperation.current || !loaded || !agentId) return false
     const owner = agentId
     agentOperation.current = true
@@ -394,7 +394,10 @@ export function useAgentSession() {
       setOrganization(layout.value)
       await refreshList(owner)
       return true
-    } catch (error) { setError(error instanceof Error ? error.message : bridgeError); return false }
+    } catch (error) {
+      if (errorLocation === 'chat') setError(error instanceof Error ? error.message : bridgeError)
+      return false
+    }
     finally { agentOperation.current = false; setManagingAgents(false) }
   }
   async function moveConversation(id: string, destination: ConversationLocation) {

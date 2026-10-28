@@ -282,7 +282,7 @@ export default function App() {
       </div>
 
       {dialog && agent && <TreeDialog action={dialog} agent={agent} organization={organization}
-        disabled={managingAgents || !loaded} onChange={changeOrganization} onClose={() => setDialog(null)}
+        disabled={managingAgents || !loaded} onChange={operation => changeOrganization(operation, 'dialog')} onClose={() => setDialog(null)}
         onProjectCreated={project => {
           selectLocation({ sectionId: project.sectionId, projectId: project.id })
           setPage('chat')
