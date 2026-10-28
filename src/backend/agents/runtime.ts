@@ -379,6 +379,12 @@ export class AgentRuntime {
     this.questions.answer(runId, questionId, answers)
   }
 
+  rejectQuestion(runId: string, questionId: string) {
+    const job = this.jobs.get(runId)
+    if (!job || job.controller.signal.aborted || job.run.question?.id !== questionId) throw new Error('This question is no longer pending.')
+    this.questions.reject(runId, questionId)
+  }
+
   async stopAll() {
     const jobs = [...this.jobs.values()]
     for (const job of jobs) this.stop(job.run.id)
@@ -710,14 +716,18 @@ export class AgentRuntime {
                 }
                 persist(); this.publish(job); this.publishMessages(job)
               })
-              if (result.answers) {
-                pending!.status = 'answered'; pending!.answers = result.answers
+              if (result.answers || result.rejected) {
+                pending!.status = result.rejected ? 'rejected' : 'answered'
+                if (result.answers) pending!.answers = result.answers
                 for (const tool of message.tools ?? []) if (tool.name === 'ask_user' && tool.status === 'running') {
                   tool.status = 'complete'; tool.output = JSON.stringify(result).slice(0, 4000); completedQuestionTools.add(tool.id)
                 }
+                persist(); this.publishMessages(job)
+              }
+              if (result.answers) {
                 message.status = 'complete'; message.interrupted = false; persist()
                 this.store.saveMessage(conversationId, { id: randomUUID(), role: 'user', runId: run.id, questionId: result.id,
-                  delivery: 'processed', content: questions.map((question, index) => `${question.title}\n${result.answers![index]}`).join('\n\n') })
+                  delivery: 'processed', content: questions.map((question, index) => `${question.title}\n${result.answers![index] || '[No answer provided]'}`).join('\n\n') })
                 turn!.message = { id: randomUUID(), runId: run.id, role: 'assistant', content: '', status: 'running', tools: [],
                   model: run.model, connectionId: run.connectionId, effort: run.effort }
                 persist(); this.publishMessages(job)

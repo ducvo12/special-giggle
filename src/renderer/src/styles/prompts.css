@@ -1,0 +1,33 @@
+.question-panel { max-height: none; overflow: visible; color: var(--text-secondary); }
+.prompt-title { margin: 0 0 12px; font-size: 13px; line-height: 1.6; font-weight: 400; color: var(--text-secondary); }
+.question-progress { margin: 0 0 7px; font-size: 10px; color: var(--text-muted); }
+.prompt-choices { list-style: none; padding: 0; margin: 0; display: grid; gap: 3px; outline: none; }
+.prompt-choices > li { border-radius: 6px; color: var(--text-secondary); }
+.prompt-choices > li.is-highlighted { background: var(--surface-raised); }
+.prompt-choices > li > button:not(.prompt-text-action) { display: flex; align-items: baseline; gap: 8px; width: 100%; padding: 9px 10px; border: 0; border-radius: 6px; background: transparent; color: var(--text-secondary); font-size: 12px; line-height: 1.5; text-align: left; white-space: normal; }
+.prompt-choices > li > button:not(.prompt-text-action):hover:not(:disabled) { background: #242424; color: var(--text-secondary); }
+.prompt-choice-number { flex-shrink: 0; min-width: 16px; font-size: 10px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.prompt-choices .prompt-custom-choice { display: flex; align-items: flex-end; gap: 8px; padding: 9px 10px; }
+.prompt-custom-choice > label { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 6px 8px; flex: 1; min-width: 0; align-items: baseline; }
+.prompt-custom-label { font-size: 12px; }
+.prompt-custom-choice input { grid-column: 2; width: 100%; min-width: 0; padding: 6px 8px; border: 1px solid var(--border); border-radius: 5px; background: transparent; color: var(--text-secondary); font-size: 12px; }
+.prompt-custom-choice input:focus-visible { outline: none; border-color: var(--border-strong); }
+.prompt-choices .prompt-text-action, .question-actions .prompt-text-action { background: transparent; color: var(--text-secondary); padding: 5px 7px; border: 1px solid transparent; border-radius: 5px; font-size: 11px; }
+.prompt-choices .prompt-text-action:hover:not(:disabled), .question-actions .prompt-text-action:hover:not(:disabled) { background: var(--surface-raised); color: var(--text-secondary); }
+.question-actions { align-items: center; gap: 8px; margin: 10px 0 0; }
+.prompt-key-hint { color: var(--text-muted); font-size: 10px; line-height: 1.6; margin: 8px 0 0; }
+.question-actions > .prompt-key-hint { margin: 0 auto 0 0; }
+.prompt-feedback { color: var(--text-muted); font-size: 12px; margin: 0; }
+.prompt-error { color: #d69a9a; font-size: 12px; line-height: 1.5; }
+.approval-panel .approval-dialog { max-height: none; border-color: var(--border); box-shadow: none; color: var(--text-secondary); }
+.approval-panel .approval-dialog .prompt-title { margin: 0 0 10px; font-size: 13px; font-weight: 400; }
+.approval-panel .approval-dialog > .prompt-key-hint { color: var(--text-muted); font-size: 10px; }
+.approval-panel .approval-dialog pre { max-height: 18vh; color: var(--text-muted); }
+.project-entry-prompt button, .run-status-actions button { background: var(--surface-raised); color: var(--text-secondary); border-color: var(--border); }
+.project-entry-prompt button:hover:not(:disabled), .run-status-actions button:hover:not(:disabled) { background: var(--surface-hover); color: var(--text-secondary); }
+.project-entry-prompt > .prompt-choices { width: 100%; }
+.run-status-actions { flex: 1 0 100%; }
+.run-status-actions > .prompt-choices { width: 100%; }
+.prompt-custom-choice.prompt-text-only > label { grid-template-columns: minmax(0, 1fr); }
+.prompt-text-only input { grid-column: 1; }
+.prompt-custom-label small { margin-left: 8px; color: var(--text-muted); font-size: 10px; font-weight: 400; }

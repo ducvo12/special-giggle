@@ -442,6 +442,12 @@ export function useAgentSession() {
       if (!result.ok) setError(result.error)
       return result.ok
     },
+    async rejectQuestion() {
+      if (!viewRun?.question) return false
+      const result = await window.granite.harness.rejectQuestion(viewRun.id, viewRun.question.id)
+      if (!result.ok) setError(result.error)
+      return result.ok
+    },
     async approve(allow: boolean) {
       if (!approval) return
       const result = await window.granite.harness.approve(approval.requestId, approval.id, allow)

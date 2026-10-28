@@ -3,7 +3,11 @@ export type RunPhase = 'queued' | 'preparing' | 'streaming' | 'tools' | 'approva
 
 export interface UserQuestion {
   id: string
-  questions: { title: string; options?: string[] }[]
+  questions: { title: string; options?: string[]; optional?: boolean }[]
+}
+
+export function isQuestionOptional(question: UserQuestion['questions'][number]) {
+  return Boolean(question.options?.length) || question.optional === true
 }
 
 export interface RunSnapshot {

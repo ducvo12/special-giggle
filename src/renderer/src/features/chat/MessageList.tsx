@@ -107,7 +107,7 @@ export default function MessageList({
           </div>
 
           {message.questions?.map(question => <div className="question-history" key={question.id}>
-            {question.questions.map((item, index) => <p key={index}>{item.title}{question.answers ? ` — ${question.answers[index]}` : ` · ${question.status === 'pending' ? 'Awaiting answer' : question.status}`}</p>)}
+            {question.questions.map((item, index) => <p key={index}>{item.title}{question.answers ? ` — ${question.answers[index] || 'No answer provided'}` : ` · ${question.status === 'pending' ? 'Awaiting answer' : question.status}`}</p>)}
           </div>)}
           {message.role === 'assistant' && <ResponseTimings messageId={message.id} />}
 

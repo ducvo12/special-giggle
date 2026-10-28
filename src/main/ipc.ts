@@ -221,8 +221,13 @@ export function registerIpc(directory: string) {
   })
   ipcMain.handle('harness:answer', (event, runId, questionId, answers) => {
     trusted(event)
-    if ([runId, questionId].some(value => typeof value !== 'string' || !value || value.length > 100) || !Array.isArray(answers) || answers.length < 1 || answers.length > 3 || answers.some(value => typeof value !== 'string' || !value.trim() || value.length > 4000)) return { ok: false, error: 'Invalid question answer.' }
+    if ([runId, questionId].some(value => typeof value !== 'string' || !value || value.length > 100) || !Array.isArray(answers) || answers.length < 1 || answers.length > 3 || answers.some(value => typeof value !== 'string' || value.length > 4000)) return { ok: false, error: 'Invalid question answer.' }
     return agents.call('harness:answer', runId, questionId, answers)
+  })
+  ipcMain.handle('harness:rejectQuestion', (event, runId, questionId) => {
+    trusted(event)
+    if ([runId, questionId].some(value => typeof value !== 'string' || !value || value.length > 100)) return { ok: false, error: 'Invalid question rejection.' }
+    return agents.call('harness:rejectQuestion', runId, questionId)
   })
   ipcMain.handle(
     'harness:approve',

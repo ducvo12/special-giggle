@@ -109,6 +109,7 @@ export interface GraniteBridge {
     skills: (agentId: string) => Promise<Result<{ name: string; content: string }[]>>
     saveSkill: (agentId: string, name: string, content: string) => Promise<Result<void>>
     answer: (requestId: string, questionId: string, answers: string[]) => Promise<Result<void>>
+    rejectQuestion: (requestId: string, questionId: string) => Promise<Result<void>>
     approve: (requestId: string, approvalId: string, allow: boolean) => Promise<Result<void>>
   }
   conversations: {

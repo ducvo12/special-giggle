@@ -1,81 +1,32 @@
-import { useEffect, useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import type { ApprovalRequest } from '../../../../shared/harness'
+import PromptChoices from '../chat/PromptChoices'
 
-export default function ApprovalPrompt({
-  request,
-  onAnswer,
-  onStop
-}: {
-  request: ApprovalRequest
-  onAnswer: (allow: boolean) => Promise<void>
-  onStop: () => Promise<void>
+export default function ApprovalPrompt({ request, onAnswer, autoFocus = true }: {
+  request: ApprovalRequest; onAnswer: (allow: boolean) => Promise<void>; autoFocus?: boolean
 }) {
-  const dialog = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+  const detailId = useId()
+  const pending = useRef(false)
   const [working, setWorking] = useState(false)
-
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null
-    dialog.current?.querySelector('button')?.focus()
-
-    return () => previous?.focus()
-  }, [request.id])
-
+  const [error, setError] = useState('')
   async function answer(allow: boolean) {
-    setWorking(true)
-
-    try {
-      await onAnswer(allow)
-    } finally {
-      setWorking(false)
-    }
+    if (pending.current) return
+    pending.current = true; setWorking(true); setError('')
+    try { await onAnswer(allow) }
+    catch { setError('Could not send your decision. Try again.') }
+    finally { pending.current = false; setWorking(false) }
   }
-
-  return (
-      <div className="approval-panel">
-      <div
-        className="approval-dialog"
-        ref={dialog}
-        role="region"
-        aria-labelledby="approval-title"
-        aria-describedby="approval-detail"
-        onKeyDown={event => {
-          if (event.key === 'Escape' && !working) {
-            event.preventDefault()
-            void answer(false)
-          }
-
-        }}
-      >
-        <div className="eyebrow">
-          YOUR APPROVAL
-        </div>
-
-        <h2 id="approval-title">
-          {request.title}
-        </h2>
-
-        <p>
-          This permission applies to this action only. Denying it sends the decision back to your agent.
-        </p>
-
-        <pre id="approval-detail">
-          {request.detail}
-        </pre>
-
-        <div className="approval-actions">
-          <button className="quiet-button" disabled={working} onClick={() => void answer(false)}>
-            Deny
-          </button>
-
-          <button className="quiet-button" disabled={working} onClick={() => void onStop()}>
-            Stop agent
-          </button>
-
-          <button disabled={working} onClick={() => void answer(true)}>
-            Allow once
-          </button>
-        </div>
-      </div>
+  return <div className="approval-panel">
+    <div className="approval-dialog" role="region" aria-labelledby={titleId} aria-describedby={detailId} aria-busy={working}
+      onKeyDown={event => {
+        if (event.key === 'Escape' && !working) { event.preventDefault(); void answer(false) }
+      }}>
+      <h2 id={titleId} className="prompt-title">{request.title}</h2>
+      <pre id={detailId}>{request.detail}</pre>
+      <PromptChoices options={['Allow once', 'Reject']} label={request.title} disabled={working} autoFocus={autoFocus} onChoose={index => void answer(index === 0)} />
+      <p className="prompt-key-hint">{working ? 'Sending…' : '↑ ↓ to choose · Enter to submit'}</p>
+      {error && <p className="prompt-error" role="alert">{error}</p>}
     </div>
-  )
+  </div>
 }

@@ -229,3 +229,59 @@ test('concurrent native edits preserve independent changes to the same memory fi
     assert.equal(await runtime.read(agent.id, '/memory.md'), 'Green tea\nBlack coffee')
   } finally { runtime.close(); await rm(directory, { recursive: true, force: true }) }
 })
+
+test('rejecting an agent question continues the task and records the rejection', async () => {
+  const f = await fixture((body, res) => {
+    if (body.messages.at(-1).role === 'user') call(res, 'ask-rejection', 'ask_user', { questions: [{ title: 'Which framework?', options: ['React', 'Vue'] }] })
+    else answer(res, 'I will continue without choosing a framework.')
+  })
+  try {
+    const chat = await f.runtime.createConversation(f.agent.id)
+    let questionId = ''
+    const running = f.runtime.run('reject-question', f.agent.id, chat.id, f.connection, 'Help me plan', delta => {
+      if (delta.run?.question) questionId = delta.run.question.id
+    })
+    await until(() => Boolean(questionId))
+    assert.throws(() => f.runtime.rejectQuestion('wrong-run', questionId), /no longer pending/)
+    f.runtime.rejectQuestion('reject-question', questionId)
+    const result = await running
+    assert.equal(result.stopped, false)
+    assert.equal(f.runtime.listRuns().find(run => run.id === 'reject-question')!.phase, 'complete')
+    const messages = f.runtime.store.get(f.agent.id, chat.id).messages
+    assert.equal(messages.flatMap(message => message.questions ?? [])[0].status, 'rejected')
+    assert.equal(messages.flatMap(message => message.tools ?? []).find(tool => tool.name === 'ask_user')!.status, 'complete')
+    assert.match(messages.at(-1)!.content, /continue without choosing/)
+    const tool = f.requests.at(-1).messages.findLast((message: any) => message.role === 'tool')
+    assert.equal(JSON.parse(tool.content).rejected, true)
+  } finally { await f.close() }
+})
+
+test('optional blank answers reach the agent while required text remains enforced', async () => {
+  const f = await fixture((body, res) => {
+    if (!body.messages.some((message: any) => message.role === 'tool')) call(res, 'ask-optional', 'ask_user', { questions: [
+      { title: 'Project name?' },
+      { title: 'Anything else?', optional: true },
+      { title: 'Framework?', options: ['React', 'Vue'], optional: false }
+    ] })
+    else answer(res, 'I will continue with the project name and no additional preferences.')
+  })
+  try {
+    const chat = await f.runtime.createConversation(f.agent.id)
+    let questionId = ''
+    const running = f.runtime.run('optional-question', f.agent.id, chat.id, f.connection, 'Help me plan', delta => {
+      if (delta.run?.question) questionId = delta.run.question.id
+    })
+    await until(() => Boolean(questionId))
+    assert.throws(() => f.runtime.answerQuestion('optional-question', questionId, ['', '', '']), /invalid/)
+    f.runtime.answerQuestion('optional-question', questionId, ['Website', '', ''])
+    assert.equal((await running).stopped, false)
+    const messages = f.runtime.store.get(f.agent.id, chat.id).messages
+    assert.deepEqual(messages.flatMap(message => message.questions ?? [])[0].answers, ['Website', '', ''])
+    const saved = messages.find(message => message.questionId === questionId)!
+    assert.match(saved.content, /Anything else\?\n\[No answer provided\]/)
+    assert.match(saved.content, /Framework\?\n\[No answer provided\]/)
+    assert.equal(f.runtime.listRuns().find(run => run.id === 'optional-question')!.phase, 'complete')
+    const tool = f.requests.at(-1).messages.find((message: any) => message.role === 'tool')
+    assert.deepEqual(JSON.parse(tool.content).answers, ['Website', '', ''])
+  } finally { await f.close() }
+})

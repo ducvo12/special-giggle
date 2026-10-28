@@ -35,6 +35,7 @@ type Props = {
   onCancelPending: () => Promise<void>
   approval: ApprovalRequest | null
   onAnswerQuestion: (answers: string[]) => Promise<boolean>
+  onRejectQuestion: () => Promise<boolean>
   onApprove: (allow: boolean) => Promise<void>
   requestPending: boolean
   onOpenActiveChat: () => void
@@ -80,6 +81,7 @@ export default function ChatView({
   approval,
   onApprove,
   onAnswerQuestion,
+  onRejectQuestion,
   requestPending,
   onOpenActiveChat,
   loaded,
@@ -148,8 +150,8 @@ export default function ChatView({
             <ProjectEntryPrompt key={conversationId} run={run} currentProject={project?.id} onMove={onEnterProject} />
             <RunControls run={run} messages={messages} disabled={submitting || !loaded || Boolean(runUnavailable)}
               onContinue={onContinue} onRunPending={onRunPending} onCancelPending={onCancelPending} />
-            {run?.question && <QuestionPrompt key={run.question.id} question={run.question} onAnswer={onAnswerQuestion} onStop={onStop} />}
-            {approval && <ApprovalPrompt key={approval.id} request={approval} onAnswer={onApprove} onStop={onStop} />}
+            {run?.question && <QuestionPrompt key={run.question.id} question={run.question} onAnswer={onAnswerQuestion} onReject={onRejectQuestion} />}
+            {approval && <ApprovalPrompt key={approval.id} request={approval} onAnswer={onApprove} />}
             {runUnavailable && <p className="organization-notice" role="status">{runUnavailable}</p>}
             {requestPending && !busy && (
               <div className="background-response" role="status">

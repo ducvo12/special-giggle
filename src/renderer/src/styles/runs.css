@@ -1,4 +1,6 @@
 .run-status-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 10px; color: var(--text-secondary); font-size: 12px; }
+.run-status-prompt { border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+.run-status-prompt > span { line-height: 1.6; }
 .run-status-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .run-status-actions button { font-size: 12px; }
 .message-delivery { display: block; color: var(--text-muted); font-size: 11px; margin: 3px 0 8px; }

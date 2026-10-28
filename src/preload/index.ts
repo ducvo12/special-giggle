@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld('granite', {
     saveSkill: (agentId, name, content) =>
       ipcRenderer.invoke('harness:saveSkill', agentId, name, content),
     answer: (requestId, questionId, answers) => ipcRenderer.invoke('harness:answer', requestId, questionId, answers),
+    rejectQuestion: (requestId, questionId) => ipcRenderer.invoke('harness:rejectQuestion', requestId, questionId),
     approve: (requestId, approvalId, allow) =>
       ipcRenderer.invoke('harness:approve', requestId, approvalId, allow)
   },

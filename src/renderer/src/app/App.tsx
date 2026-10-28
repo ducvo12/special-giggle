@@ -60,6 +60,7 @@ export default function App() {
     stopping,
     approval,
     answerQuestion,
+    rejectQuestion,
     approve,
     activity,
     elapsed,
@@ -249,6 +250,7 @@ export default function App() {
             approval={approval}
             onApprove={approve}
             onAnswerQuestion={answerQuestion}
+            onRejectQuestion={rejectQuestion}
             requestPending={false}
             onOpenActiveChat={() => {
               setPage('chat')

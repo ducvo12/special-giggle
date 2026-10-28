@@ -181,7 +181,7 @@ export async function runHarness(options: {
         input.push(adapter(signal).toolResult(call, result.output))
         if (call.name === 'ask_user' && result.success) {
           const answer = JSON.parse(result.output)
-          if (answer.answers) input.push(adapter(signal).user(`User answer to question ${answer.id}:\n${answer.questions.map((question: { title: string }, index: number) => `${question.title}\n${answer.answers[index]}`).join('\n\n')}`))
+          if (answer.answers) input.push(adapter(signal).user(`User answer to question ${answer.id}:\n${answer.questions.map((question: { title: string }, index: number) => `${question.title}\n${answer.answers[index] || '[No answer provided]'}`).join('\n\n')}`))
         }
         if (result.stalePath) {
           const failures = (staleEdits.get(result.stalePath) ?? 0) + 1

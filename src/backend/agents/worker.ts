@@ -101,6 +101,9 @@ port.on('message', async ({ data }: { data: Request }) => {
       case 'harness:answer':
         value = agent.answerQuestion(args[0] as string, args[1] as string, args[2] as string[])
         break
+      case 'harness:rejectQuestion':
+        value = agent.rejectQuestion(args[0] as string, args[1] as string)
+        break
       case 'harness:approve':
         agent.approvals.answer(args[0] as string, args[1] as string, args[2] as boolean)
         break
