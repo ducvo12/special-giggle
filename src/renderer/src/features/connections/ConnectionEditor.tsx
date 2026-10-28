@@ -36,6 +36,7 @@ export default function ConnectionEditor({
       <ChatGPTConnectionEditor
         connections={connections}
         editing={editing}
+        original={original}
         busy={busy}
         models={models}
         onLoadModels={onLoadModels}
@@ -55,50 +56,11 @@ export default function ConnectionEditor({
         </h2>
 
         <span className="badge">
-          <label>
-          Concurrent model requests
-          <input type="number" min={1} max={32} value={editing.maxConcurrentRequests ?? ''}
-            placeholder="Automatic: local 1, remote 2"
-            onChange={event => field('maxConcurrentRequests', event.target.value ? Number(event.target.value) : undefined)} />
-          <small>Lower this if your model host handles only one request at a time. Other chats wait in line.</small>
-        </label>
-
-        {editing.protocol === 'responses' ? 'RESPONSES API' : 'OPENAI COMPATIBLE'}
+          OPENAI COMPATIBLE
         </span>
       </div>
 
       <fieldset disabled={busy}>
-        <label>
-          Connection type
-
-          <Select value="openai" onChange={e => field('provider', e.target.value)}>
-            <SelectOption value="openai">
-              OpenAI-compatible API
-            </SelectOption>
-
-            <SelectOption value="chatgpt">
-              ChatGPT account
-            </SelectOption>
-          </Select>
-        </label>
-
-        <label>
-          API protocol
-
-          <Select
-            value={editing.protocol ?? 'chat-completions'}
-            onChange={event => field('protocol', event.target.value)}
-          >
-            <SelectOption value="chat-completions">
-              Chat Completions · local / compatible servers
-            </SelectOption>
-
-            <SelectOption value="responses">
-              Responses · OpenAI reasoning models
-            </SelectOption>
-          </Select>
-        </label>
-
         <label>
           Connection name
 
@@ -194,26 +156,37 @@ export default function ConnectionEditor({
           </button>
         </div>
 
-        {editing.protocol === 'responses' && (
-          <label>
-            Reasoning effort
+        <label>
+          Concurrent model requests
+          <input
+            type="number"
+            min={1}
+            max={32}
+            value={editing.maxConcurrentRequests ?? ''}
+            placeholder="Automatic: local 1, remote 2"
+            onChange={event => field('maxConcurrentRequests', event.target.value ? Number(event.target.value) : undefined)}
+          />
+          <small>Lower this if your model host handles only one request at a time. Other chats wait in line.</small>
+        </label>
 
-            <Select
-              value={editing.effort ?? ''}
-              onChange={event => field('effort', event.target.value)}
-            >
-              <SelectOption value="">
-                Model default
+        <label>
+          Default reasoning effort
+
+          <Select
+            value={editing.effort ?? ''}
+            onChange={event => field('effort', event.target.value)}
+          >
+            <SelectOption value="">
+              Model default
+            </SelectOption>
+
+            {['low', 'medium', 'high', 'xhigh', 'max', 'ultra'].map(effort => (
+              <SelectOption key={effort} value={effort}>
+                {effort}
               </SelectOption>
-
-              {['low', 'medium', 'high', 'xhigh', 'max', 'ultra'].map(effort => (
-                <SelectOption key={effort} value={effort}>
-                  {effort}
-                </SelectOption>
-              ))}
-            </Select>
-          </label>
-        )}
+            ))}
+          </Select>
+        </label>
       </fieldset>
 
       <div className="editor-footer">

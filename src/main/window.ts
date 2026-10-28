@@ -8,12 +8,12 @@ export function createWindow(): void {
     height: 760,
     minWidth: 720,
     minHeight: 520,
-    title: 'Granite',
+    title: app.isPackaged ? 'Granite' : 'Granite (Frontend Worktree)',
     ...(process.platform === 'darwin' && {
       titleBarStyle: 'hiddenInset' as const,
       trafficLightPosition: { x: 16, y: 15 }
     }),
-    backgroundColor: '#181818',
+    backgroundColor: '#121212',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,

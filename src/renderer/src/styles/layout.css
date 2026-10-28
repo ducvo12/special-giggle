@@ -4,6 +4,7 @@
   gap: 8px;
   padding: 0 16px;
   background: var(--surface-sidebar);
+  border-bottom: 1px solid var(--border-subtle);
   -webkit-app-region: drag;
 }
 
@@ -51,7 +52,7 @@
   flex-shrink: 0;
   padding: 30px 18px 22px;
   background: var(--surface-sidebar);
-  border-right: 1px solid var(--surface-selected);
+  border-right: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
 }
