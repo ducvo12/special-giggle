@@ -9,9 +9,11 @@ export class QuestionQueue {
       const id = randomUUID()
       const cleanup = () => { signal.removeEventListener('abort', abort); this.pending.delete(id); emit(null) }
       const abort = () => { cleanup(); reject(signal.reason) }
-      this.pending.set(id, { runId, questions, answer: (answers, rejected) => {
-        cleanup(); resolve({ id, questions, ...(answers ? { answers } : { withdrawn: true }), ...(rejected ? { rejected: true } : {}) })
-      } })
+      this.pending.set(id, {
+        runId, questions, answer: (answers, rejected) => {
+          cleanup(); resolve({ id, questions, ...(answers ? { answers } : { withdrawn: true }), ...(rejected ? { rejected: true } : {}) })
+        }
+      })
       signal.addEventListener('abort', abort, { once: true })
       emit({ id, questions })
     })
