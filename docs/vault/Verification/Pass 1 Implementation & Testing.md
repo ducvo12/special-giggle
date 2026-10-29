@@ -1,8 +1,10 @@
 # Pass 1 Implementation & Testing
 
+> Dated verification record. Counts, environments and limitations below describe their recorded checkpoints. For current behavior use [the harness guide](../../harness.md); for delivery status use [[Start Here]]. Temporary evidence paths may no longer exist.
+
 > Implemented October 25, 2026. Basic automated verification is complete; broader agent/user testing remains pending. This records pass 1 only, not completion of the six-pass harness plan.
 
-Related: [[Harness Implementation Plan]] · [[Harness Design]] · [[Container & Settings Rules]] · [[Remaining Harness Decisions]]
+Related: [[Harness Implementation Plan]] · [[Harness Design]] · [[Container & Settings Rules]] · [[Harness Implementation Plan]]
 
 ## What is available
 

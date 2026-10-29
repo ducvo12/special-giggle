@@ -1,10 +1,10 @@
-# Pass 2 Tests to Run Later
+# Tests to Run Later
 
-> Deferred by request on October 25, 2026. These are pending verification tasks, not future optimizations and not passing results.
+> Verification backlog, consolidated October 29, 2026. The deferred pass-2 categories below remain pending unless an exact result is recorded. Later targeted recovery/provider checks do not automatically complete the whole matrix. This is not the optimization backlog.
 
-Related: [[Pass 2 Verification Plan]] · [[Pass 2 Implementation & Testing]]
+Related: [[Tests to Run Later]] · [[Pass 2 Implementation & Testing]]
 
-The current testing session covers basic replies, steering, queues, and Stop/Continue. Invalid responses, permissions, recovery, and real-provider compatibility are intentionally not exercised. Some earlier light checks touched these areas; they do not replace this pending verification.
+The October 25 selected session covered basic replies, steering, queues and Stop/Continue. Broader invalid-response, permission, recovery and real-provider coverage was deferred. Passes 3/3A subsequently exercised particular overlapping cases; their evidence is recorded separately and does not mark these groups fully accepted. Run this matrix against the current feature set, not the old availability gates.
 
 ## E — Model-response validation
 
@@ -26,8 +26,8 @@ Run the following variants through both adapters. For each, inspect the visible 
 | F2 | Enable write approval after a proposal was generated; change settings during an existing approval wait. | An action that now requires approval cannot proceed without it. Old approvals become invalid and cannot authorize a changed action. Saving settings itself does not Stop the run. |
 | F3 | Try to change the model/provider after the first prompt, including while it is still queued; change the saved connection's endpoint/model. | UI and backend preserve the chat's binding. No request silently uses a different model/provider. New chats can choose a different model. Supported reasoning-effort changes remain possible between runs. |
 | F4 | Move a never-started queued chat between eligible Shared locations; then repeat with an active chat during streaming, approval and a later model wait. | An eligible queued move succeeds and uses its current location at dispatch. Started runs cannot move, including during approval or subsequent capacity waits. |
-| F5 | Move queued work into a Closed section or a repository project before dispatch; attempt replies directly in those locations. | The current pass's availability notice appears. Revalidation prevents model/tool execution there, preserves the saved prompt, and does not leave an endless working state. |
-| F6 | Update the disposable agent's memory file between model calls using a controlled external edit; separately edit identity mid-run, then start a new run. | Current eligible memory appears on the next request. Identity stays fixed for the existing run and updates on the next run. The app's own file editor still respects its documented active-run editing limit. |
+| F5 | Move queued work into a Closed section or a repository project before dispatch; attempt replies directly in those locations. | For the current build, Shared repository projects execute with the correct tools; Closed/temporary runs retain their availability notice until passes 4/5. After those passes, expect enforced scoped execution instead of rejection. Preserve the saved prompt and avoid stuck work in every case. |
+| F6 | Update the disposable agent's memory file between model calls using a controlled external edit; separately edit identity mid-run, then start a new run. | Current eligible memory appears on the next request. Identity stays fixed for the existing run and updates on the next run. The app's own file editor respects its documented active-run editing limit. |
 | F7 | Concurrent native edits change two separate facts in the same memory/note file; attempt stale editing through the existing user editor. | Both independent changes survive. Current native mutations serialize, and the existing user-editor conflict boundary does not overwrite a newer file. |
 
 F1 tests the prototype integrations already present. Full scoped MCP/discovery and repository permissions are later-pass requirements.
@@ -65,7 +65,19 @@ These checks establish interoperability, not whether a model always follows a pr
 
 ## Other checks outside the selected session
 
-- [ ] Full desktop usability/accessibility and Pass 1 regression sweep (H1–H5 in [[Pass 2 Verification Plan]]).
+- [ ] Desktop regression: preserve unsaved drafts through navigation; keyboard-accessible Send/Stop/Continue/approvals; distinguish queued/generating/waiting/interrupted states; readable controls/diffs in a narrow window; retain Pass 1 hierarchy/move/identity/file-editor behavior.
 - [ ] Run the complete automated suite at the eventual broader acceptance checkpoint.
 
 Record evidence and outcomes here when these checks are executed. Keep implementation optimizations in [[Things to Optimize]].
+
+## Repository and project-setup follow-up
+
+These remain verification work, distinct from building new capabilities:
+
+- [ ] User walkthrough on a small real repository: native edits, install/build outputs, visible diffs, Stop and Continue.
+- [ ] More destructive Git fixtures (restore/reset/clean/switch), declined/revoked grants and interrupted metadata publication; authenticated remotes when configured.
+- [ ] Additional whole-app interruption races, detached/background workloads, publication conflicts and concurrent manual edits.
+- [ ] Hosted/local-model behavior beyond the specific live setup tasks recorded in [[Pass 3A.2 Implementation & Testing]]; an unavailable local endpoint is not a passed check.
+- [ ] Measure baseline task duration, resource usage and large-repository behavior before claiming performance parity or choosing optimizations.
+
+Passes 4–6 add their own acceptance cases in [[Harness Implementation Plan]]. A passed build, mock loop or earlier milestone is not evidence that every later integration works.

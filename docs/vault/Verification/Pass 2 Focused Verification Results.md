@@ -1,8 +1,10 @@
 # Pass 2 Focused Verification Results
 
+> Dated verification record. Counts, environments and limitations below describe their recorded checkpoints. For current behavior use [the harness guide](../../harness.md); for delivery status use [[Start Here]]. Temporary evidence paths may no longer exist.
+
 > October 25, 2026 — **selected checks passed**. Scope: basic replies, steering, queues, and Stop/Continue. This is not full Pass 2 acceptance.
 
-Related: [[Pass 2 Verification Plan]] · [[Pass 2 Implementation & Testing]] · [[Pass 2 Tests to Run Later]]
+Related: [[Tests to Run Later]] · [[Pass 2 Implementation & Testing]] · [[Tests to Run Later]]
 
 ## Environment and outcome
 
@@ -72,7 +74,7 @@ The evidence directory is temporary and may be cleaned by the operating system. 
 
 ## Explicit limits and remaining checks
 
-- Invalid-response/schema/identifier validation, permission changes, recovery/restart behavior and real providers were not broadly tested. They remain in [[Pass 2 Tests to Run Later]]. The network-disconnection variant above belongs to selected Stop/Continue coverage and does not complete the broader response-validation matrix.
+- Invalid-response/schema/identifier validation, permission changes, recovery/restart behavior and real providers were not broadly tested. They remain in [[Tests to Run Later]]. The network-disconnection variant above belongs to selected Stop/Continue coverage and does not complete the broader response-validation matrix.
 - A4's app-restart subvariant and C6's quota-error subvariant overlap deferred recovery/provider-error tests and remain pending.
 - The broad desktop usability/accessibility/Pass 1 regression sweep and complete automated suite were not run.
 - Controlled before/after and queue/tool boundaries were tested; exhaustive race fuzzing and arbitrary-duration load testing are not claimed.

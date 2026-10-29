@@ -1,6 +1,6 @@
 {
 	"nodes":[
-		{"id":"intro","type":"text","text":"## Approval lifecycle — agreed\n\nAccepted in D-047.\nIdentity edit: exact preview, wait, approve once or deny.\nNo per-edit code approval.\n\n[[Run Lifecycle Design]]\n[[Run Lifecycle - Temporary Expiry.canvas]]","x":0,"y":-450,"width":460,"height":310,"color":"5"},
+		{"id":"intro","type":"text","text":"## Identity approval — pass 4\n\nPlanned exact-change preview/apply.\nGeneral action approvals already exist.\nNo per-edit code approval.\n\n[[Run Lifecycle Design]]","x":0,"y":-450,"width":460,"height":310,"color":"5"},
 		{"id":"propose","type":"text","text":"## 1 · Agent proposes identity edit\n\nStructured action and exact change.\nExample: a personality/tone adjustment.\nNo file write has happened.","x":0,"y":0,"width":380,"height":280,"color":"4"},
 		{"id":"check","type":"text","text":"## 2 · Check eligibility\n\nPermanent Shared chat may request approval.\nClosed and temporary chats cannot edit identity or bypass the restriction by asking.","x":500,"y":0,"width":380,"height":280,"color":"2"},
 		{"id":"wait","type":"text","text":"## 4 · Waiting for approval\n\nPause this run for a user decision.\nNo repeated model calls or other tools while waiting.\nNothing changes merely because time passes.","x":1500,"y":0,"width":380,"height":280,"color":"2"},

@@ -3,7 +3,7 @@
     {
       "id": "title",
       "type": "text",
-      "text": "## Memory & Context — accepted baseline\n\nContext: section’s Shared/Closed policy.\nRetention: permanent or temporary.\nTemporary chats stay under sections, never projects.\n\n[[Harness Design]]\n[[Temporary Chat Flow.canvas]]",
+      "text": "## Memory & Context — pass 4\n\nAccepted policy; scoped execution/retrieval remains planned.\nTemporary lifecycle: pass 5.\n\n[[Memory & Context Policy]]\n[[Temporary Chat Flow.canvas]]",
       "x": 0,
       "y": -530,
       "width": 490,
@@ -13,7 +13,7 @@
     {
       "id": "choose",
       "type": "text",
-      "text": "## Resolve current location\n\nSection → context scope.\nRepository project → edit capability.\n\nAfter a move, rebuild context and tool access before continuing (recommended).",
+      "text": "## Resolve current location\n\nSection → context scope.\nOwning repository project → edits.\nAfter eligible moves, rebuild context, cache and access.",
       "x": -550,
       "y": 420,
       "width": 380,

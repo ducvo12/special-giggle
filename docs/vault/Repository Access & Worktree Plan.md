@@ -1,10 +1,10 @@
 # Repository Access & Worktree Plan
 
-> Scope accepted October 27, 2026 (D-070–D-072). This is planned behavior, not implemented or verified functionality. The user requested documentation only while another agent works on the backend. Preserve the current implementation, its uncommitted changes and recorded pass-3A results; implement this extension in a separate change set. Delivery sequencing has not been assigned a numbered pass.
+> Accepted future scope, October 27, 2026 (D-070–D-072); consolidated October 29. Assigned to v0.2, not implemented v0.1 functionality. Preserve the current repository/setup behavior and verification when delivering this separate extension.
 
 Version assignment: **v0.2**, under [[Granite Vision & Roadmap]] (D-073). The user is still adding scope; do not structure v0.2 into passes. Subagent orchestration is a separate v0.3 goal (D-074), not required by this worktree feature.
 
-Related: [[Harness Implementation Plan]] · [[Decisions & Questions]] · [[Container & Settings Rules]] · [[Repository & Context Tools]] · [[Tool Permissions]] · [[Concurrency & Limits]] · [[Remaining Harness Decisions]]
+Related: [[Harness Implementation Plan]] · [[Decision Register]] · [[Container & Settings Rules]] · [[Repository & Context Tools]] · [[Tools & Permissions#Action authorization]] · [[Run Lifecycle Design#Queues and capacity]] · [[Harness Implementation Plan]]
 
 ## 1. Keep the original repository attachment behavior
 
@@ -123,4 +123,4 @@ These are planned checks, not results:
 7. Successful merge closes the active group; conflict, cancellation, failure and unknown effects preserve an actionable group and recovery state. Reopening after a crash must not blindly repeat integration or cleanup.
 8. Verify cleanup preserves the final retained history/work policy, handles ignored or unmerged files and never deletes external targets merely by following a link. Exercise parent deletion and missing-folder relinking against old groups and operation records.
 
-Before implementation, resolve the listed behavior choices needed by that change set, inspect the current backend rather than assuming this plan is already present, and add migrations/tests without overwriting concurrent work. Broader performance optimization and subagent design remain separate.
+Before implementation, settle the listed consequential choices, inspect the current backend and add migrations/tests preserving existing data and behavior. Broader performance optimization and subagent design remain separate.

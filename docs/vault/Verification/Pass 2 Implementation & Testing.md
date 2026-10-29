@@ -1,8 +1,10 @@
 # Pass 2 Implementation & Testing
 
+> Dated verification record. Counts, environments and limitations below describe their recorded checkpoints. For current behavior use [the harness guide](../../harness.md); for delivery status use [[Start Here]]. Temporary evidence paths may no longer exist.
+
 > Implemented October 25, 2026, with light verification requested by the user. The build, focused checks and a disposable desktop smoke check pass. Broader behavior and live-provider testing remain pending; this is not completion of passes 3–6.
 
-Related: [[Harness Implementation Plan]] · [[Run Lifecycle Design]] · [[Concurrency & Limits]] · [[Restarted Queues & Timers]] · [[Pass 1 Implementation & Testing]]
+Related: [[Harness Implementation Plan]] · [[Run Lifecycle Design]] · [[Run Lifecycle Design#Queues and capacity]] · [[Run Lifecycle Design#Stop and unexpected closure]] · [[Pass 1 Implementation & Testing]]
 
 ## Available behavior
 
@@ -48,6 +50,6 @@ See [[Pass 2 Focused Verification Results]] for tested behaviors, evidence, repr
 
 ## Additional testing — deferred
 
-Invalid responses, permissions, recovery and real-provider checks are now tracked in **[[Pass 2 Tests to Run Later]]**, separately from [[Things to Optimize]]. The broader desktop/regression sweep is also pending there. App-restart and quota-error subvariants remain in that backlog.
+Invalid responses, permissions, recovery and real-provider checks are now tracked in **[[Tests to Run Later]]**, separately from [[Things to Optimize]]. The broader desktop/regression sweep is also pending there. App-restart and quota-error subvariants remain in that backlog.
 
-[[Pass 2 Verification Plan]] remains the complete specification. The focused results do not mark the full plan or broader Pass 2 acceptance complete.
+[[Tests to Run Later]] retains the pending categories; the current run contract is [[Run Lifecycle Design]]. The focused results do not mark the full plan or broader Pass 2 acceptance complete.

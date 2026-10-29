@@ -1,10 +1,10 @@
 # Memory & Context Policy
 
-> Memory/context baseline selected under the user's delegation and then explicitly accepted by the user. These are planning decisions, not implemented behavior. Algorithms, storage strategies and budgets may be revised after evaluation or new research. The deletion boundary is agreed below; detailed cleanup mechanics remain to design.
+> Accepted pass-4 specification, consolidated October 29, 2026. Full scoped retrieval, source-backed memory/summary maintenance and model-aware compaction are planned, not yet delivered. Existing basic memory-file tools do not complete this policy. Temporary execution/expiry remains planned for pass 5; tuning is later work.
 
-Related: [[Harness Design]] · [[Memory & Context.canvas]] · [[Decisions & Questions]] · [[Things to Optimize]]
+Related: [[Harness Design]] · [[Memory & Context.canvas]] · [[Decision Register]] · [[Things to Optimize]]
 
-Concrete retrieval/tool exposure is agreed in [[Repository & Context Tools]] · [[Context Retrieval.canvas]] (D-058, accepted from P-017): separate repository read/write capabilities and native scoped list/search/read operations with bounded source-linked results. Exact tool names remain illustrative.
+Concrete retrieval/tool exposure is agreed in [[Repository & Context Tools]] · [[Context Retrieval.canvas]] (D-058): separate repository read/write capabilities and native scoped list/search/read operations with bounded source-linked results. Exact tool names remain illustrative.
 
 ## What is saved
 
@@ -36,7 +36,7 @@ Personality belongs in identity, not user memory. Identity loads in every contex
 - Corrections replace/supersede the affected fact rather than appending contradictory “facts.” The user can inspect and edit remembered content and see its sources.
 - Check revisions before applying automatic edits so a pending update does not silently overwrite a user's newer edit.
 
-Source references support the agreed deletion boundary below. Exact cleanup transactions, file-edit synchronization and cached-context handling remain implementation design work.
+Source references support the agreed deletion boundary below. Implement source-reference synchronization and cached-context invalidation in pass 4; wire complete project/section deletion and expiry in pass 5.
 
 ## Current files and manual edits — D-060
 
@@ -81,7 +81,7 @@ Temporary chats sit directly under a section and use that section's normal permi
 
 Temporary chats cannot be created inside projects, with or without repositories. To edit repository code, the user must first agree to keep the chat permanently, then separately agree to move it permanently into the target repository project. Usual source-section movement restrictions still apply. Keeping alone grants no repository write access.
 
-The earlier proposal for temporary chats inside projects is superseded. General and Temporary are combined into one built-in Shared General section holding permanent and temporary chats, without projects. Temporary is a retention setting, not a separate section.
+General and Temporary are combined into one built-in Shared General section holding permanent and temporary chats, without projects. Temporary is a retention setting, not a separate section.
 
 ## Model-aware context budget and compaction
 
@@ -98,7 +98,7 @@ Start with scoped database/text search; no embeddings or vector database in the 
 
 ## Revising the policy later
 
-The core-plus-optional-lookup policy in [[Tool Selection & Context]] is accepted as D-066 from P-016. Counting tool definitions in the input budget is already part of the baseline above; advanced selection/discovery tuning is tracked in [[Things to Optimize]]. Context capacity alone does not select a tool-use capability profile.
+The core-plus-optional-lookup policy in [[Tools & Permissions#Core tools and optional discovery]] is accepted as D-066 from P-016. Counting tool definitions in the input budget is already part of the baseline above; advanced selection/discovery tuning is tracked in [[Things to Optimize]]. Context capacity alone does not select a tool-use capability profile.
 
 The user explicitly accepts this as a baseline that can be optimized later, including in response to new provider capabilities or research. Keep memory sources/scopes and raw conversation records separate from replaceable summary/retrieval methods. A new memory method must still honor the chosen context visibility, temporary-retention rules, repository permissions and eventual deletion policy; budget percentages are tuning defaults, not permanent product constraints.
 

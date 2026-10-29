@@ -1,14 +1,12 @@
 # Container & Settings Rules
 
-> Agreed user direction, October 25, 2026 (D-059–D-066). This is a target specification, not implemented functionality. The engineering consequences below apply the existing Stop, scope and source-deletion rules; they do not introduce subagents or change the no-budget policy.
+> Accepted v0.1 lifecycle/settings specification, consolidated October 29, 2026. Full project/section deletion, missing-folder relinking and duplicate-link warnings are pass 5. Basic agent/chat deletion already exists but currently requires work to finish; cancel-and-delete and derived-source cleanup are not complete. Pass 4 owns memory refresh; existing run/settings controls are covered by passes 1–3A.
 
-Related: [[Harness Design]] · [[Remaining Harness Decisions]] · [[Memory & Context Policy]] · [[Concurrency & Limits]] · [[Skills & MCP Policy]] · [[Tool Selection & Context]] · [[Decisions & Questions]]
+Related: [[Harness Design]] · [[Harness Implementation Plan]] · [[Memory & Context Policy]] · [[Run Lifecycle Design#Queues and capacity]] · [[Tools & Permissions#Skills]] · [[Tools & Permissions#Core tools and optional discovery]] · [[Decision Register]]
 
 Start visually: [[Container & Settings.canvas]] · [[Repository Access.canvas]] · [[Memory & Context.canvas]]
 
 ## Delete the container and its contents
-
-October 27 extension: [[Repository Access & Worktree Plan]] (D-070–D-072) explicitly retains the attachment/no-release, bound-chat and missing-folder rules below. It adds same-section project edit grants and isolated worktree groups; its workspace scheduling replaces the blanket same-project serialization baseline where isolated groups are involved. Worktree-group closure after successful merge is distinct from deleting a project. Group-history retention and managed-workspace cleanup/parent-deletion details remain labeled design choices; do not infer a new deletion policy from physical sidebar nesting.
 
 Deleting a project, custom section or agent deletes its actual Granite-owned folder tree and all its descendant chat records in the database. A section includes its projects and direct chats; an agent includes all its sections, projects, chats, memory, notes and installed agent-local skills. General remains individually undeletable, but is removed with its parent agent.
 
@@ -18,13 +16,9 @@ Folder deletion follows physical storage: code physically inside the deleted fol
 
 Reuse the existing deletion sequence: prevent new descendant work, cancel queued work/approvals, Stop active runs and settle their writers before removing files/data. D-067 preserves completed external-repository edits from both the active and earlier runs; no rollback precedes deletion. Do not discard an unresolved recovery record or report successful deletion when cleanup is incomplete. Durable transaction/retry mechanics are implementation details.
 
-## Current memory and notes are authoritative saved content
+## Current memory and notes — pass 4
 
-Manual edits and agent edits have equal standing. Current eligible file contents are the saved memory/notes to consult on each model request; do not favor an older cached version because the agent wrote it. Refresh revisions before assembling the next request, including later requests in the same run. A request already in progress is not cancelled to inject an edit.
-
-This preserves Shared/Closed/Temporary access limits and the bounded context policy. Load the current permitted memory view and use the current notes/catalog when selecting relevant notes; it does not require inserting every large note in full or opening Closed files. A changed note must not be represented by a stale cached excerpt. Notes and memories supply facts/preferences, not new tool permissions, and live repository observations can reveal that an old note is outdated.
-
-Use the same revision/conflict checks and source-cleanup rules for both authors. Provenance may remain for source tracking, but author type does not give one edit priority over another. Current explicit corrections supersede contradictory old remembered facts. Removing text does not erase the historical chats that contain it: do not restore it simply from a stale cache, but later eligible evidence may legitimately cause a new memory update. Permanent suppression of a fact across surviving sources is outside the agreed deletion promise.
+User/agent edits have equal standing; refresh eligible current files on every model request with revision guards. No stale cached author preference and no automatic interruption to inject edits. Removing a line does not erase historical evidence or establish permanent suppression. Full rules and source-deletion semantics: [[Memory & Context Policy]].
 
 ## Missing folders and relinking
 
@@ -56,11 +50,13 @@ Permission changes do not automatically Stop a run or cancel a tool already exec
 
 Permission grants do not substitute for a required Keep/project move or an exact-action approval. Keep/move still occur between runs; identity edits retain their next-run personality timing. Closed-to-Shared conversion makes newly permitted data eligible on the next request/read without cancelling current work. Refresh affected caches. Data already sent to a model cannot be retroactively withdrawn by changing settings.
 
-## Skills and tool lookup
+## Skills and tool lookup — pass 5
 
-Agent-assisted installation of an identified existing skill package is allowed. A clear user request supplies authorization without a second install confirmation. Store packages under `agent/tools/skills/<skill-name>/`, retaining `SKILL.md` and bundled resources; this is the planned layout, not a claim about the prototype. Loading, dependency execution and MCP permissions remain separate. Details: [[Skills & MCP Policy]] (D-065).
+Requested package imports, resource preservation, compatible loading, scoped MCP and compact-core optional lookup are specified once in [[Tools & Permissions]]. Existing user-managed skills are not the completed package importer.
 
-Use the Codex-style pattern of a compact direct core and discovery of optional integrations, with a simple portable lookup for providers without native discovery. Filter the catalog by current permissions, and recheck execution. This accepts P-016 as the initial design rather than promising identical discovery internals across Codex versions/providers. Details and source evidence: [[Tool Selection & Context]] (D-066).
+## Later repository extension — v0.2
+
+[[Repository Access & Worktree Plan]] retains attachment/no-release and missing-folder rules, but adds same-section project grants and isolated worktree groups. Worktree closure after merge is distinct from project deletion. Grant lifetime, workspace cleanup and parent-deletion implications remain choices there; they do not alter the v0.1 rules above.
 
 ## Observable acceptance cases
 
@@ -70,5 +66,3 @@ Use the Codex-style pattern of a compact direct core and discovery of optional i
 - Two projects can link the same folder after a warning. Runs within one project queue; distinct projects can run concurrently, with conflicts reported rather than overwritten; Stop retains completed edits.
 - Disabling a write tool while generation is underway does not cancel generation, but blocks that tool if proposed afterward; an already-executing action is not automatically interrupted.
 - A requested skill import preserves its resources under the agent's tools folder and does not execute installation scripts merely by downloading them.
-
-These choices close the four main remaining behavior groups. Exact storage/transaction mechanics, warning wording, passive temporary-chat UI event classification and advanced coordination are implementation defaults or explicitly deferred optimization; no additional broad behavior review is required before drafting the implementation plan.

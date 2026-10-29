@@ -1,27 +1,27 @@
 {
-  "nodes": [
-    {"id":"intro","type":"text","text":"## Context retrieval — agreed design\n\nD-058 · Accepted from P-017.\nList / search / read saved context as native tools.\nRepository files have separate access rules.\n\n[[Repository & Context Tools]]","x":0,"y":-450,"width":460,"height":320,"color":"5"},
-    {"id":"initial","type":"text","text":"## 1 · Initial permitted context\n\nCurrent task/history and richer local context.\nRefresh eligible memory/notes revisions.\nBrief eligible remote topics/source IDs.\nBrowse more with list_context.\nNo full archive injected.","x":0,"y":0,"width":420,"height":300,"color":"4"},
-    {"id":"query","type":"text","text":"## 2 · search_context\n\nExample query: “club event date decision”.\nOptional filters may narrow the search.\nA broad query cannot expand permissions.","x":560,"y":0,"width":420,"height":300,"color":"4"},
-    {"id":"filter","type":"text","text":"## 3 · Scope before matching\n\nCompute eligible sources first.\nSame agent; correct Shared/Closed scope.\nExclude other temporary chats and deleted sources.\nTitles/counts/snippets are filtered too.","x":1120,"y":0,"width":440,"height":320,"color":"2"},
-    {"id":"search","type":"text","text":"## 4 · Indexed text search\n\nSearch saved titles, summaries, messages and notes.\nOriginal messages remain searchable.\nNo new section-wide model summary or embeddings required for this basic path.","x":1700,"y":0,"width":440,"height":320,"color":"4"},
-    {"id":"hits","type":"text","text":"## 5 · Return bounded matches\n\nUseful excerpts + section/project/chat labels.\nStable source/message IDs and dates.\nPagination/continuation if needed.\nDistinguish summaries from source messages.","x":2280,"y":0,"width":440,"height":320,"color":"4"},
-    {"id":"read","type":"text","text":"## 6 · read_context\n\nRead selected source/message ranges.\nRecheck scope, deletion and revision.\nA stale result cannot reopen deleted content.\nKeep output bounded.","x":2860,"y":0,"width":420,"height":300,"color":"2"},
-    {"id":"answer","type":"text","text":"## 7 · Answer with evidence\n\nUse retrieved details and retain source references.\nRetrieval is read-only.\nIt does not automatically save new memory or grant a repo edit.","x":3420,"y":0,"width":420,"height":300,"color":"3"},
-    {"id":"tools","type":"text","text":"## Small native context core\n\nlist_context: browse eligible sources.\nsearch_context: find relevant saved content.\nread_context: inspect a source/range.\n\nIllustrative names; not implemented APIs.","x":0,"y":520,"width":440,"height":320,"color":"6"},
-    {"id":"tool_lookup","type":"text","text":"## Different kinds of lookup\n\nlookup_tools finds tool definitions.\nsearch_context finds information in saved content.\nContext retrieval need not use an external MCP server.\n\n[[Tool Lookup.canvas]]","x":560,"y":520,"width":440,"height":320,"color":"6"},
-    {"id":"repo","type":"text","text":"## Repository capabilities\n\nOutside owning repo project: eligible reads only; no repo-write tools.\nInside repo project A: write A only.\nMemory/notes writes remain separate.\n\n[[Repository Access.canvas]]","x":1120,"y":520,"width":440,"height":340,"color":"6"},
-    {"id":"shared","type":"text","text":"## Shared conversation sources\n\nEligible permanent Shared sections/projects/chats of this agent.\nPermitted user memory and knowledge notes.\nNo other Closed or temporary chat sources.","x":1700,"y":520,"width":440,"height":300,"color":"4"},
-    {"id":"closed","type":"text","text":"## Closed conversation sources\n\nOwn section's permanent chats/projects and scoped notes only.\nShared repo files may be readable without opening the owning section's conversations.","x":2280,"y":520,"width":440,"height":320,"color":"3"},
-    {"id":"temporary","type":"text","text":"## Temporary overlay\n\nRead under the parent section's scope.\nOwn expiring history stays available.\nNo other temporary chats, shared index contribution or durable updates.\nKeep + project entry before repo edits.","x":2860,"y":520,"width":440,"height":340,"color":"1"},
-    {"id":"storage","type":"text","text":"## No alternate storage bypass\n\nFile/terminal/MCP tools cannot expose the raw chat DB or unfiltered context stores.\nAll content reads retain scope checks.\n\n[[Memory & Context Policy]]","x":3420,"y":520,"width":440,"height":320,"color":"6"}
-  ],
-  "edges": [
-    {"id":"c1","fromNode":"initial","fromSide":"right","toNode":"query","toSide":"left","toEnd":"arrow","label":"More detail needed"},
-    {"id":"c2","fromNode":"query","fromSide":"right","toNode":"filter","toSide":"left","toEnd":"arrow"},
-    {"id":"c3","fromNode":"filter","fromSide":"right","toNode":"search","toSide":"left","toEnd":"arrow"},
-    {"id":"c4","fromNode":"search","fromSide":"right","toNode":"hits","toSide":"left","toEnd":"arrow"},
-    {"id":"c5","fromNode":"hits","fromSide":"right","toNode":"read","toSide":"left","toEnd":"arrow","label":"Select relevant source"},
-    {"id":"c6","fromNode":"read","fromSide":"right","toNode":"answer","toSide":"left","toEnd":"arrow"}
-  ]
+	"nodes":[
+		{"id":"intro","type":"text","text":"## Context retrieval — pass 4\n\nPlanned native list/search/read over permitted saved context.\nRepository tools are already implemented.\n\n[[Repository & Context Tools]]","x":0,"y":-450,"width":460,"height":320,"color":"5"},
+		{"id":"initial","type":"text","text":"## 1 · Initial permitted context\n\nCurrent task/history and richer local context.\nRefresh eligible memory/notes revisions.\nBrief eligible remote topics/source IDs.\nBrowse more with list_context.\nNo full archive injected.","x":0,"y":0,"width":420,"height":300,"color":"4"},
+		{"id":"query","type":"text","text":"## 2 · search_context\n\nExample query: “club event date decision”.\nOptional filters may narrow the search.\nA broad query cannot expand permissions.","x":560,"y":0,"width":420,"height":300,"color":"4"},
+		{"id":"filter","type":"text","text":"## 3 · Scope before matching\n\nCompute eligible sources first.\nSame agent; correct Shared/Closed scope.\nExclude other temporary chats and deleted sources.\nTitles/counts/snippets are filtered too.","x":1120,"y":0,"width":440,"height":320,"color":"2"},
+		{"id":"search","type":"text","text":"## 4 · Indexed text search\n\nSearch saved titles, summaries, messages and notes.\nOriginal messages remain searchable.\nNo new section-wide model summary or embeddings required for this basic path.","x":1700,"y":0,"width":440,"height":320,"color":"4"},
+		{"id":"hits","type":"text","text":"## 5 · Return bounded matches\n\nUseful excerpts + section/project/chat labels.\nStable source/message IDs and dates.\nPagination/continuation if needed.\nDistinguish summaries from source messages.","x":2280,"y":0,"width":440,"height":320,"color":"4"},
+		{"id":"read","type":"text","text":"## 6 · read_context\n\nRead selected source/message ranges.\nRecheck scope, deletion and revision.\nA stale result cannot reopen deleted content.\nKeep output bounded.","x":2860,"y":0,"width":420,"height":300,"color":"2"},
+		{"id":"answer","type":"text","text":"## 7 · Answer with evidence\n\nUse retrieved details and retain source references.\nRetrieval is read-only.\nIt does not automatically save new memory or grant a repo edit.","x":3420,"y":0,"width":420,"height":300,"color":"3"},
+		{"id":"tools","type":"text","text":"## Small native context core\n\nlist_context: browse eligible sources.\nsearch_context: find relevant saved content.\nread_context: inspect a source/range.\n\nIllustrative names; not implemented APIs.","x":0,"y":520,"width":440,"height":320,"color":"6"},
+		{"id":"tool_lookup","type":"text","text":"## Different kinds of lookup\n\nlookup_tools finds tool definitions.\nsearch_context finds information in saved content.\nContext retrieval need not use an external MCP server.\n\n[[Tool Lookup.canvas]]","x":560,"y":520,"width":440,"height":320,"color":"6"},
+		{"id":"repo","type":"text","text":"## Repository capabilities\n\nOutside owning repo project: eligible reads only; no repo-write tools.\nInside repo project A: write A only.\nMemory/notes writes remain separate.\n\n[[Repository Access.canvas]]","x":1120,"y":520,"width":440,"height":340,"color":"6"},
+		{"id":"shared","type":"text","text":"## Shared conversation sources\n\nEligible permanent Shared sections/projects/chats of this agent.\nPermitted user memory and knowledge notes.\nNo other Closed or temporary chat sources.","x":1700,"y":520,"width":440,"height":300,"color":"4"},
+		{"id":"closed","type":"text","text":"## Closed conversation sources\n\nOwn section's permanent chats/projects and scoped notes only.\nShared repo files may be readable without opening the owning section's conversations.","x":2280,"y":520,"width":440,"height":320,"color":"3"},
+		{"id":"temporary","type":"text","text":"## Temporary overlay\n\nRead under the parent section's scope.\nOwn expiring history stays available.\nNo other temporary chats, shared index contribution or durable updates.\nKeep + project entry before repo edits.","x":2860,"y":520,"width":440,"height":340,"color":"1"},
+		{"id":"storage","type":"text","text":"## No alternate storage bypass\n\nFile/terminal/MCP tools cannot expose the raw chat DB or unfiltered context stores.\nAll content reads retain scope checks.\n\n[[Memory & Context Policy]]","x":3420,"y":520,"width":440,"height":320,"color":"6"}
+	],
+	"edges":[
+		{"id":"c1","fromNode":"initial","fromSide":"right","toNode":"query","toSide":"left","toEnd":"arrow","label":"More detail needed"},
+		{"id":"c2","fromNode":"query","fromSide":"right","toNode":"filter","toSide":"left","toEnd":"arrow"},
+		{"id":"c3","fromNode":"filter","fromSide":"right","toNode":"search","toSide":"left","toEnd":"arrow"},
+		{"id":"c4","fromNode":"search","fromSide":"right","toNode":"hits","toSide":"left","toEnd":"arrow"},
+		{"id":"c5","fromNode":"hits","fromSide":"right","toNode":"read","toSide":"left","toEnd":"arrow","label":"Select relevant source"},
+		{"id":"c6","fromNode":"read","fromSide":"right","toNode":"answer","toSide":"left","toEnd":"arrow"}
+	]
 }

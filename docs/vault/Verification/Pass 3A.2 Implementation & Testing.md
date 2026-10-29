@@ -1,8 +1,10 @@
 # Pass 3A.2 Implementation & Testing
 
+> Dated verification record. Counts, environments and limitations below describe their recorded checkpoints. For current behavior use [the harness guide](../../harness.md); for delivery status use [[Start Here]]. Temporary evidence paths may no longer exist.
+
 > Implemented October 27, 2026, following the user's request to implement the second pass. This extends [[Pass 3A.1 Implementation & Testing]] with human choices, bounded setup/retry permissions and managed local previews. Validation results and external-package limitations are recorded below; they are distinct from the full target specification in [[Repository Project Setup Plan]].
 
-Related: [[Harness Implementation Plan]] · [[Tool Permissions]] · [[Run Lifecycle Design]] · [[Unexpected Closure Recovery]] · [[Tooling Strategy]]
+Related: [[Harness Implementation Plan]] · [[Tools & Permissions#Action authorization]] · [[Run Lifecycle Design]] · [[Run Lifecycle Design#Stop and unexpected closure]] · [[Tools & Permissions#Tool implementation and reuse]]
 
 ## Questions and continuation
 

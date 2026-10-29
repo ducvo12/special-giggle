@@ -2,7 +2,7 @@
 
 > Version priorities set by the user October 27, 2026 (D-073/D-074). These are open feature lists, not implementation passes, dates or verified capabilities. The user intends to add more before sequencing v0.2 or v0.3. Keep the existing six-pass v0.1 plan and ongoing implementation intact; this update changes planning documents only.
 
-Related: [[Harness Design]] · [[Harness Implementation Plan]] · [[Decisions & Questions]] · [[Things to Optimize]] · [[Repository Access & Worktree Plan]] · [[Memory & Context Policy]]
+Related: [[Harness Design]] · [[Harness Implementation Plan]] · [[Decision Register]] · [[Things to Optimize]] · [[Repository Access & Worktree Plan]] · [[Memory & Context Policy]]
 
 ## Product vision
 
@@ -15,25 +15,21 @@ The original recorded design emphasizes:
 - **Tools that accomplish work.** Repository editing, commands, tests, skills and scoped integrations sit behind Granite's own authorization, visible outcomes and Stop/recovery behavior.
 - **User control.** Current saved memory/notes remain inspectable and editable; approvals and source/scope checks are enforced by the harness rather than relying only on model instructions.
 
-Original sources: [[Harness Design]] (hierarchy, identity/model distinction, context and permissions), [[Memory & Context Policy]], [[Harness Overview.canvas]], and the October 18 milestone notes in `docs/atlas-verification.md` and `docs/multi-agent-verification.md`.
+Background: [[Harness Design]] (hierarchy, identity/model distinction, context and permissions), [[Memory & Context Policy]], [[Harness Overview.canvas]], and the October 18 milestone notes in `docs/archive/atlas-verification.md` and `docs/archive/multi-agent-verification.md`.
 
 ## Long-term orchestration goal — reaffirmed by the user
 
 One primary agent should be able to delegate work to and coordinate subagents using different models, including different providers and local model connections. The parent should remain responsible for the user's task and combine the workers' results. Selecting a worker model/provider is distinct from moving an existing conversation to a different model.
 
-The current user reminder establishes this as an explicit long-term product goal and places subagents in v0.3. The older notes record D-003 as “avoid subagents ... for now” to keep the first design manageable; they do not contain a complete mixed-provider delegation specification. Do not describe the old milestone named “Multiple-agent” as parent-controlled subagents: it verified separate user-selectable agents with separate identities/data.
+This is an explicit v0.3 goal. D-003 keeps v0.1 free of delegated subagents; the delegation design remains future work. Do not describe the old milestone named “Multiple-agent” as parent-controlled subagents: it verified separate user-selectable agents with separate identities/data.
 
 This goal still needs design for worker model/connection selection, task/context handoff, workspace ownership, permissions, result inspection, failure, cancellation and resource use. It does not grant workers automatic access to all agent identities, sections, credentials or repositories. D-063's fixed model within an existing chat/session remains intact unless separately revised.
-
-### Competitor comparison is a reference, not the product definition
-
-The user recalls mixed-model orchestration as a desired distinction from Codex. Current official Codex documentation allows per-subagent model selection, while documenting that `model_provider` in a custom agent file does not override the parent's configuration. The broader Granite goal is explicit orchestration across model connections/providers, including local ones. Do not claim that Codex lacks subagents or all mixed-model delegation, or infer the absence of every possible cross-provider integration from that documented setting limitation. Source checked October 27: [Codex subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents).
 
 ## v0.1 — Complete the basic harness
 
 Finish [[Harness Implementation Plan]]: the existing six passes plus the already-added pass 3A. Preserve its context/memory, lifecycle, scope, tool and recovery requirements and release verification. Basic compaction/context-fit handling, scoped tool lookup and ordinary command execution remain v0.1 obligations; the later optimization assignments do not remove their baseline correctness requirements.
 
-This roadmap does not mark unfinished passes complete, bump the package version, or authorize concurrent changes to another agent's backend work.
+Delivery status lives in [[Harness Implementation Plan]]; version headings are not completion claims.
 
 ## v0.2 — Broad practical capability
 
@@ -58,11 +54,10 @@ The user's main goal for v0.3 is optimization. Subagents are also explicitly ass
 
 - **Large-repository performance:** measure/tune searches, batching, bounded reads, generated/dependency exclusions, incremental file/symbol/import maps and semantic retrieval where justified.
 - **Context efficiency:** tune automatic inclusion versus retrieval, incremental/cached summaries, compaction thresholds, response/tool headroom, provider caching/stateful continuation and smaller local-model windows. Preserve source tracking, freshness, scope and the basic context protections delivered earlier.
+- **Summary/retrieval method review:** revisit per-chat summaries, multi-level topic/project/section digests and query-specific context assembly before choosing an implementation. Compare answer quality, freshness, latency, token cost and deletion/update complexity. This is an evaluation item, not a commitment to hierarchical summaries or a particular research method; retain the original sources and per-chat foundation. Detailed backlog: [[Things to Optimize#Model context]].
 - **Subagents and mixed-model orchestration:** one primary agent directs workers using different models/providers and combines results. Design explicit delegation and workspace coordination; being a child agent does not prevent same-file collisions or grant additional permissions.
 - **Tool discovery efficiency:** smarter model-aware tool ranking, definition caching/eviction and provider-native discovery for large integration catalogs. Basic permission-filtered lookup remains earlier scope.
 - **Command execution and change tracking efficiency:** reduce full-manifest scans and temporary-copy costs, improve incremental reconciliation and safe dependency/cache reuse, bound diff storage and improve incremental change reporting while retaining truthful outcomes and conflict checks.
-
-“Context efficiency” was repeated in the user's list; it is one scope category here.
 
 ## Still unassigned
 

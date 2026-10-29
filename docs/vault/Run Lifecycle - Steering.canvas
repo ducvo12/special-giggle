@@ -93,7 +93,7 @@
     {
       "id": "stop_priority",
       "type": "text",
-      "text": "## Stop wins\n\nA message during stopping/settling cannot restart the cancelled run.\nSave for next-run handling after cleanup.\n\n[[Run Lifecycle - Stop & Rollback.canvas]]",
+      "text": "## Stop wins\n\nA message during stopping/settling cannot restart the cancelled run.\nSave for next-run handling after cleanup.\n\n[[Run Lifecycle - Stop & Retained Edits.canvas]]",
       "x": 0,
       "y": 550,
       "width": 430,

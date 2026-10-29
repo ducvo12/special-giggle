@@ -3,7 +3,7 @@
     {
       "id": "intro",
       "type": "text",
-      "text": "## Repository Access — target design\n\nOnly projects attach repositories.\nOne current repo per project; fixed section.\nMissing folders may be relinked.\n\n[[Harness Design]]\n[[Container & Settings Rules]]",
+      "text": "## Repository Access — v0.1\n\nOwn-project edits and eligible reads: implemented.\nClosed execution: pass 4.\nTemporary/relink/warnings: pass 5.\n\n[[Harness Design]]",
       "x": 0,
       "y": -500,
       "width": 470,
@@ -23,7 +23,7 @@
     {
       "id": "edit",
       "type": "text",
-      "text": "## Edit without per-edit approval\n\nProject membership grants local read/write access.\nOne run per repo project; its other chats queue.\nSeparate projects may link/edit the same folder, with a warning.\nShow actual changes and +/− counts.",
+      "text": "## Edit without per-edit approval\n\nStanding own-project read/write.\nOne run per project; others queue.\nDuplicate links allowed; warning in pass 5.\nShow files, diffs and +/− counts.",
       "x": 2300,
       "y": 0,
       "width": 380,

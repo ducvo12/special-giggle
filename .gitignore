@@ -7,3 +7,6 @@ release/
 .env
 .env.*
 !.env.example
+
+# Local Obsidian tabs, canvas viewport, and recent files.
+/docs/vault/.obsidian/workspace*.json

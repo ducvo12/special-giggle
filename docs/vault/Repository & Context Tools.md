@@ -1,14 +1,33 @@
 # Repository & Context Tools
 
-> Agreed October 25, 2026, as D-058 from P-017. Repository-tool exposure and native scoped context retrieval build on the existing repository/memory access rules in D-019/D-020/D-038/D-039. Tool names are illustrative; this is a target specification, not implemented APIs.
+> Consolidated October 29, 2026. Repository tools are implemented in passes 3/3A; native conversation-context retrieval is planned for pass 4. Context API names below are illustrative. This note describes the v0.1 boundary; v0.2 exceptions are separate.
 
-Start visually: [[Context Retrieval.canvas]] · [[Repository Access.canvas]]
+Start visually: [[Available Agent Tools.canvas]] · [[Context Retrieval.canvas]] · [[Repository Access.canvas]]
 
-Related: [[Tool Selection & Context]] · [[Memory & Context Policy]] · [[Harness Design]] · [[Skills & MCP Policy]] · [[Decisions & Questions]]
+Related: [[Tools & Permissions#Core tools and optional discovery]] · [[Memory & Context Policy]] · [[Harness Design]] · [[Tools & Permissions#Skills]] · [[Decision Register]]
+
+## Implemented tool groups
+
+| Group | Tools / implementation |
+| --- | --- |
+| Eligible repository reads | `list_repositories`, `repo_list`, `repo_search`, `repo_read`; bounded results, checked paths and file revisions. |
+| Owning-project file changes | `repo_write`, `repo_edit`, `repo_patch`, `repo_rename`, `repo_delete`; revision-guarded native operations. Git applies unified patch hunks in scratch storage. |
+| Project entry proposal | `request_repository_edit`; does not itself move the chat or authorize writes. |
+| Controlled Git | `repo_git`: inspection plus explicitly authorized supported mutations. Hooks/external helpers are disabled; arbitrary metadata writes are not exposed. |
+| Terminal | `repo_command` and `repo_command_start/read/input/stop`; supervised macOS sandbox, real PTY where needed, isolated repository copies and guarded publication. |
+| Setup choices and previews | `ask_user` and `repo_preview_start/read/list/stop`; exact question ownership and separately managed ready preview lifetimes. |
+| Generic workspace | `ls`, `read_file`, `glob`, `grep`, `write_file`, `edit_file`, `write_todos`; protected agent storage, not a repository/context bypass. |
+| Skills / integrations | `load_skill` plus eligible configured MCP; restrictions and planned importer/discovery are in [[Tools & Permissions]]. |
+
+Repository enforcement, guarded file sessions, commands, authorization, previews, diffs and durable records live under `src/backend/repositories/`. Schemas/adapters live under `src/backend/harness/tools/`; Granite owns the loop and registry.
+
+Commands can download dependencies under bounded authorization, preserve safe contained relative package links and share isolated HOME/cache within a run. No fixed command time or repository count/size ceiling remains. Output previews and native text operations stay bounded. Commands cannot write directly into the live repository; completed changes publish after validation, while unfinished copies are discarded. Stop keeps published edits. Managed previews serve a labeled isolated snapshot and publish no writes.
+
+Current limitations include macOS-only command confinement, real local `.git` metadata rather than linked worktree pointers, no inherited host credentials and expensive full copies/manifests. Closed-section execution awaits pass 4; temporary execution awaits pass 5. See [the current harness guide](../harness.md) and dated verification records for exact coverage.
 
 ## Repository tools depend on membership
 
-**Planned amendment, October 27 (D-071/D-072):** the owner-only matrix below records the earlier baseline. [[Repository Access & Worktree Plan]] extends project chats with user-granted writes to other projects' repositories in the same section, while keeping other Shared sections read-only, other Closed sections unavailable, and temporary/section-level chats under their existing rules. Tool exposure and execution must validate each eligible granted target and the actual checkout; generic approval does not bypass this boundary. Worktree-group chats target their isolated checkout. This extension is not implemented by documenting it, and context retrieval below is unchanged.
+**Pass-4 extension — planned:** improve the existing filename/text search with an established lexical engine where practical, case/regex controls, sensible dependency/generated ignore rules, explicit scoped inclusion and clearer bounded-result continuation. This changes search quality and usability, not repository access. Semantic search/embeddings, richer symbol/import maps and advanced ranking remain v0.3 evaluation work. The current basic scanner is still the implementation until this extension is delivered.
 
 | Current chat location/retention | Repository reads | Repository edits |
 | --- | --- | --- |
@@ -76,4 +95,4 @@ Listing a repository or context source makes only the permitted resource availab
 - A section-level temporary chat researches its section's project. It can search/read permitted permanent context, but its own messages remain excluded from shared search and no repository edits are allowed.
 - A section chat asks to change the club website. Read tools remain available, but repository edits wait for the existing approved permanent project move. A generic memory-write tool or an MCP lookup cannot bypass that transition.
 
-The split capabilities, direct context-tool exposure, scope-first retrieval and bounded source-linked results above are agreed in D-058. Exact function names, schemas and search implementation remain engineering choices within those rules. The broader optional-tool lookup policy is accepted in [[Tool Selection & Context]] (D-066 from P-016); apply current permissions under D-064. No application code was changed in this planning discussion.
+Pass 4 implements native scoped context retrieval; pass 5 adds optional integration discovery. Exact context schemas and search mechanics remain implementation choices within this policy. Same-section cross-project edit grants and isolated worktree targets belong to v0.2 in [[Repository Access & Worktree Plan]]; they are not currently granted by read access.

@@ -1,60 +1,50 @@
 # Granite desktop development
 
-Requirements: Node.js 22.12+ (or a current supported release) and npm.
+> Current development guide, reviewed October 29, 2026. [Harness behavior](harness.md) describes delivered features; [the planning vault](<vault/Start Here.md>) separates remaining work and verification.
+
+## Run and package
+
+Use Node.js 22.12+ with the package's required tooling and npm. Install dependencies, then start development:
 
 ```sh
 npm install
 npm run dev
 ```
 
-The development command opens Electron and serves the React interface with hot reload. Main and preload changes are rebuilt by electron-vite. Development data uses a separate `Granite Development` application-data directory.
+The development command prepares native PTY helpers, opens Electron and serves React with hot reload. Main/preload changes are rebuilt by electron-vite. Development data is separate from the packaged app (`Granite Development` on macOS).
 
-## Build and package
+| Command | Purpose |
+| --- | --- |
+| `npm run typecheck` | TypeScript validation. |
+| `npm test` | Prepare native helpers and run backend checks under Electron's Node ABI. |
+| `npm run build` | Prepare PTY, type-check and compile main/worker/preload/renderer into `out/`. |
+| `npm run preview` | Open the compiled app. |
+| `npm run package` | Build and create a local unpacked app in `release/`. |
+| `npm run dist` | Build an installer; public distribution needs platform signing configuration. |
 
-```sh
-npm run build
-npm run preview
-npm run package
-npm run dist
-```
-
-- `build`: type-check and compile into `out/`.
-- `preview`: open the compiled application without the development server.
-- `package`: create an unpacked application in `release/` for the current operating system.
-- `dist`: create a platform installer in `release/`. Public distribution requires appropriate platform signing configuration.
+SQLite and PTY native components must match Electron. Installation prepares them; packaged PTY helpers are unpacked through the build configuration. Packaging is not publishing.
 
 ## Source layout
 
-- `src/main/`: Electron lifecycle (`index.ts`), window setup (`window.ts`), desktop request handlers (`ipc.ts`), and the utility-process client (`agent-client.ts`).
-- `src/preload/`: narrow bridge exposed to the renderer.
-- `src/renderer/`: React interface, HTML, and styles. The renderer entry point only mounts the application.
-- `src/backend/`: backend code grouped by responsibility, as shown below.
-- `src/shared/`: typed messages shared across the desktop bridge.
+| Path | Responsibility |
+| --- | --- |
+| `src/main/` | Electron lifecycle/windows, validated IPC and private utility-worker client. |
+| `src/preload/` | Narrow typed renderer bridge. |
+| `src/backend/agents/` | Agent/chat organization, SQLite state, runs, worker and lifecycle. |
+| `src/backend/harness/` | Granite-owned loop, scheduling, providers, tools/settings, approvals/questions. |
+| `src/backend/repositories/` | Access, guarded edits, diffs, commands/PTY, setup authorization, previews and recovery. |
+| `src/backend/auth/`, `connections/`, `models/` | Independent sign-in, encrypted connection/account storage and model access. |
+| `src/backend/workspace/` | Protected agent files, initialization and file viewing. |
+| `src/shared/` | Types across the desktop bridge. |
+| `src/renderer/src/app/`, `features/`, `styles/` | Composition/session state, feature views and styling. |
 
-```text
-src/backend/
-  agents/                  # runtime lifecycle, agent registry, conversations, worker
-  connections/             # saved connections and encrypted credentials
-  auth/                    # independent ChatGPT OAuth and encrypted account storage
-  harness/                 # Granite-owned loop, providers, approvals, skills, MCP, terminal
-  models/                  # HTTP API, event-stream decoding, provider activity
-  workspace/               # protected filesystem, initialization, file viewing
+Keep Electron main and the worker built independently. The renderer has no Node integration, uses context isolation/sandboxing, and receives no saved model credentials. Validated HTTP/HTTPS links open in the system browser; arbitrary new windows/navigation and file/application links remain blocked.
 
-src/renderer/src/
-  app/                     # page composition, sidebar, navigation, session state
-  features/
-    agents/                # agent creation and identity editing
-    chat/                  # chat controls, message history, tool activity
-    connections/           # connection settings, editor, saved connection list
-    workspace/             # workspace file browser and preview
-  styles/                  # base controls, layout, feature styles, responsive rules
-```
+## Readability conventions
 
-### Readability conventions
+Use two spaces, single quotes in TypeScript and one statement per line. Separate validation, state updates, requests and cleanup with blank lines. Group related state; separate effects and class methods.
 
-Use two spaces for indentation, single quotes in TypeScript, and one statement per line. Separate distinct steps with blank lines: validation, state updates, requests, and cleanup should be easy to scan. Keep related state declarations together and separate effects and class methods with blank lines.
-
-In TSX, put each paired element's opening tag, content, and closing tag on separate lines, including elements containing only text or one expression. Leave a blank line between sibling elements. Empty elements remain self-closing. Preserve explicit spaces when separating text and inline elements.
+In TSX, put a paired element's opening tag, content and closing tag on separate lines, including text-only elements. Leave a blank line between siblings. Empty elements stay self-closing; retain explicit spaces around inline elements.
 
 ```tsx
 <section>
@@ -68,101 +58,67 @@ In TSX, put each paired element's opening tag, content, and closing tag on separ
 </section>
 ```
 
-Organize files by feature or responsibility. Extract whole components or independent concerns when a file combines several ideas; keep short, cohesive functions intact. `App.tsx` composes the pages, `useAgentSession.ts` owns session state and actions, and feature components render their own views. The agent runtime keeps the run lifecycle together, while model transport observation and workspace protection live in their respective folders. Responsive styles load last so their overrides remain effective.
+Organize by feature/responsibility. Extract independent concerns when a file combines ideas; keep short cohesive functions intact. `App.tsx` composes pages; session hooks own state/actions; feature components render views. Preserve the lifecycle's integration while keeping transport, permissions and process/filesystem operations in their modules. Responsive styles load last.
 
-The chat supports OpenAI-compatible model APIs through a validated preload bridge. Connections are saved in `connections.json` in the application-data directory. API keys are encrypted with Electron safeStorage and never returned to the renderer after saving. Conversations and agent files persist locally. Replies stream as they arrive; Stop aborts the request and retains partial text and completed tool changes. The renderer has Node integration disabled, context isolation enabled, and sandboxing enabled. New windows and renderer-initiated navigation are blocked.
-
-## Connecting a model
-
-Run `npm run dev`. Open **Settings → Connections → Add connection**. Enter a name and API base URL (including `/v1` when required), optionally supply a key, and select **Load models**. Choose a model and save. Select the saved model beside **Send** in the chat composer. You can also type a model ID directly if the provider does not support model discovery. Send a message with Enter; Shift+Enter adds a newline. **New chat** is in the sidebar.
-
-For LM Studio on another computer, enable its local network serving option, run its server, and use that computer's reachable address, for example `http://192.168.1.50:1234/v1`. `localhost` refers to the computer running Granite. Both computers must be able to reach each other and the desktop firewall must allow the server port. HTTP connections are unencrypted; use a trusted network or an HTTPS endpoint.
-
-Granite owns the agent loop for all connections. Choose **ChatGPT account** for independent browser sign-in, or **API connection** with **Responses** for OpenAI reasoning models. Existing local/compatible connections use **Chat Completions**. The model adapters call `POST /responses` or `POST /chat/completions`; API model discovery uses `GET /models`. The Codex app-server adapter has been replaced. See [Granite’s harness](harness.md) for setup, architecture, permissions, and current limitations.
-
-Adapter integration check (Node.js with TypeScript stripping support):
-
-```sh
-npm test
-```
-
-The check uses a local mock server and no external credentials.
-
-Saved connection keys require an available OS credential store; Linux plaintext fallback is rejected. When editing an endpoint with a saved key, re-enter the key or explicitly remove it before saving. Development and packaged builds have separate data directories. Unsigned macOS builds may prompt again for Keychain access after updates.
-
-## Agents and workspaces
-
-Agents run in an Electron utility process. React sends an agent ID, message, and conversation ID through the preload bridge; Electron main resolves the saved model connection and sends it privately to the worker. Granite’s own loop dispatches model requests and approved tool actions. Responses preserves native reasoning items; Chat Completions supports local/compatible servers. SQLite stores display messages and private native model state. The historical checkpoint library is retained for migration and cleanup. API keys never enter the chat renderer.
-
-The **Workspace** page displays the selected agent's actual files. In the application-data directory:
+## Local data and interface
 
 ```text
-connections.json           # model connection settings and encrypted API keys
-chatgpt-accounts.json      # Granite registration metadata and encrypted OAuth credentials
-atlas.sqlite               # shared database; original filename retained for compatibility
-agents/<agent-id>/
-  agent.json                # stable ID and display name
-  identity.md               # stable identity, read-only to the agent
-  memory.md                 # user preferences shared across this agent’s chats
-  harness.json              # user-managed instructions and tool configuration
-  skills/<name>/SKILL.md    # user-managed skill instructions
-  notes/
-  projects/
+application-data/
+  connections.json
+  chatgpt-accounts.json
+  atlas.sqlite                     historical name retained for compatibility
+  agents/<stable-agent-id>/
+    agent.json
+    identity.md
+    memory.md
+    harness.json
+    skills/<name>/SKILL.md          current skill layout
+    notes/
+    tools/                         agent-local tools location
+    sections/<stable-section-id>/
+      projects/<stable-project-id>/
+        repository/                optional internally created codebase
 ```
 
-Development uses `~/Library/Application Support/Granite Development` on macOS. Packaged builds use their own application-data directory. Identity and memory are read fresh for every turn. Changing the selected model preserves the selected agent's identity, memory, and conversations. Use the sidebar agent dropdown to switch agents, choose **New agent** to create one, and open **Identity** to edit its identity file. Shared runtime instructions stay in code; each turn loads that agent's name from `agent.json` and personality and memory from its own files. Identity edits apply on the next message, including existing conversations. There is no editable instructions file.
+Chats/messages, membership and private native model state live in SQLite; external repository attachments point to folders elsewhere. Existing legacy Atlas data/checkpoints are retained or migrated. New profiles start without an agent. Stable IDs are independent of display names.
 
-New installations start with no agents. Use **Create agent** in the empty view, or **New agent** in the custom sidebar dropdown. New agents get generated folder IDs independent of their display names. Each agent has separate conversations and checkpoints, and its tools can access only its own workspace. Existing legacy Atlas files are adopted unchanged when an `agents/atlas/` folder already exists; existing conversations are migrated to belong to Atlas. The database keeps its historical `atlas.sqlite` filename to preserve existing data and journals.
+The sidebar is a file explorer for agents, identity/memory, notes, sections, projects and chats. Markdown has preview/Edit/Save/Cancel; revision checks protect external edits, unsaved drafts protect navigation, and core filenames stay fixed. The human editor currently blocks saves during agent work. Identity starts blank; the editor offers an unsaved preset rather than replacing existing content. Runtime instructions remain in code, with additional user instructions/tool settings in `harness.json`.
 
-A new agent's `identity.md` starts blank. The identity editor offers the preset as an unsaved draft, so **Save and continue** is enabled without editing anything. Saving writes the preset or the user's changes and opens chat. Reopening an existing, saved identity keeps **Save identity** disabled until something changes. The preset is shared between the editor and legacy workspace initialization; existing identities are never replaced with it.
+Agent/chat deletion already exists but requires work to finish and cannot erase unresolved recovery data. Full active/queued cascade deletion for projects/sections and associated source cleanup belongs to passes 4/5. Internal code follows physical folder deletion; externally linked targets survive. Do not describe the planned lifecycle as implemented.
 
-The agent dropdown supports selection, creation, and deletion, including keyboard navigation, Escape, and dismissal by clicking outside it. **Delete** opens a confirmation explaining which data will be removed. Confirming removes the entire agent folder and its conversations, messages, checkpoints, and pending checkpoint writes. `conversation_threads` records graph ownership across interrupted-run recovery so earlier checkpoints are removed too. Other agents are preserved. Deletion is blocked during a run or identity operation. Deleting the last agent returns to the empty view and does not recreate Atlas on restart.
+## Connections and execution
 
-Workspace tools list/read/write/edit files, find filenames, search text, and record task lists. **Tools & skills** adds per-agent instructions, write approvals, skill editing/loading, MCP servers, and an opt-in terminal. Terminal and MCP calls always require Granite approval. The terminal sandbox currently supports macOS; authenticated HTTP MCP and automatic compaction are not implemented. See [the harness guide](harness.md).
+Open Settings → Connections to add independent ChatGPT sign-in, a Responses API connection, or a Chat Completions local/compatible endpoint. See [the harness guide](harness.md) for details. A chat binds its model/provider after use; start a new chat for another model rather than assuming mid-session migration.
 
-File tools use a virtual filesystem rooted at the selected agent's directory. Parent traversal, symbolic-link access, and agent edits to identity or configuration are rejected. Search uses ripgrep when installed, with the framework's built-in fallback otherwise. Globs reject brace expansion and excessively long patterns, mitigating the current transitive `braces` denial-of-service advisory. These controls constrain the agent's tools; they are not an OS sandbox against another local process modifying files concurrently.
+For LM Studio on another device, use that device's reachable server address (for example `http://192.168.1.50:1234/v1`); localhost refers to Granite's machine. The network/firewall must permit access. API keys use Electron safeStorage and are not sent back to the renderer; Linux plaintext fallback is rejected. Endpoint changes with saved keys require explicit key handling. Account sign-in belongs to Granite, not Codex.
 
-Conversations, partial answers, and tool results are saved locally. Stop aborts the model request; it does not undo completed file changes. On a crash, running turns and unfinished tools become interrupted. On the next message, Granite reconstructs provider context from the visible transcript and recorded tool outcomes with an interruption notice. Legacy checkpoints are retained for migration and deletion. It never automatically replays unfinished tool calls. Files remain authoritative and should be inspected before continuing interrupted work. Tool activity remains visible even if a local model sends an empty final answer after successful tool use; a separate notice explains the missing final message.
+There are **no whole-run time/step/tool-count caps** and no fixed terminal deadline. The current loop has a two-million-byte input/instruction guard with bounded tool/output previews; model-aware schema/token accounting and compaction are pass 4. Chat Completions currently requests up to 4,096 output tokens; Responses follows its adapter/provider allowance. Actual provider errors/limits remain failures. Stop and crashes keep applied edits, settle owned work and do not replay unfinished actions.
 
-Chat Completions requests have a 4,096-token output cap; Responses uses the model/provider output budget. Model requests have a two-minute timeout, and Granite runs have a five-minute deadline, 40-step/call limits, and bounded context/results. Reasoning character counts may be reported, while native opaque reasoning remains private to provider state. Model tool reliability still depends on the selected model.
+Repository commands, interactive sessions and previews currently require macOS confinement. Ordinary sessions/cache end with the run; only a verified ready managed preview may remain afterward without occupying model/project capacity. Previews use isolated snapshots, require refresh for newer code and stop on owning Stop/deletion/app closure. Commands support safe contained relative installer links, bounded download authorization and guarded publication. Full details: [harness guide](harness.md).
 
-### Verification
+## Verification
 
-`npm install` rebuilds SQLite for Electron. `npm test` runs backend tests using Electron's Node runtime to match its native-module ABI. The suite verifies Granite’s own tool loop with mock model APIs, native reasoning continuity, OAuth verification, terminal/MCP boundaries, approvals, note edits, cross-chat memory, protected paths, Stop, interrupted-run recovery, agent isolation, identity updates, and migration from the original Atlas storage.
+Use disposable profiles, repositories and local simulated providers for deterministic/destructive checks. Never seed synthetic chats or framework scaffolds into the user's normal data/codebase. A mock verifies Granite's plumbing, not real-model competence. Check broad follow-ups in [Tests to Run Later](<vault/Tests to Run Later.md>) and recorded results in [the vault index](<vault/Start Here.md>).
 
-On macOS, after building, an optional desktop smoke check opens an isolated window with a mock model server:
-
-```sh
-node scripts/verify-desktop.mjs
-node scripts/verify-desktop.mjs --packaged
-```
-
-To test a real local model without touching your actual Atlas files:
+After building, useful desktop runners include:
 
 ```sh
-GRANITE_MODEL_BASE_URL=http://YOUR-SERVER:1234/v1 \
-GRANITE_MODEL_ID=YOUR-MODEL \
-ELECTRON_RUN_AS_NODE=1 ./node_modules/.bin/electron \
-  --experimental-strip-types scripts/verify-atlas-live.ts
-```
-
-Set `GRANITE_MODEL_API_KEY` if necessary. This opt-in check creates a quote and a note, reads/edits the note, saves a synthetic preference, recalls it in a new conversation, stops a reply, and verifies persistence and continuation after reopening the runtime. It creates no coding project. Temporary files are removed afterwards. UI smoke tests cover the desktop process/renderer bridge separately.
-
-The multi-agent desktop acceptance check creates Nova through the UI, saves an emoji-oriented identity through the editor, asks Atlas and Nova “what is your name and who are you”, switches between their conversations, and verifies persistence after restarting:
-
-```sh
-node scripts/verify-agents-desktop.mjs
-node scripts/verify-agents-desktop.mjs --packaged
-GRANITE_MODEL_BASE_URL=http://YOUR-SERVER:1234/v1 GRANITE_MODEL_ID=YOUR-MODEL \
-  node scripts/verify-agents-desktop.mjs --live
-```
-
-Live mode uses your actual model; the default uses a mock. Each check runs an isolated temporary desktop profile and removes it afterwards. It does not add synthetic agents or conversations to your normal profile.
-
-To verify agent creation and deletion with the model server offline:
-
-```sh
+node scripts/verify-organization-desktop.mjs
+node scripts/verify-pass2-selected-desktop.mjs
+node scripts/verify-repositories-desktop.mjs
+node scripts/verify-repositories-desktop.mjs --packaged
 node scripts/verify-agents-desktop.mjs --offline
 ```
 
-This check starts with an empty temporary profile, creates an agent through the UI, adds a blank conversation through the desktop bridge, and deletes the agent through the custom dropdown. It verifies that the folder is gone and every database table contains zero rows, then reopens the app to ensure the empty state persists. It also checks cancellation, keyboard navigation, clicking outside the menu, switching agents, and deleting an inactive agent. No model requests are made. Backend tests additionally seed messages, checkpoints, and pending writes directly, including multiple recovery threads, to verify complete cleanup without a model connection.
+Additional focused runners cover harness settings/approvals, questions, model catalogs and sidebar usage. Inspect each script's current coverage before using an old result to accept new behavior. In particular, an old model-picker check is not evidence of permitted mid-session switching.
+
+Real framework acceptance uses actual downloads in disposable repositories:
+
+```sh
+node scripts/verify-project-setup.mjs vite
+node scripts/verify-project-setup.mjs next
+```
+
+An optional exact scaffold version may follow the framework. Registry failures must be reported, not hidden by an unrecorded fallback. Real-agent setup uses `scripts/verify-project-agent-live.mjs`, with the configured account or explicit local-model environment. It consumes provider usage/network when run; it is not a routine documentation check. Record provider/model/protocol and actual outcomes, including unavailable endpoints. See the dated 3A results for tested commands, versions, builds, previews and packaged walkthroughs.
+
+Earlier baseline/live-agent results are retained in `docs/archive/`. They predate the current harness and cannot establish current architecture, limits or complete later-pass acceptance. Research notes under `docs/research/` remain investigations, not feature promises.

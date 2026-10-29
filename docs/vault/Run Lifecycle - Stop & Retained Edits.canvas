@@ -23,7 +23,7 @@
     {
       "id": "scope",
       "type": "text",
-      "text": "## Restoration is later work\n\nNo automatic inverse patch or Git reset.\nNo full before-file journal solely for undo.\nKeep edit conflict checks and visible changes.\n\n[[Deferred File Restoration]]",
+      "text": "## Restoration is later work\n\nNo automatic inverse patch or Git reset.\nNo full before-file journal solely for undo.\nKeep edit conflict checks and visible changes.\n\n[[Things to Optimize#Unassigned — do not silently add to a release]]",
       "x": 1000,
       "y": -450,
       "width": 430,
@@ -93,7 +93,7 @@
     {
       "id": "record",
       "type": "text",
-      "text": "## Change/outcome records\n\nTrack tools, actual changes and diffs.\nKeep records needed for unknown outcomes.\nAutomatic undo snapshots/journal are deferred.\n\n[[Deferred File Restoration]]",
+      "text": "## Change/outcome records\n\nTrack tools, actual changes and diffs.\nKeep records needed for unknown outcomes.\nAutomatic undo snapshots/journal are deferred.\n\n[[Things to Optimize#Unassigned — do not silently add to a release]]",
       "x": 0,
       "y": 550,
       "width": 430,

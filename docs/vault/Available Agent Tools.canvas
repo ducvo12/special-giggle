@@ -1,0 +1,596 @@
+{
+  "nodes": [
+    {
+      "id": "intro",
+      "type": "text",
+      "x": 0,
+      "y": 0,
+      "width": 3425,
+      "height": 330,
+      "text": "# Available Agent Tools\n\nCurrent implementation inventory · October 29, 2026\n**30 built-in tool names across configurations, plus dynamic MCP tools.** A model receives only its eligible subset; these are not all present together.\nCurrently runnable chats are permanent Shared chats. Closed execution awaits pass 4; temporary execution awaits pass 5.\n\n[[Start Here]] · [[Repository & Context Tools]] · [[Tools & Permissions]] · [[Harness Implementation Plan]]",
+      "color": "5"
+    },
+    {
+      "id": "legend",
+      "type": "text",
+      "x": 0,
+      "y": 375,
+      "width": 3425,
+      "height": 202,
+      "text": "## How to read this map\n\nGreen: general workspace/conversation tools · Blue: permitted repository reads · Orange: owning-project changes · Purple: enabled repository execution/previews · Gray: conditional integrations or planned tools.\nA visible schema never substitutes for backend access checks. Terminal/network/Git authorization remains separate from ordinary file editing.",
+      "color": "6"
+    },
+    {
+      "id": "workspace_group",
+      "type": "group",
+      "x": -25,
+      "y": 630,
+      "width": 675,
+      "height": 2715,
+      "label": "CURRENT · Agent workspace and conversation",
+      "color": "4"
+    },
+    {
+      "id": "read_group",
+      "type": "group",
+      "x": 675,
+      "y": 630,
+      "width": 675,
+      "height": 2715,
+      "label": "CURRENT · Repository discovery / reads",
+      "color": "5"
+    },
+    {
+      "id": "edit_group",
+      "type": "group",
+      "x": 1375,
+      "y": 630,
+      "width": 675,
+      "height": 2715,
+      "label": "CURRENT · Owning-project file changes",
+      "color": "2"
+    },
+    {
+      "id": "command_group",
+      "type": "group",
+      "x": 2075,
+      "y": 630,
+      "width": 675,
+      "height": 2715,
+      "label": "CURRENT · Repository commands",
+      "color": "3"
+    },
+    {
+      "id": "preview_group",
+      "type": "group",
+      "x": 2775,
+      "y": 630,
+      "width": 675,
+      "height": 2715,
+      "label": "CURRENT · Previews / integrations",
+      "color": "3"
+    },
+    {
+      "id": "tool_ls",
+      "type": "text",
+      "x": 0,
+      "y": 675,
+      "width": 625,
+      "height": 232,
+      "text": "### `ls`\n\nList directories in the agent workspace.\n\n**Available:** runnable chats; protected agent paths",
+      "color": "4"
+    },
+    {
+      "id": "tool_read_file",
+      "type": "text",
+      "x": 0,
+      "y": 938,
+      "width": 625,
+      "height": 232,
+      "text": "### `read_file`\n\nRead a bounded workspace text-file range, including permitted memory/notes.\n\n**Available:** runnable chats; protected agent paths",
+      "color": "4"
+    },
+    {
+      "id": "tool_glob",
+      "type": "text",
+      "x": 0,
+      "y": 1200,
+      "width": 625,
+      "height": 232,
+      "text": "### `glob`\n\nFind workspace filenames using a simple pattern.\n\n**Available:** runnable chats; protected agent paths",
+      "color": "4"
+    },
+    {
+      "id": "tool_grep",
+      "type": "text",
+      "x": 0,
+      "y": 1462,
+      "width": 625,
+      "height": 232,
+      "text": "### `grep`\n\nSearch workspace file text; return bounded matches.\n\n**Available:** runnable chats; protected agent paths",
+      "color": "4"
+    },
+    {
+      "id": "tool_write_file",
+      "type": "text",
+      "x": 0,
+      "y": 1725,
+      "width": 625,
+      "height": 232,
+      "text": "### `write_file`\n\nCreate a workspace text file. Optional workspace-write approval applies.\n\n**Available:** runnable chats; protected agent paths",
+      "color": "4"
+    },
+    {
+      "id": "tool_edit_file",
+      "type": "text",
+      "x": 0,
+      "y": 1988,
+      "width": 625,
+      "height": 232,
+      "text": "### `edit_file`\n\nReplace exact workspace text. Optional workspace-write approval applies.\n\n**Available:** runnable chats; protected agent paths",
+      "color": "4"
+    },
+    {
+      "id": "tool_write_todos",
+      "type": "text",
+      "x": 0,
+      "y": 2250,
+      "width": 625,
+      "height": 232,
+      "text": "### `write_todos`\n\nReturn a short task list/status as tool activity; not a separate persistent task database.\n\n**Available:** runnable chats; protected agent paths",
+      "color": "4"
+    },
+    {
+      "id": "tool_ask_user",
+      "type": "text",
+      "x": 0,
+      "y": 2520,
+      "width": 625,
+      "height": 232,
+      "text": "### `ask_user`\n\nAsk for consequential missing choices and wait for a task-bound user answer.\n\n**Available:** current runs; no model slot held while waiting",
+      "color": "4"
+    },
+    {
+      "id": "tool_load_skill",
+      "type": "text",
+      "x": 0,
+      "y": 2782,
+      "width": 625,
+      "height": 232,
+      "text": "### `load_skill`\n\nRead one enabled skill’s full instructions from its catalog.\n\n**Available:** skills enabled and a nonempty eligible catalog",
+      "color": "4"
+    },
+    {
+      "id": "tool_terminal",
+      "type": "text",
+      "x": 0,
+      "y": 3045,
+      "width": 625,
+      "height": 262,
+      "text": "### `terminal`\n\nApproved, noninteractive workspace shell. Network is denied. Uses the macOS sandbox.\n\n**Available:** terminal enabled; outside an owning repository run",
+      "color": "4"
+    },
+    {
+      "id": "tool_list_repositories",
+      "type": "text",
+      "x": 700,
+      "y": 675,
+      "width": 625,
+      "height": 262,
+      "text": "### `list_repositories`\n\nList permitted repository IDs, names and whether this chat may write.\n\n**Available:** permitted repositories; mutation rules differ",
+      "color": "5"
+    },
+    {
+      "id": "tool_repo_list",
+      "type": "text",
+      "x": 700,
+      "y": 968,
+      "width": 625,
+      "height": 262,
+      "text": "### `repo_list`\n\nList a bounded repository directory; mark inaccessible links.\n\n**Available:** permitted repositories; mutation rules differ",
+      "color": "5"
+    },
+    {
+      "id": "tool_repo_search",
+      "type": "text",
+      "x": 700,
+      "y": 1260,
+      "width": 625,
+      "height": 262,
+      "text": "### `repo_search`\n\nFind repository filenames or literal text with bounded excerpts.\n\n**Available:** permitted repositories; mutation rules differ",
+      "color": "5"
+    },
+    {
+      "id": "tool_repo_read",
+      "type": "text",
+      "x": 700,
+      "y": 1552,
+      "width": 625,
+      "height": 262,
+      "text": "### `repo_read`\n\nRead file ranges and obtain the revision required for edits; binary metadata when applicable.\n\n**Available:** permitted repositories; mutation rules differ",
+      "color": "5"
+    },
+    {
+      "id": "tool_request_repository_edit",
+      "type": "text",
+      "x": 700,
+      "y": 1845,
+      "width": 625,
+      "height": 262,
+      "text": "### `request_repository_edit`\n\nPropose permanent entry into a readable repository’s project. Does not move the chat or grant writes.\n\n**Available:** readable repository; entry must obey movement rules",
+      "color": "5"
+    },
+    {
+      "id": "tool_repo_git",
+      "type": "text",
+      "x": 700,
+      "y": 2138,
+      "width": 625,
+      "height": 262,
+      "text": "### `repo_git`\n\nInspect status/diff/log/show. Owning-project chats additionally receive supported mutation operations with explicit authorization.\n\n**Available:** permitted repositories; mutation rules differ",
+      "color": "5"
+    },
+    {
+      "id": "read_scope",
+      "type": "text",
+      "x": 700,
+      "y": 2475,
+      "width": 625,
+      "height": 390,
+      "text": "## Which repositories are readable?\n\nShared repository: same-agent chats.\nClosed repository: chats in that same section.\nOther agents: no access granted.\n\nRead access does not load every file, reveal its chat history or grant edits. Closed/temp runs themselves remain gated.",
+      "color": "5"
+    },
+    {
+      "id": "git_operations",
+      "type": "text",
+      "x": 700,
+      "y": 2910,
+      "width": 625,
+      "height": 398,
+      "text": "## Supported Git mutations\n\ninit · add · commit · branch · switch\nrestore · mixed reset · selected-file clean · push\n\nRequires owning-project membership and explicit authorization. Read-only inspection requires no action approval. The current Git process runner requires macOS.\n\n[[Tools & Permissions#Action authorization]]",
+      "color": "6"
+    },
+    {
+      "id": "tool_repo_write",
+      "type": "text",
+      "x": 1400,
+      "y": 675,
+      "width": 625,
+      "height": 262,
+      "text": "### `repo_write`\n\nCreate or replace a file (text/base64). Existing files require a read revision; new files use null.\n\n**Available:** permanent chat in the owning repository project",
+      "color": "2"
+    },
+    {
+      "id": "tool_repo_edit",
+      "type": "text",
+      "x": 1400,
+      "y": 968,
+      "width": 625,
+      "height": 262,
+      "text": "### `repo_edit`\n\nReplace exact text after reading; a stale revision cannot overwrite newer content.\n\n**Available:** permanent chat in the owning repository project",
+      "color": "2"
+    },
+    {
+      "id": "tool_repo_patch",
+      "type": "text",
+      "x": 1400,
+      "y": 1260,
+      "width": 625,
+      "height": 262,
+      "text": "### `repo_patch`\n\nApply single-file unified diff hunks against a freshly read revision.\n\n**Available:** permanent chat in the owning repository project",
+      "color": "2"
+    },
+    {
+      "id": "tool_repo_rename",
+      "type": "text",
+      "x": 1400,
+      "y": 1552,
+      "width": 625,
+      "height": 262,
+      "text": "### `repo_rename`\n\nRename a freshly read file to a new path; do not overwrite a destination.\n\n**Available:** permanent chat in the owning repository project",
+      "color": "2"
+    },
+    {
+      "id": "tool_repo_delete",
+      "type": "text",
+      "x": 1400,
+      "y": 1845,
+      "width": 625,
+      "height": 262,
+      "text": "### `repo_delete`\n\nDelete one freshly read file only if its revision is unchanged.\n\n**Available:** permanent chat in the owning repository project",
+      "color": "2"
+    },
+    {
+      "id": "standing_access",
+      "type": "text",
+      "x": 1400,
+      "y": 2175,
+      "width": 625,
+      "height": 390,
+      "text": "## Standing access, visible changes\n\nOrdinary member edits need no per-edit prompt.\nShow actual files, diffs and +/− counts.\nNo writes outside the owning project through a remembered name or another tool.\nStop keeps already applied edits.",
+      "color": "2"
+    },
+    {
+      "id": "workspace_scope",
+      "type": "text",
+      "x": 1400,
+      "y": 2610,
+      "width": 625,
+      "height": 360,
+      "text": "## Workspace ≠ repository ≠ chat database\n\nGeneric workspace tools cannot read internal section/project stores or edit identity/configuration/skills.\nRepo tools are the repository path.\nPass 4 adds scoped conversation retrieval.",
+      "color": "6"
+    },
+    {
+      "id": "future_access",
+      "type": "text",
+      "x": 1400,
+      "y": 3015,
+      "width": 625,
+      "height": 292,
+      "text": "## Future access changes — v0.2\n\nSame-section edit grants and worktree targets are not current permissions.\n\n[[Repository Access & Worktree Plan]]",
+      "color": "6"
+    },
+    {
+      "id": "tool_repo_command",
+      "type": "text",
+      "x": 2100,
+      "y": 675,
+      "width": 625,
+      "height": 262,
+      "text": "### `repo_command`\n\nRun a blocking noninteractive command; return its outcome and guarded publication result.\n\n**Available:** owning repository project + terminal enabled + macOS",
+      "color": "3"
+    },
+    {
+      "id": "tool_repo_command_start",
+      "type": "text",
+      "x": 2100,
+      "y": 968,
+      "width": 625,
+      "height": 262,
+      "text": "### `repo_command_start`\n\nStart a supervised interactive/noninteractive session and return its session ID, output and status.\n\n**Available:** owning repository project + terminal enabled + macOS",
+      "color": "3"
+    },
+    {
+      "id": "tool_repo_command_read",
+      "type": "text",
+      "x": 2100,
+      "y": 1260,
+      "width": 625,
+      "height": 262,
+      "text": "### `repo_command_read`\n\nRead the owning run’s command status and bounded output pages; optionally wait briefly for progress.\n\n**Available:** owning repository project + terminal enabled + macOS",
+      "color": "3"
+    },
+    {
+      "id": "tool_repo_command_input",
+      "type": "text",
+      "x": 2100,
+      "y": 1552,
+      "width": 625,
+      "height": 262,
+      "text": "### `repo_command_input`\n\nSend revision-checked input or resize a running terminal. Use known answers; ask the user for unknown choices.\n\n**Available:** owning repository project + terminal enabled + macOS",
+      "color": "3"
+    },
+    {
+      "id": "tool_repo_command_stop",
+      "type": "text",
+      "x": 2100,
+      "y": 1845,
+      "width": 625,
+      "height": 262,
+      "text": "### `repo_command_stop`\n\nStop the owning run’s session and discard unfinished staged changes. Prior published edits remain.\n\n**Available:** owning repository project + terminal enabled + macOS",
+      "color": "3"
+    },
+    {
+      "id": "command_isolation",
+      "type": "text",
+      "x": 2100,
+      "y": 2175,
+      "width": 625,
+      "height": 480,
+      "text": "## Command boundary\n\nSandboxed disposable repository copy.\nRun-scoped isolated HOME/cache.\nSafe contained relative package links.\nFinished changes publish after revision checks.\nNo fixed command time/size/count ceiling.\nBounded output protects context/memory.\nInternet downloads need bounded authorization; Git mutations use separate controls.",
+      "color": "3"
+    },
+    {
+      "id": "session_lifetime",
+      "type": "text",
+      "x": 2100,
+      "y": 2700,
+      "width": 625,
+      "height": 608,
+      "text": "## Sessions and user input\n\nOnly the owning run can read/input/stop its command sessions.\nOne active command checkpoint per run.\nOrdinary sessions settle at run end.\nUnfinished staged output is discarded on Stop/closure.\n\nask_user waits without occupying model capacity; it preserves task/project ownership.\n\nA ready managed preview has a separate lifetime, shown in the next column.",
+      "color": "6"
+    },
+    {
+      "id": "tool_repo_preview_start",
+      "type": "text",
+      "x": 2800,
+      "y": 675,
+      "width": 625,
+      "height": 262,
+      "text": "### `repo_preview_start`\n\nStart/replace a local preview from settled code. Wait for readiness; starting a server is not proof of a build.\n\n**Available:** owning repository project + terminal enabled + macOS",
+      "color": "3"
+    },
+    {
+      "id": "tool_repo_preview_list",
+      "type": "text",
+      "x": 2800,
+      "y": 968,
+      "width": 625,
+      "height": 262,
+      "text": "### `repo_preview_list`\n\nList this chat’s previews and their recorded stopped/interrupted or snapshot state.\n\n**Available:** owning repository project + terminal enabled + macOS",
+      "color": "3"
+    },
+    {
+      "id": "tool_repo_preview_read",
+      "type": "text",
+      "x": 2800,
+      "y": 1260,
+      "width": 625,
+      "height": 262,
+      "text": "### `repo_preview_read`\n\nRead readiness, address, output and whether the served snapshot differs from current code.\n\n**Available:** owning repository project + terminal enabled + macOS",
+      "color": "3"
+    },
+    {
+      "id": "tool_repo_preview_stop",
+      "type": "text",
+      "x": 2800,
+      "y": 1552,
+      "width": 625,
+      "height": 262,
+      "text": "### `repo_preview_stop`\n\nStop this chat’s managed preview and clean its isolated copy; live repository files remain.\n\n**Available:** owning repository project + terminal enabled + macOS",
+      "color": "3"
+    },
+    {
+      "id": "preview_rules",
+      "type": "text",
+      "x": 2800,
+      "y": 1875,
+      "width": 625,
+      "height": 465,
+      "text": "## Preview lifetime / permission\n\nNo separate preview approval. Honor opt-outs and Stop.\nOnly the assigned loopback port; no Internet access.\nOnly ready previews may survive the final reply.\nIdle preview holds no project/model slot.\nSnapshot needs refresh after code changes.\nOwning Stop/deletion/app closure settles it.",
+      "color": "3"
+    },
+    {
+      "id": "mcp_tools",
+      "type": "text",
+      "x": 2800,
+      "y": 2385,
+      "width": 625,
+      "height": 510,
+      "text": "## Dynamic MCP tools — conditional\n\nNames/schemas come from enabled servers; Granite exposes names as mcp_<hash>.\nThey are additional to the 30 built-in names. No fixed inventory without selecting/configuring an agent.\n\nCurrent transport asks for connection and call approval. Paused if this agent has any Closed section or repository attachment.\nScoped integration and optional discovery: pass 5.",
+      "color": "6"
+    },
+    {
+      "id": "source",
+      "type": "text",
+      "x": 2800,
+      "y": 2940,
+      "width": 625,
+      "height": 368,
+      "text": "## Inventory source\n\nChecked registry.ts, workspace.ts, repository.ts and terminal.ts under src/backend/harness/tools/.\nDynamic tools: mcp.ts.\n\n[[Repository & Context Tools]]\n[[Tools & Permissions]]",
+      "color": "6"
+    },
+    {
+      "id": "planned_group",
+      "type": "group",
+      "x": -25,
+      "y": 3435,
+      "width": 3475,
+      "height": 885,
+      "label": "PLANNED · Not available to the model yet",
+      "color": "6"
+    },
+    {
+      "id": "planned_list",
+      "type": "text",
+      "x": 0,
+      "y": 3510,
+      "width": 625,
+      "height": 345,
+      "text": "### `list_context` — PLANNED\n\nBrowse only eligible section/project/chat/note entries with stable IDs and pagination.\n\n**Status:** Pass 4 · illustrative API name",
+      "color": "6"
+    },
+    {
+      "id": "planned_search",
+      "type": "text",
+      "x": 700,
+      "y": 3510,
+      "width": 625,
+      "height": 345,
+      "text": "### `search_context` — PLANNED\n\nSearch eligible original messages, titles, notes and summaries. Bounded excerpts and sources.\n\n**Status:** Pass 4 · illustrative API name",
+      "color": "6"
+    },
+    {
+      "id": "planned_read",
+      "type": "text",
+      "x": 1400,
+      "y": 3510,
+      "width": 625,
+      "height": 345,
+      "text": "### `read_context` — PLANNED\n\nRead selected eligible source/message ranges; recheck scope, revision and deletion.\n\n**Status:** Pass 4 · illustrative API name",
+      "color": "6"
+    },
+    {
+      "id": "planned_lookup",
+      "type": "text",
+      "x": 2100,
+      "y": 3510,
+      "width": 625,
+      "height": 345,
+      "text": "### `lookup_tools` — PLANNED\n\nFind eligible optional tool definitions. This searches capabilities, not saved conversations.\n\n**Status:** Pass 5 · illustrative API name",
+      "color": "6"
+    },
+    {
+      "id": "planned_memory",
+      "type": "text",
+      "x": 2800,
+      "y": 3510,
+      "width": 625,
+      "height": 345,
+      "text": "## Pass 4 · Proposed write tools\n\n`update_memory`: user facts\n`save_note`: scoped knowledge\n`update_chat_summary`: own chat\n`propose_identity_change`: exact approval\n\nNot implemented; scope-filtered.\n[[Pass 4 Implementation Plan]]",
+      "color": "6"
+    },
+    {
+      "id": "automatic_context",
+      "type": "text",
+      "x": 0,
+      "y": 3900,
+      "width": 3425,
+      "height": 375,
+      "text": "## Automatically supplied context is separate from tools\n\nCurrently: Granite instructions, agent profile/personality, current memory.md, this chat’s history/tool outcomes, task permissions, eligible repository directory, configured instructions and enabled skill catalog. Personality is stable for a run; memory refreshes between requests.\nNotes, full skills and code arrive through tool reads. Other chats/section summaries are not currently searchable or automatically shared. Pass 4 designs those sources, freshness, scope and context-fit/compaction together.\n\nSuggested next review: decide which context tools to add, what each may read/write, what is inserted automatically, and what remains on-demand. [[Memory & Context Policy]]",
+      "color": "6"
+    },
+    {
+      "id": "planned_repository_search",
+      "type": "text",
+      "x": 0,
+      "y": 4380,
+      "width": 3425,
+      "height": 260,
+      "color": "6",
+      "text": "## Pass 4 · Basic repository-search improvements — PLANNED\n\nImprove the existing repo_search tool using an established lexical implementation where practical. Add case/regex controls, sensible dependency/generated ignore rules with explicit scoped inclusion, and clear bounded results/continuation. Preserve permission checks and cancellation.\n\nThis is separate from search_context, which searches saved conversations/notes. Embeddings, semantic retrieval and richer symbol/import indexes remain v0.3.\n\n[[Harness Implementation Plan#Pass 4 — Context, Memory and Retrieval]]"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_workspace_group",
+      "fromNode": "legend",
+      "fromSide": "bottom",
+      "toNode": "workspace_group",
+      "toSide": "top",
+      "color": "6"
+    },
+    {
+      "id": "edge_read_group",
+      "fromNode": "legend",
+      "fromSide": "bottom",
+      "toNode": "read_group",
+      "toSide": "top",
+      "color": "6"
+    },
+    {
+      "id": "edge_edit_group",
+      "fromNode": "legend",
+      "fromSide": "bottom",
+      "toNode": "edit_group",
+      "toSide": "top",
+      "color": "6"
+    },
+    {
+      "id": "edge_command_group",
+      "fromNode": "legend",
+      "fromSide": "bottom",
+      "toNode": "command_group",
+      "toSide": "top",
+      "color": "6"
+    },
+    {
+      "id": "edge_preview_group",
+      "fromNode": "legend",
+      "fromSide": "bottom",
+      "toNode": "preview_group",
+      "toSide": "top",
+      "color": "6"
+    }
+  ]
+}

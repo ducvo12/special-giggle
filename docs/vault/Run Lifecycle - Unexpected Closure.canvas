@@ -1,255 +1,32 @@
 {
-  "nodes": [
-    {
-      "id": "intro",
-      "type": "text",
-      "text": "## Unexpected closure — D-067 revision\n\nInterrupted active run = Stop.\nKeep current file edits.\nReconcile on reopening; show error popup.\n\n[[Unexpected Closure Recovery]]",
-      "x": 0,
-      "y": -450,
-      "width": 460,
-      "height": 320,
-      "color": "5"
-    },
-    {
-      "id": "reopen",
-      "type": "text",
-      "text": "## 1 · Granite reopens\n\nFind durable unfinished run/outcome records.\nCompleted runs stay completed.\nNo automatic restart or tool replay.",
-      "x": 0,
-      "y": 0,
-      "width": 400,
-      "height": 300,
-      "color": "4"
-    },
-    {
-      "id": "fence",
-      "type": "text",
-      "text": "## 2 · Treat interruption as Stop\n\nInvalidate old approvals/callbacks.\nHold affected repository editing queues.\nDo not replay original tool actions.",
-      "x": 540,
-      "y": 0,
-      "width": 400,
-      "height": 300,
-      "color": "2"
-    },
-    {
-      "id": "popup",
-      "type": "text",
-      "text": "## 3 · Error popup\n\n“Granite closed unexpectedly. Interrupted work stopped; existing changes were kept.”\n\nReport settlement and real uncertainty.\nNo restoration progress.",
-      "x": 1080,
-      "y": 0,
-      "width": 420,
-      "height": 320,
-      "color": "2"
-    },
-    {
-      "id": "settle",
-      "type": "text",
-      "text": "## 4 · Settle surviving writers\n\nClosure does not prove every child process ended.\nCancel/settle owned work.\nDetermine actual action/file outcomes.",
-      "x": 1640,
-      "y": 0,
-      "width": 420,
-      "height": 320,
-      "color": "2"
-    },
-    {
-      "id": "restore",
-      "type": "text",
-      "text": "## 5 · Keep current files\n\nPreserve completed and known partial edits.\nDo not restore pre-run versions or reset Git.\nAutomatic restoration is deferred.\n\n[[Things to Optimize]]",
-      "x": 2200,
-      "y": 0,
-      "width": 440,
-      "height": 340,
-      "color": "4"
-    },
-    {
-      "id": "verify",
-      "type": "text",
-      "text": "## 6 · Save stopped outcome\n\nReconcile execution/status records.\nKeep available diffs and interruption details.\nRepeated closure must not replay tools.",
-      "x": 2780,
-      "y": 0,
-      "width": 420,
-      "height": 300,
-      "color": "4"
-    },
-    {
-      "id": "done",
-      "type": "text",
-      "text": "## Stopped — changes kept\n\nWriters/outcomes are settled.\nRetain history and release affected scheduling.\nUser may start new work; no automatic continuation.",
-      "x": 3340,
-      "y": 0,
-      "width": 440,
-      "height": 340,
-      "color": "3"
-    },
-    {
-      "id": "text_only",
-      "type": "text",
-      "text": "## Text / read-only interruption\n\nSettle and mark the run stopped.\nKeep partial chat history.\nPopup reports the interruption.\nNo repository reset occurs.",
-      "x": 2200,
-      "y": 520,
-      "width": 440,
-      "height": 300,
-      "color": "3"
-    },
-    {
-      "id": "attention",
-      "type": "text",
-      "text": "## Outcome needs attention\n\nKeep actual files and outcome records.\nIdentify unresolved process/action effects.\nBlock affected writes for genuine uncertainty.\nNo automatic restoration is pending.",
-      "x": 3340,
-      "y": 520,
-      "width": 440,
-      "height": 320,
-      "color": "6"
-    },
-    {
-      "id": "completed",
-      "type": "text",
-      "text": "## Completed work stays\n\nEarlier completed runs stay completed.\nInterrupted runs retain completed edits too.\nNo pre-run file reset.",
-      "x": 540,
-      "y": 520,
-      "width": 420,
-      "height": 320,
-      "color": "6"
-    },
-    {
-      "id": "queued",
-      "type": "text",
-      "text": "## Queue / timer restart — agreed\n\nD-056.\nKeep pending messages; require explicit restart.\nFresh checks and queue positions.\n\n[[Restarted Queues & Timers]]",
-      "x": 1080,
-      "y": 520,
-      "width": 440,
-      "height": 340,
-      "color": "6"
-    },
-    {
-      "id": "journal",
-      "type": "text",
-      "text": "## Necessary durable run state\n\nRecord execution, outcomes and pending work.\nRetain genuine uncertainty for reconciliation.\nNo full before-file snapshots solely for undo.",
-      "x": 1640,
-      "y": 520,
-      "width": 420,
-      "height": 320,
-      "color": "6"
-    },
-    {
-      "id": "restart_proposal",
-      "type": "text",
-      "text": "## Restart defaults — agreed\n\nD-056 · Accepted from P-014.\nThese extend the D-055 crash flow.\n\n[[Restarted Queues & Timers]]",
-      "x": 0,
-      "y": 1020,
-      "width": 460,
-      "height": 300,
-      "color": "5"
-    },
-    {
-      "id": "pending_after_restart",
-      "type": "text",
-      "text": "## Queued messages remain\n\nShow “Not started — Granite restarted.”\nDo not dispatch automatically.\nUser runs pending messages explicitly.\nFresh validation, new run and queue position.",
-      "x": 540,
-      "y": 1020,
-      "width": 440,
-      "height": 320,
-      "color": "2"
-    },
-    {
-      "id": "held_timer_restart",
-      "type": "text",
-      "text": "## Previously held timer\n\nActive/queued temporary chat:\na fresh idle hour after recovery.\nRequeue → hold at 1:00:00 again.\nNo offline time deducted from a held timer.",
-      "x": 1080,
-      "y": 1020,
-      "width": 440,
-      "height": 320,
-      "color": "2"
-    },
-    {
-      "id": "idle_timer_restart",
-      "type": "text",
-      "text": "## Already counting down\n\nExisting idle deadlines continue offline.\nAlready expired → normal cleanup.\nA restart does not revive the chat.\nOld approvals remain invalid.",
-      "x": 1640,
-      "y": 1020,
-      "width": 420,
-      "height": 320,
-      "color": "2"
-    },
-    {
-      "id": "recover_once",
-      "type": "text",
-      "text": "## Recover the transition once\n\nPersist recovered job/timer state.\nAnother restart must not recreate a job or repeatedly refresh expiry.\nDismissing the error popup starts no work.",
-      "x": 2200,
-      "y": 1020,
-      "width": 440,
-      "height": 320,
-      "color": "6"
-    }
-  ],
-  "edges": [
-    {
-      "id": "u1",
-      "fromNode": "reopen",
-      "fromSide": "right",
-      "toNode": "fence",
-      "toSide": "left",
-      "toEnd": "arrow",
-      "label": "Unfinished run"
-    },
-    {
-      "id": "u2",
-      "fromNode": "fence",
-      "fromSide": "right",
-      "toNode": "popup",
-      "toSide": "left",
-      "toEnd": "arrow"
-    },
-    {
-      "id": "u3",
-      "fromNode": "popup",
-      "fromSide": "right",
-      "toNode": "settle",
-      "toSide": "left",
-      "toEnd": "arrow"
-    },
-    {
-      "id": "u4",
-      "fromNode": "settle",
-      "fromSide": "right",
-      "toNode": "restore",
-      "toSide": "left",
-      "toEnd": "arrow",
-      "label": "Repository work"
-    },
-    {
-      "id": "u5",
-      "fromNode": "restore",
-      "fromSide": "right",
-      "toNode": "verify",
-      "toSide": "left",
-      "toEnd": "arrow"
-    },
-    {
-      "id": "u6",
-      "fromNode": "verify",
-      "fromSide": "right",
-      "toNode": "done",
-      "toSide": "left",
-      "toEnd": "arrow",
-      "label": "Outcomes known"
-    },
-    {
-      "id": "u7",
-      "fromNode": "verify",
-      "fromSide": "bottom",
-      "toNode": "attention",
-      "toSide": "left",
-      "toEnd": "arrow",
-      "label": "Uncertain outcome"
-    },
-    {
-      "id": "u8",
-      "fromNode": "settle",
-      "fromSide": "bottom",
-      "toNode": "text_only",
-      "toSide": "left",
-      "toEnd": "arrow",
-      "label": "No repo edits"
-    }
-  ]
+	"nodes":[
+		{"id":"intro","type":"text","text":"## Unexpected closure — D-067 revision\n\nInterrupted active run = Stop.\nKeep current file edits.\nReconcile on reopening; show error popup.\n\n[[Run Lifecycle Design#Stop and unexpected closure]]","x":0,"y":-450,"width":460,"height":320,"color":"5"},
+		{"id":"reopen","type":"text","text":"## 1 · Granite reopens\n\nFind durable unfinished run/outcome records.\nCompleted runs stay completed.\nNo automatic restart or tool replay.","x":0,"y":0,"width":400,"height":300,"color":"4"},
+		{"id":"fence","type":"text","text":"## 2 · Treat interruption as Stop\n\nInvalidate old approvals/callbacks.\nHold affected repository editing queues.\nDo not replay original tool actions.","x":540,"y":0,"width":400,"height":300,"color":"2"},
+		{"id":"popup","type":"text","text":"## 3 · Error popup\n\n“Granite closed unexpectedly. Interrupted work stopped; existing changes were kept.”\n\nReport settlement and real uncertainty.\nNo restoration progress.","x":1080,"y":0,"width":420,"height":320,"color":"2"},
+		{"id":"settle","type":"text","text":"## 4 · Settle surviving writers\n\nClosure does not prove every child process ended.\nCancel/settle owned work.\nDetermine actual action/file outcomes.","x":1640,"y":0,"width":420,"height":320,"color":"2"},
+		{"id":"restore","type":"text","text":"## 5 · Keep current files\n\nPreserve completed and known partial edits.\nDo not restore pre-run versions or reset Git.\nAutomatic restoration is deferred.\n\n[[Things to Optimize]]","x":2200,"y":0,"width":440,"height":340,"color":"4"},
+		{"id":"verify","type":"text","text":"## 6 · Save stopped outcome\n\nReconcile execution/status records.\nKeep available diffs and interruption details.\nRepeated closure must not replay tools.","x":2780,"y":0,"width":420,"height":300,"color":"4"},
+		{"id":"done","type":"text","text":"## Stopped — changes kept\n\nWriters/outcomes are settled.\nRetain history and release affected scheduling.\nUser may start new work; no automatic continuation.","x":3340,"y":0,"width":440,"height":340,"color":"3"},
+		{"id":"text_only","type":"text","text":"## Text / read-only interruption\n\nSettle and mark the run stopped.\nKeep partial chat history.\nPopup reports the interruption.\nNo repository reset occurs.","x":2200,"y":520,"width":440,"height":300,"color":"3"},
+		{"id":"attention","type":"text","text":"## Outcome needs attention\n\nKeep actual files and outcome records.\nIdentify unresolved process/action effects.\nBlock affected writes for genuine uncertainty.\nNo automatic restoration is pending.","x":3340,"y":520,"width":440,"height":320,"color":"6"},
+		{"id":"completed","type":"text","text":"## Completed work stays\n\nEarlier completed runs stay completed.\nInterrupted runs retain completed edits too.\nNo pre-run file reset.","x":540,"y":520,"width":420,"height":320,"color":"6"},
+		{"id":"queued","type":"text","text":"## Queue / timer restart — agreed\n\nD-056.\nKeep pending messages; require explicit restart.\nFresh checks and queue positions.\n\n[[Run Lifecycle Design#Stop and unexpected closure]]","x":1080,"y":520,"width":440,"height":340,"color":"6"},
+		{"id":"journal","type":"text","text":"## Necessary durable run state\n\nRecord execution, outcomes and pending work.\nRetain genuine uncertainty for reconciliation.\nNo full before-file snapshots solely for undo.","x":1640,"y":520,"width":420,"height":320,"color":"6"},
+		{"id":"restart_proposal","type":"text","text":"## Restart defaults — agreed\n\nD-056 · Accepted from P-014.\nThese extend the D-055 crash flow.\n\n[[Run Lifecycle Design#Stop and unexpected closure]]","x":0,"y":1020,"width":460,"height":300,"color":"5"},
+		{"id":"pending_after_restart","type":"text","text":"## Queued messages remain\n\nShow “Not started — Granite restarted.”\nDo not dispatch automatically.\nUser runs pending messages explicitly.\nFresh validation, new run and queue position.","x":540,"y":1020,"width":440,"height":320,"color":"2"},
+		{"id":"held_timer_restart","type":"text","text":"## Previously held timer\n\nActive/queued temporary chat:\na fresh idle hour after recovery.\nRequeue → hold at 1:00:00 again.\nNo offline time deducted from a held timer.","x":1080,"y":1020,"width":440,"height":320,"color":"2"},
+		{"id":"idle_timer_restart","type":"text","text":"## Already counting down\n\nExisting idle deadlines continue offline.\nAlready expired → normal cleanup.\nA restart does not revive the chat.\nOld approvals remain invalid.","x":1640,"y":1020,"width":420,"height":320,"color":"2"},
+		{"id":"recover_once","type":"text","text":"## Recover the transition once\n\nPersist recovered job/timer state.\nAnother restart must not recreate a job or repeatedly refresh expiry.\nDismissing the error popup starts no work.","x":2200,"y":1020,"width":440,"height":320,"color":"6"}
+	],
+	"edges":[
+		{"id":"u1","fromNode":"reopen","fromSide":"right","toNode":"fence","toSide":"left","toEnd":"arrow","label":"Unfinished run"},
+		{"id":"u2","fromNode":"fence","fromSide":"right","toNode":"popup","toSide":"left","toEnd":"arrow"},
+		{"id":"u3","fromNode":"popup","fromSide":"right","toNode":"settle","toSide":"left","toEnd":"arrow"},
+		{"id":"u4","fromNode":"settle","fromSide":"right","toNode":"restore","toSide":"left","toEnd":"arrow","label":"Repository work"},
+		{"id":"u5","fromNode":"restore","fromSide":"right","toNode":"verify","toSide":"left","toEnd":"arrow"},
+		{"id":"u6","fromNode":"verify","fromSide":"right","toNode":"done","toSide":"left","toEnd":"arrow","label":"Outcomes known"},
+		{"id":"u7","fromNode":"verify","fromSide":"bottom","toNode":"attention","toSide":"left","toEnd":"arrow","label":"Uncertain outcome"},
+		{"id":"u8","fromNode":"settle","fromSide":"bottom","toNode":"text_only","toSide":"left","toEnd":"arrow","label":"No repo edits"}
+	]
 }

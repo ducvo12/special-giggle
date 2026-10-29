@@ -23,7 +23,7 @@
     {
       "id": "intro",
       "type": "text",
-      "text": "## Run Lifecycle — current baseline\n\nExisting documented behavior.\nStart the new design here:\n[[Run Lifecycle - Text Only.canvas]]\n[[Run Lifecycle Design]]\n\n[[Harness Design]]",
+      "text": "## Run Lifecycle — v0.1 contract\n\nCore loop implemented. Context and temporary lifecycle have later-pass gates.\n\n[[Run Lifecycle Design]]\n[[Harness Implementation Plan]]",
       "x": -280,
       "y": -420,
       "width": 460,
@@ -33,7 +33,7 @@
     {
       "id": "limits",
       "type": "text",
-      "text": "## 3 · Check budgets\n\nWithin time, step, tool and context limits?",
+      "text": "## 3 · Check context fit\n\nNo whole-run time/step/tool cap.\nBound inputs/results; pass 4 adds model-aware accounting and compaction.",
       "x": 680,
       "y": 90,
       "width": 320,
@@ -52,7 +52,7 @@
     {
       "id": "result",
       "type": "text",
-      "text": "## 10 · Return outcome\n\nAdd the tool result or error to model context, then check budgets before the next model step.",
+      "text": "## 10 · Return outcome\n\nAdd the actual tool result/error, accept steering, refresh permissions and check context before the next request.",
       "x": 680,
       "y": 1020,
       "width": 320,
@@ -72,7 +72,7 @@
     {
       "id": "questions",
       "type": "text",
-      "text": "## Draft choices recorded separately\n\nNew messages steer.\nKeep/move locked while running.\nStop keeps completed edits (D-067).\nAutomatic restoration is deferred.\n\n[[Run Lifecycle Design]]",
+      "text": "## Current rules\n\nMessages steer with original context.\nActive runs lock Keep/moves.\nStop keeps completed edits.\nQuestions release model capacity.\n\n[[Run Lifecycle Design]]",
       "x": 2200,
       "y": 1125,
       "width": 360,
@@ -102,7 +102,7 @@
     {
       "id": "prepare",
       "type": "text",
-      "text": "## 2 · Prepare context\n\nLoad identity, memory, instructions and history. Prepare available tools.",
+      "text": "## 2 · Prepare context\n\nCurrent task/history, personality and eligible memory/tools.\nFull Shared/Closed retrieval: pass 4.",
       "x": 260,
       "y": 90,
       "width": 320,
@@ -122,7 +122,7 @@
     {
       "id": "failure",
       "type": "text",
-      "text": "## Failure / limit reached\n\nEnd the run and close MCP clients.\n\nRedact provider errors; preserve partial text and completed activity.",
+      "text": "## Failure / provider limit\n\nSave actual partial output/effects and release resources after settlement.\nOffer Continue; never blindly replay.",
       "x": 670,
       "y": -340,
       "width": 340,
@@ -152,7 +152,7 @@
     {
       "id": "complete",
       "type": "text",
-      "text": "## Complete\n\nFinish the turn and commit native state.\n\nClose MCP clients.",
+      "text": "## Complete\n\nSave completed reply/native state.\nSettle ordinary sessions.\nOnly a verified ready preview may remain.\nRelease run resources.",
       "x": 2760,
       "y": 0,
       "width": 320,

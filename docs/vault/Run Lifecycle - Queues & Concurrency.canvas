@@ -3,7 +3,7 @@
     {
       "id": "intro",
       "type": "text",
-      "text": "## Queues & concurrency — agreed\n\nD-052 / D-053 / D-054 / D-062.\nOne run per chat; serialize within a repo project.\nDuplicate links across projects allowed with warning.\nNo whole-run budgets.\n\n[[Concurrency & Limits]]",
+      "text": "## Queues — v0.1\n\nImplemented per-chat/project/model scheduling.\nTemporary timer holds: pass 5.\nNo whole-run budgets.\n\n[[Run Lifecycle Design]]",
       "x": 0,
       "y": -450,
       "width": 460,
@@ -73,7 +73,7 @@
     {
       "id": "settle",
       "type": "text",
-      "text": "## 5 · Settle before release\n\nStop cancels work and keeps edits.\nWait for owned writers; record actual outcome.\nOnly genuine uncertainty blocks affected writes.\n\n[[Run Lifecycle - Stop & Rollback.canvas]]",
+      "text": "## 5 · Settle before release\n\nStop cancels work and keeps edits.\nWait for owned writers; record actual outcome.\nOnly genuine uncertainty blocks affected writes.\n\n[[Run Lifecycle - Stop & Retained Edits.canvas]]",
       "x": 2240,
       "y": 0,
       "width": 440,

@@ -1,8 +1,8 @@
 # Repository Project Setup Plan
 
-> Scope accepted October 26, 2026. Planned as **Pass 3A — Autonomous Project Setup**, before pass 4. The user moved this work out of future optimizations and requested documentation before implementation. The user chose two implementation passes, with the first implemented and verified in [[Pass 3A.1 Implementation & Testing]]. The second pass is implemented October 27; its behavior, real-agent verification and external-package limits are recorded in [[Pass 3A.2 Implementation & Testing]]. Implementation defaults below guide engineering; any change to the existing sharing, approval, Stop or recovery rules requires review.
+> Accepted pass-3A contract, consolidated October 29, 2026. Both 3A.1 and 3A.2 are implemented with separate dated evidence in [[Pass 3A.1 Implementation & Testing]] and [[Pass 3A.2 Implementation & Testing]]. This note states the ongoing behavior and acceptance criteria, not a promise that every package/provider works.
 
-Related: [[Harness Implementation Plan]] · [[Pass 3 Implementation & Testing]] · [[Tool Permissions]] · [[Run Lifecycle Design]] · [[Concurrency & Limits]] · [[Unexpected Closure Recovery]] · [[Things to Optimize]]
+Related: [[Harness Implementation Plan]] · [[Pass 3 Implementation & Testing]] · [[Tools & Permissions#Action authorization]] · [[Run Lifecycle Design]] · [[Run Lifecycle Design#Queues and capacity]] · [[Run Lifecycle Design#Stop and unexpected closure]] · [[Things to Optimize]]
 
 ## Goal and expected user experience
 
@@ -18,23 +18,6 @@ Example path: inspect the current repository → resolve missing choices → est
 | --- | --- | --- |
 | **3A.1 — Command foundation** | Interactive sessions and output; isolated run HOME/cache; safe installer links; guarded checkpoint publication; Stop/crash cleanup; supplied-command framework builds | Implemented; results and limits in [[Pass 3A.1 Implementation & Testing]] |
 | **3A.2 — Autonomous workflow** | Question tool and answer UI; bounded setup/retry authorization; managed preview servers after the final answer; real-model complete and underspecified setup acceptance | Implemented; behavior and acceptance evidence in [[Pass 3A.2 Implementation & Testing]] |
-
-The user requested as few passes as safely practical. Two passes keep process/filesystem correctness independently verifiable before adding resumable human choices, broader authorization and sessions that outlive a run. This is an implementation split, not deferred scope or a requirement for another broad design review (D-069).
-
-## Baseline at plan creation versus full target
-
-The table records the baseline before 3A.1. Consult its results above for current availability; 3A.2 now supplies questions, bounded workflow/retry grants and managed previews; see its separate results.
-
-| Area | Baseline before 3A.1 | Full Pass 3A target |
-| --- | --- | --- |
-| Command execution | Noninteractive commands; no fixed elapsed-time or repository size/count ceiling | Interactive sessions with input, incremental output and explicit lifecycle controls |
-| Isolation | Temporary repository copy, macOS sandbox, separate command HOME/TMPDIR and guarded publication | Preserve these boundaries throughout multi-command setup and interactive/background execution |
-| npm cache | Canonical temporary-directory fix is implemented with focused verification recorded in [[Pass 3 Implementation & Testing]] | Retain the fixed path handling and preserve a workflow's isolated cache/environment across its related commands |
-| Links | Existing relative links are preserved in command copies; new command-created links block publication | Safely track and publish repository-contained relative links, including executable links created by package managers |
-| User choices | Ordinary conversation and action approvals | A dedicated question tool and answer interface that resume the task |
-| Networking | Repository command networking is already available with explicit authorization | Recognize bounded setup workflows and clear retries without duplicate prompts; keep grants visible and scoped |
-| Development servers | No managed persistent interactive/background session workflow | Visible server state, output, local address, termination and recovery |
-| Web search | Hosted search is not enabled by this feature | Not a prerequisite: supplied commands and local command help are sufficient for initial tests |
 
 Terminal enablement remains an explicit agent setting. A request cannot bypass a disabled capability. Existing repository membership, Shared/Closed boundaries and permanent-chat requirements continue to apply. Initial delivery stays on macOS; additional command platforms remain separate work.
 
@@ -75,7 +58,7 @@ Terminal enablement remains an explicit agent setting. A request cannot bypass a
 
 ## 5. Bounded authorization and networking
 
-- Reuse [[Tool Permissions]]: a clear request to create a project and install its necessary dependencies can authorize that setup's downloads. The grant covers the stated repository, operation and necessary related commands, not all future network use.
+- Reuse [[Tools & Permissions#Action authorization]]: a clear request to create a project and install its necessary dependencies can authorize that setup's downloads. The grant covers the stated repository, operation and necessary related commands, not all future network use.
 - Replace dependence on exact current-run command text with an explicit bounded intent/action record derived only from direct user messages or approvals. Track its origin, target, scope, state and revocation. Repository files, tool output and model arguments cannot grant permissions.
 - For “try again” or Continue, identify the earlier user-requested action and inspect known effects before proceeding. Derive fresh authorization for the clearly repeated bounded action when justified; do not copy every old grant into a new run. Ambiguous retries or changed targets require clarification/approval. Denial or explicit revocation wins.
 - Avoid per-download approval inside an authorized installation. Show any new network request with its actual action and scope. Keep Git mutations, push, publication/deployment, unrelated remote writes and access to credentials under their separate authorization rules.
@@ -84,26 +67,11 @@ Terminal enablement remains an explicit agent setting. A request cannot bypass a
 
 ## 6. Development-server lifecycle
 
-- October 27 user revision: the agent may start a local preview at its own discretion without preview authorization or an approval dialog. Terminal enablement, owning-repository scope, isolation, local-only networking, explicit user opt-outs and Stop controls remain. A running server does not prove a successful installation/build. Report starting, ready, failed and stopped states, its local address and accessible output; verify readiness rather than treating a successful spawn as a working app.
+- The agent may start a local preview at its own discretion without preview authorization or an approval dialog. Terminal enablement, owning-repository scope, isolation, local-only networking, explicit user opt-outs and Stop controls remain. A running server does not prove a successful installation/build. Report starting, ready, failed and stopped states, its local address and accessible output; verify readiness rather than treating a successful spawn as a working app.
 - Ordinary setup shells end when their task finishes. A ready managed preview server may remain as a visibly managed chat/project-owned session after the answer. It does not consume a model lease or indefinitely reserve the repository project while idle. Persist enough ownership/status data to stop/reconcile it without pretending it is still a live agent run.
 - A server runs against its isolated copy and never receives direct write access to the live repository. Label the published revision it previews. After later edits, refresh or restart it against a newly synchronized, revision-checked copy at a safe boundary; do not claim a stale preview reflects current code.
 - User Stop/explicit server stop and deletion of the owning chat/container terminate its owned sessions. App/worker closure invokes liveness supervision, settlement and recovery; reopening reports interruption and requires explicit restart. Do not introduce an unattended daemon or automatic replay on app launch.
 - Retain genuine unknown external/process outcomes for review. Detached descendants must remain confined even if they escape a process group; a cleanup failure must never give them live-repository access.
-
-## Implementation checkpoints
-
-These are dependency checkpoints, not six separate delivery passes. Checkpoints 1, 3 and 4 are implemented in 3A.1, together with supplied-command CLI/framework evidence from checkpoint 6. Checkpoints 2 and 5, plus real-model acceptance, are recorded separately in [[Pass 3A.2 Implementation & Testing]]. The complete acceptance matrix still applies to the full feature.
-
-| Order | Deliverable | Required evidence before continuing |
-| --- | --- | --- |
-| 1 | Session ownership, PTY process supervision, start/read/input/stop tools and transport types | Disposable interactive command accepts input, produces incremental output, stops and remains confined |
-| 2 | Question tool, waiting-input state and answer UI/IPC | A simulated model asks for a missing choice, resumes with the answer once and rejects stale answers |
-| 3 | Link-aware manifests, access and guarded publication | Real executable links work; escaping/protected/cyclic links and publication races are rejected |
-| 4 | Shared setup environment, cache and checkpoint publication | Scaffold/install/build commands see consistent state and preserve concurrent live edits |
-| 5 | Bounded workflow/retry grants and managed preview sessions | No duplicate approval for authorized downloads; revocation, local-only readiness, stop and recovery work |
-| 6 | Real framework and real-model acceptance, documentation/status reconciliation | The end-to-end matrix below passes or reports an explicit external blocker; no claim of completion from scaffold files alone |
-
-Reuse existing workspace tools, scheduling, repository records and validation where their behavior fits. Add the necessary types, worker/main/preload messages, persistence and renderer states together. Engineering details such as exact tool names, tables and PTY package are chosen during implementation and recorded with results. This feature does not require Codex embedding, hosted search, a new model provider or subagents.
 
 ## Acceptance and verification
 

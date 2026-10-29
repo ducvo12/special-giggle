@@ -1,8 +1,10 @@
 # Pass 3 Implementation & Testing
 
+> Dated verification record. Counts, environments and limitations below describe their recorded checkpoints. For current behavior use [the harness guide](../../harness.md); for delivery status use [[Start Here]]. Temporary evidence paths may no longer exist.
+
 > Implemented October 25, 2026. Repository tools, access enforcement, project scheduling, visible changes and repository-aware recovery are available. The build/type check and 86 automated checks pass; a disposable desktop walkthrough also passed. This is implementation and basic verification, not exhaustive manual acceptance of every edge case.
 
-Related: [[Harness Implementation Plan]] · [[Repository & Context Tools]] · [[Tool Permissions]] · [[Unexpected Closure Recovery]] · [[Things to Optimize]]
+Related: [[Harness Implementation Plan]] · [[Repository & Context Tools]] · [[Tools & Permissions#Action authorization]] · [[Run Lifecycle Design#Stop and unexpected closure]] · [[Things to Optimize]]
 
 **Extension status:** D-068/D-069 add two-pass project setup. [[Pass 3A.1 Implementation & Testing]] now records implemented interactive commands, safe installer links, run HOME/cache continuity, publication/cleanup and real framework builds. These are now implemented in [[Pass 3A.2 Implementation & Testing]], with separate acceptance results. The historical results/limits below describe baseline pass 3; its statements rejecting new links or interactive sessions are superseded by 3A.1. See [[Repository Project Setup Plan]] for the full scope.
 
@@ -67,7 +69,7 @@ Evidence/logs:
 
 Outer-sandbox loopback/Seatbelt restrictions caused initial test-launch failures; checks requiring those capabilities were rerun with the necessary access. Other initial failures were corrected before the passing results: strip-only TypeScript constructor compatibility, rename checks during the temporary hard link, empty Git metadata directories on initialization, older schema/repository-gating test assumptions and optional connection-field normalization. These initial failures are not counted as passes.
 
-## Current limits and further user verification
+## Limits at the recorded checkpoint
 
 - Scoped command execution currently requires macOS `sandbox-exec`; repository Git/diff/patch tooling uses the system Git. Git tools require a real local `.git` directory, so worktree metadata pointers are not supported yet. Global credential/configuration files are not made available to commands; use configured repository-local Git identity, and expect authentication-dependent remote actions to need further integration.
 - Commands have no fixed elapsed-time, repository-entry-count or total-file-size ceiling. Commands still need sufficient host memory/disk space, and temporary copies and complete manifests can be expensive on large repositories. Text reads/native tool writes are limited to 1 MB per file; this does not limit command-generated files. Larger generated files are streamed into the live repository after revision checks and have a large-file notice rather than invented inline diff counts. Output/diff previews remain bounded. No whole-run step/time/tool budget was added. Commands that do not exit keep the run occupied until stopped; persistent background/interactive terminal sessions are not introduced by this change.
@@ -83,4 +85,4 @@ Outer-sandbox loopback/Seatbelt restrictions caused initial test-launch failures
 - [ ] Additional whole-app closure/startup interruption races, detached background workloads and manual same-file edits at publication boundaries.
 - [ ] Real hosted/local models and configured authentication-dependent remote operations when available.
 
-Pass 2's separate [[Pass 2 Tests to Run Later]] remains pending; these results do not relabel its skipped categories complete.
+Pass 2's separate [[Tests to Run Later]] remains pending; these results do not relabel its skipped categories complete.

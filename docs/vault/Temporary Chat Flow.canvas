@@ -3,7 +3,7 @@
     {
       "id": "intro",
       "type": "text",
-      "text": "## Temporary Chat Flow — agreed\n\nSection-level chats; Keep then move before editing.\n\n[[Harness Design]]\n[[Run Lifecycle - Temporary Expiry.canvas]]\nTimer revised in D-048; cleanup proposed.",
+      "text": "## Temporary Chat Flow — pass 5\n\nPlanned section-level retention.\nKeep, then separately move before edits.\nContext enforcement: pass 4.\n\n[[Harness Design]]\n[[Run Lifecycle - Temporary Expiry.canvas]]",
       "x": 0,
       "y": -500,
       "width": 440,

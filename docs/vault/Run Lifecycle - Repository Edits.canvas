@@ -3,7 +3,7 @@
     {
       "id": "intro",
       "type": "text",
-      "text": "## Repository edit lifecycle\n\nSuccess, first recovery and initial Stop design: AGREED.\nSteering boundaries: AGREED.\n\n[[Run Lifecycle Design]]\n[[Run Lifecycle - Stop & Rollback.canvas]]\n[[Run Lifecycle - Steering.canvas]]",
+      "text": "## Repository edit lifecycle\n\nSuccess, first recovery and initial Stop design: AGREED.\nSteering boundaries: AGREED.\n\n[[Run Lifecycle Design]]\n[[Run Lifecycle - Stop & Retained Edits.canvas]]\n[[Run Lifecycle - Steering.canvas]]",
       "x": 0,
       "y": -450,
       "width": 460,

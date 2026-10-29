@@ -1,5 +1,7 @@
 # Granite’s agent harness
 
+> Implemented behavior, reviewed October 29, 2026. For planned context/lifecycle features and version boundaries, use [the vault index](<vault/Start Here.md>) and [implementation plan](<vault/Harness Implementation Plan.md>).
+
 Granite owns the agent loop. Model providers receive instructions, conversation items, and tool definitions, then return text or proposed tool calls. Granite validates those calls, applies permissions, requests approval, executes tools, and returns their results to the model. Codex is not started or used for authentication.
 
 ## Connect a model
@@ -18,11 +20,11 @@ The supported ChatGPT plan flow calls the public Responses endpoint directly wit
 
 ## Identity, memory, and instructions
 
-Each turn loads the selected agent’s profile, `identity.md`, `memory.md`, and additional instructions from its own settings. Granite assembles these into the model’s instructions. Changing a provider does not change the agent’s identity or memory.
+Each run loads the selected agent’s profile/personality and user instructions; eligible `memory.md` is refreshed before subsequent model requests. Personality remains fixed during that run and changes take effect next run. Granite assembles these into the model’s instructions. New chats can use another provider while preserving the agent’s identity/memory; a used chat remains bound to its model/provider. Existing-session migration is not supported.
 
-Memory is an ordinary protected-workspace file. The agent can read and update explicit preferences through file tools; it is instructed to read first and avoid secrets or speculative facts. Granite does not create automatic embeddings or infer memories in the background.
+Memory is an ordinary protected-workspace file. Full Shared/Closed scoped retrieval, source-backed incremental summaries, model-aware compaction and model-proposed identity approval are planned for pass 4. Closed runs remain gated until isolation exists; temporary runs/expiry await pass 5. The agent can read and update explicit preferences through file tools; it is instructed to read first and avoid secrets or speculative facts. Granite does not create automatic embeddings or run a background memory extraction system.
 
-Native Responses items, including opaque encrypted reasoning, are retained in SQLite’s `harness_state` table. They are replayed in order on subsequent requests to the same model/provider/account. They are not exposed through the renderer conversation bridge. Display messages remain separate from provider state. Changing providers or recovering an interrupted run rebuilds context from visible messages and recorded tool outcomes. Unfinished tool calls are never automatically replayed.
+Native Responses items, including opaque encrypted reasoning, are retained in SQLite’s `harness_state` table. They are replayed in order on subsequent requests to the same model/provider/account. They are not exposed through the renderer conversation bridge. Display messages remain separate from provider state. Recovering an interrupted run rebuilds compatible context from visible messages and recorded tool outcomes; it does not authorize provider switching within an existing chat. Unfinished tool calls are never automatically replayed.
 
 ## Tools and approvals
 
@@ -32,6 +34,12 @@ Workspace tools list/read/write/edit files, find filenames, search contents, and
 
 Approvals are scoped to one pending action and one active request. **Allow once** resumes that action; **Deny** returns a tool error to the model. **Stop agent** cancels the run and invalidates pending approvals. A permission is enforced in backend code, independently of the model’s instructions. Tool inputs, results, and status appear in the conversation. Completed changes remain after Stop.
 
+### Repository capabilities
+
+Permanent owning-project chats receive standing repository reads/writes, patches, renames/deletions, controlled Git, commands and actual diff/count reporting. Other eligible chats can read Shared repositories or repositories in their own Closed section; only owning-project members may write in v0.1. Outside requests propose a separately confirmed permanent project move. The v0.2 same-section edit-grant/worktree proposal is not enabled by that visibility.
+
+Runs serialize within a repository project, including text-only questions, while independent projects can proceed within model capacity. Duplicate physical links are allowed; they do not establish a global write lock. Revisions and unknown-outcome recovery remain enforced. Current tools and targets: [repository/context tools](<vault/Repository & Context Tools.md>).
+
 ### Skills
 
 Create or edit skills in **Tools & skills**. Granite stores each skill at `skills/<name>/SKILL.md` inside the agent’s folder. A run exposes a bounded catalog and a `load_skill` tool so the model can retrieve relevant instructions. A skill does not grant permissions or execute scripts by itself. Skills are read-only to model tools and terminal commands; the user manages them through the application. Disable the skill catalog and loader per agent when desired. Ordinary workspace reads still follow the workspace file policy.
@@ -40,7 +48,7 @@ Create or edit skills in **Tools & skills**. Granite stores each skill at `skill
 
 Add a named MCP server using a local executable and separate arguments, or a Streamable HTTP address. Remote addresses require HTTPS; loopback HTTP is supported for local services. Enable only the servers this agent needs.
 
-Granite asks before starting a local server or connecting to an HTTP server, and again before every MCP tool invocation. It discovers tools through its own MCP client, gives each an unambiguous name, validates arguments against the supplied schema, and forwards approved results to the model. MCP connects independently of the model provider, so it also works when hosted MCP is unavailable through a subscription endpoint.
+Granite asks before starting a local server or connecting to an HTTP server, and again before every MCP tool invocation. It discovers tools through its own MCP client, gives each an unambiguous name, validates arguments against the supplied schema, and forwards approved results to the model. MCP connects independently of the model provider. Connections are currently paused when the agent has Closed sections or repository links, because the existing transport cannot enforce those scopes. Scoped integrations, connection reuse and optional discovery remain pass 5.
 
 Local MCP programs are trusted extensions: after approval, they run with the user’s computer permissions, outside the terminal sandbox. HTTP MCP authentication/OAuth and secret configuration are not implemented in this version. Do not put credentials in server arguments or URLs. Servers requiring account sign-in fail with an explanatory error. MCP clients are closed when the run completes, stops, or fails.
 
@@ -48,7 +56,7 @@ Local MCP programs are trusted extensions: after approval, they run with the use
 
 Terminal execution is disabled by default. Workspace terminal calls require approval when enabled; repository commands use the project grant and separate authorization for network or Git mutations. The current sandbox uses macOS `sandbox-exec`; the application disables this option on other platforms until a corresponding sandbox is implemented.
 
-Commands run from a checked directory inside the agent workspace, with a minimal environment and no inherited model credentials. The sandbox permits the workspace and required system runtime reads, blocks reads of other user files, blocks network access, and denies changes to identity/configuration/skills. Commands run until completion or Stop with no fixed elapsed-time limit; output previews have a 32,000-character budget for memory safety. Stop terminates the process group, including child processes. This workspace tool is noninteractive.
+Commands run from a checked directory inside the agent workspace, with a minimal environment and no inherited model credentials. The sandbox permits eligible workspace paths and required system runtime reads, blocks reads of other user files, blocks network access, and denies changes to identity/configuration/skills. Commands run until completion or Stop with no fixed elapsed-time limit; output previews have a 32,000-character budget for memory safety. Stop cancels owned command work and settles its supervised processes; repository commands additionally use isolated copies so detached work cannot write the live repository. This workspace tool is noninteractive.
 
 Repository project chats additionally expose `repo_command` for blocking noninteractive work and `repo_command_start`, `repo_command_read`, `repo_command_input`, `repo_command_stop` for supervised interactive work. A session has a real terminal, incremental sanitized output, input revision checks and resize support. Only its owning run can use it. The command panel shows status, output and staged/applied/discarded outcomes.
 
@@ -60,15 +68,17 @@ The macOS boundary still denies host secrets and live-repository writes. A comma
 
 **Task permissions** shows bounded setup/download grants and their state, with a Revoke control. Clear Next.js/Vite setup requests, supplied supported package commands and necessary dependency steps can run under the task's grant. A clear retry derives fresh scope from the immediately preceding eligible action; it does not restore a denied grant or authorize unrelated networking/deployment. Unknown and compound network commands still need concrete approval. Terminal enablement remains separate.
 
-`repo_preview_start/read/list/stop` let the agent start and manage local previews whenever useful, with no separate preview authorization or approval. Terminal must still be enabled; explicit user instructions not to preview and Stop actions still apply. Preview actions do not grant Internet downloads or deployment access. The UI shows status, output, code snapshot/time and address, with Open, Refresh and Stop controls. Bind to Granite's HOST/PORT; only the assigned loopback port is available and public networking is denied. Readiness checks HTTP and owned listener identity. A preview stays in an isolated copy, publishes no writes, and holds no model/project capacity while idle. Refresh prepares newer code; stale snapshots are labeled. Stop, deletion and shutdown settle owned previews; restart recovery reports interruption without replay. See [second-pass results](<vault/Pass 3A.2 Implementation & Testing.md>), [first-pass foundation](<vault/Pass 3A.1 Implementation & Testing.md>) and [full setup plan](<vault/Repository Project Setup Plan.md>).
+`repo_preview_start/read/list/stop` let the agent start and manage local previews whenever useful, with no separate preview authorization or approval. Terminal must still be enabled; explicit user instructions not to preview and Stop actions still apply. Preview actions do not grant Internet downloads or deployment access. The UI shows status, output, code snapshot/time and address, with Open, Refresh and Stop controls. Bind to Granite's HOST/PORT; only the assigned loopback port is available and public networking is denied. Readiness checks HTTP and owned listener identity. A preview stays in an isolated copy, publishes no writes, and holds no model/project capacity while idle. Refresh prepares newer code; stale snapshots are labeled. Stop, deletion and shutdown settle owned previews; restart recovery reports interruption without replay. See [second-pass results](<vault/Verification/Pass 3A.2 Implementation & Testing.md>), [first-pass foundation](<vault/Verification/Pass 3A.1 Implementation & Testing.md>) and [full setup plan](<vault/Repository Project Setup Plan.md>).
 
 Links in replies and rendered Markdown open in the system browser when clicked. Only absolute HTTP/HTTPS URLs without embedded credentials are accepted; file and application protocols remain blocked. Granite does not navigate its own window to the linked page.
 
 ## Limits and recovery
 
-Granite has no fixed run deadline, model-step limit, or total tool-call limit. Stop cancels active work. It enforces a two-million-byte context budget before each model step, bounded tool results, and 200 visible messages per conversation. It retries only transient HTTP service failures before a response stream starts. It never retries a tool action automatically. If a conversation exceeds its budget, start a new chat; identity, memory, skills, and workspace files remain available. Automatic context summarization/compaction is not implemented yet.
+Granite has no fixed run deadline, model-step limit, or total tool-call limit. Stop cancels active work. The loop currently checks a two-million-byte input/instruction guard before each model step and bounds tool-result/output previews. This is not full model-token accounting of serialized tool schemas; pass 4 replaces the baseline with model-aware fit/compaction. Stored transcript retention is separate from the input view. It retries only transient HTTP service failures before a response stream starts. It never retries a tool action automatically. If mandatory input exceeds the current guard, narrow the task or start a new chat; saved files remain available within scope. Automatic context summarization/compaction is not implemented yet.
 
-Provider failures are redacted before display or persistence. Partial text and completed tool activity survive failure and restart. Native state is committed only with a completed turn. Agent deletion removes the entire folder, messages, native state, and all tracked legacy checkpoints.
+Startup reports interrupted work without automatically replaying runs/commands/previews; queued prompts require explicit restart. Known completed edits are retained, while genuine unknown outcomes block affected writes until reviewed.
+
+Provider failures are redacted before display or persistence. Partial text and completed tool activity survive failure and restart. Native state is committed only with a completed turn. Existing agent/chat deletion requires work to finish, stops owned previews and removes associated settled state; unresolved recovery data cannot be erased. Full cancel-and-delete cascade for sections/projects and source cleanup remains pass 5. Agent folder deletion includes internal code; external linked folders survive.
 
 ChatGPT sign-in validates OAuth state, PKCE, the ID-token signature, issuer, audience, expiry, nonce, and granted plan scopes. Credentials use OS-protected encryption. Refreshes are serialized to protect rotating tokens. Signing out revokes Granite’s renewable session when possible, clears its local tokens, and preserves its registration mapping for later sign-in. This does not sign out Codex. If remote revocation cannot be confirmed, the UI says so.
 
@@ -94,4 +104,6 @@ node scripts/verify-agents-desktop.mjs --offline
 
 The harness check exercises the actual settings editor, skill saving, Responses connection, approval denial and allowance, Stop while waiting for approval, and restart persistence. It uses a mock model and consumes no account usage.
 
-The ChatGPT model-picker check instruments a disposable build and profile with mock account credentials and a local catalog/inference server. It verifies saving one account connection without a fixed model, switching models in the same chat, remembering the selection after restart, refreshing changed catalogs, retrying failed discovery, and rejecting unavailable models before inference. It consumes no real account usage.
+The ChatGPT model-picker check instruments a disposable build and profile with mock account credentials and a local catalog/inference server. It verifies saving one account connection without a fixed model, model-selection controls and persistence, refreshing changed catalogs, retrying failed discovery, and rejecting unavailable models before inference. It consumes no real account usage.
+
+That model-picker runner originated before fixed session binding; its historical switching cases do not override the current used-chat binding rule. Consult its current assertions before using it for acceptance. Broader unverified cases remain in [Tests to Run Later](<vault/Tests to Run Later.md>).

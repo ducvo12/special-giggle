@@ -133,7 +133,7 @@
     {
       "id": "undo",
       "type": "text",
-      "text": "## Continue starts a new run\n\nLater Stop keeps its completed edits too.\nAutomatic restoration and Undo UI are deferred.\n\n[[Deferred File Restoration]]",
+      "text": "## Continue starts a new run\n\nLater Stop keeps its completed edits too.\nAutomatic restoration and Undo UI are deferred.\n\n[[Things to Optimize#Unassigned — do not silently add to a release]]",
       "x": 2700,
       "y": 550,
       "width": 430,

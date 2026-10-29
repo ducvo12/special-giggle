@@ -1,5 +1,7 @@
 # Multiple-agent milestone verification — 2026-10-18
 
+> Historical pre-harness milestone; the architecture and limits here are not current. See [the current harness guide](../harness.md) and [delivery status](<../vault/Start Here.md>).
+
 ## Implementation
 
 The shared `agent-runtime.ts` loads each agent’s name from its `agent.json`, personality from `identity.md`, and preferences from `memory.md`. Runtime instructions are generic and remain in source code. New agents have separate folders, notes, memory, conversations, and checkpoint threads.

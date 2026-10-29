@@ -1,10 +1,12 @@
 # Pass 3A.1 Implementation & Testing
 
+> Dated verification record. Counts, environments and limitations below describe their recorded checkpoints. For current behavior use [the harness guide](../../harness.md); for delivery status use [[Start Here]]. Temporary evidence paths may no longer exist.
+
 > Implemented and verified October 26, 2026. This is the first of the two passes selected by the user in D-069. The interactive command/filesystem foundation works, including real supplied-command Vite and Next.js installs and production builds. **Full autonomous project setup remains incomplete:** question/answer UI, bounded workflow/retry grants, managed preview lifetimes and real-model acceptance belong to 3A.2.
 
 **Subsequent extension:** October 27 implements the second pass in [[Pass 3A.2 Implementation & Testing]]. Statements below about second-pass work being pending and all sessions closing at run end record the first-pass checkpoint; ready managed previews now have their own lifetime.
 
-Related: [[Repository Project Setup Plan]] · [[Harness Implementation Plan]] · [[Pass 3 Implementation & Testing]] · [[Tool Permissions]] · [[Unexpected Closure Recovery]]
+Related: [[Repository Project Setup Plan]] · [[Harness Implementation Plan]] · [[Pass 3 Implementation & Testing]] · [[Tools & Permissions#Action authorization]] · [[Run Lifecycle Design#Stop and unexpected closure]]
 
 ## Implemented behavior
 

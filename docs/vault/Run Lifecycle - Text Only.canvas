@@ -93,7 +93,7 @@
     {
       "id": "later",
       "type": "text",
-      "text": "## Planning finish line\n\n[[Remaining Harness Decisions]]\nSeven remaining behavior groups.\nMain run paths and chat deletion agreed; temporary-cleanup details remain proposed.\n[[Run Lifecycle Design]]\n\nLarge-repo/context optimization comes later.",
+      "text": "## Remaining passes\n\nPass 4: scoped context/memory/retrieval.\nPass 5: temporary/container lifecycle and extensions.\nPass 6: integrated verification.\n\n[[Harness Implementation Plan]]",
       "x": 500,
       "y": 990,
       "width": 430,

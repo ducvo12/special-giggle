@@ -3,7 +3,7 @@
     {
       "id": "title",
       "type": "text",
-      "text": "## Agent Structure — draft\n\nAgent → Section → Project → Chat.\nChats may also sit directly in a section.\nOnly projects can attach repositories.\n\n[[Harness Design]] · [[Memory & Context.canvas]]\n[[Repository Access.canvas]]",
+      "text": "## Agent Structure — v0.1 design\n\nOrganization implemented; full context is pass 4 and temporary lifecycle is pass 5.\n\n[[Harness Design]] · [[Memory & Context.canvas]]\n[[Repository Access.canvas]]",
       "x": 0,
       "y": -640,
       "width": 450,
@@ -153,7 +153,7 @@
     {
       "id": "agent_skills",
       "type": "text",
-      "text": "## tools/skills/ — D-065\n\nUser may ask the agent to install an existing package here.\nKeep SKILL.md + resources together.\nImport does not execute scripts or grant tools.\n\n[[Skills & MCP Policy]]",
+      "text": "## Skills — current / pass 5\n\nCurrent: user-managed skills/ packages.\nPass 5: requested imports in tools/skills/, with SKILL.md + resources.\nImport grants no execution.\n\n[[Tools & Permissions]]",
       "x": 0,
       "y": 1480,
       "width": 460,

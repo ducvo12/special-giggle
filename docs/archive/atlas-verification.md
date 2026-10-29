@@ -1,5 +1,7 @@
 # Atlas milestone verification — 2026-10-18
 
+> Historical pre-harness milestone; the architecture and limits here are not current. See [the current harness guide](../harness.md) and [delivery status](<../vault/Start Here.md>).
+
 Implemented with Deep Agents 1.15.1, LangGraph, SQLite checkpoints, and an Electron utility process.
 
 ## Automated checks
