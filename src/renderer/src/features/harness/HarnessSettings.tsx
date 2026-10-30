@@ -133,6 +133,17 @@ export default function HarnessSettings({
 
         <fieldset disabled={disabled || !saved}>
           <label>
+            Context window override (tokens)
+            <input type="number" min={4096} max={2000000} placeholder="Provider metadata, otherwise 32768" value={settings.contextWindow ?? ''}
+              onChange={event => setSettings({ ...settings, contextWindow: event.target.value ? Number(event.target.value) : undefined })} />
+          </label>
+          <label>
+            Maximum output tokens
+            <input type="number" min={256} max={128000} placeholder="Provider metadata, otherwise 4096" value={settings.maxOutputTokens ?? ''}
+              onChange={event => setSettings({ ...settings, maxOutputTokens: event.target.value ? Number(event.target.value) : undefined })} />
+          </label>
+          <small>Use the model’s actual configured window. Granite reserves at least 25% for output and tools, and compacts long history automatically. Unknown tokenizers use an estimate.</small>
+          <label>
             Additional instructions
 
             <textarea

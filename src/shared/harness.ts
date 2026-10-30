@@ -9,6 +9,8 @@ export interface McpServerConfig {
 }
 
 export interface HarnessSettings {
+  contextWindow?: number
+  maxOutputTokens?: number
   instructions: string
   terminal: boolean
   approveWrites: boolean

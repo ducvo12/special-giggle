@@ -60,9 +60,7 @@ export function useAgentSession() {
   const agent = agents.find(item => item.id === agentId)
   const section = organization.sections.find(item => item.id === location.sectionId)
   const project = organization.projects.find(item => item.id === location.projectId)
-  const runUnavailable = section?.mode === 'closed'
-    ? 'You can organize chats here, but replies in Closed sections are not available yet.'
-    : ''
+  const runUnavailable = ''
   const details = viewRun ? runDetails.current.get(viewRun.id) : undefined
   const approval = details?.approval ?? null
   const activity = details?.activity ?? emptyActivity()

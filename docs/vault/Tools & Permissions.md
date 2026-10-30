@@ -15,7 +15,7 @@ Related: [[Repository & Context Tools]] · [[Memory & Context Policy]] · [[Run 
 | Dependency installation / command Internet access | Explicit bounded authorization; clear setup/install requests and supported retries can supply it. No prompt for each individual download. Unknown/compound network commands need concrete approval. |
 | Git mutations | Explicit authorization for the operation/target. A requested commit may cover staging; destructive actions must identify affected work. Ordinary code-edit access is insufficient. |
 | Push, deployment, publishing, messages or remote-service changes | Explicit authorization for the concrete action/destination. Local editing or preview permission does not cover these. |
-| Identity edit | Exact-change/revision approval in a permanent Shared chat; blocked in Closed/temporary mode. Full model-side flow is pass 4; activate personality next run. |
+| Identity edit | Exact-change/revision approval in a permanent Shared chat; blocked in Closed/temporary mode. Model-side flow is implemented in Pass 4; activate personality next run. |
 | Memory/notes updates | Automatic only within the permitted scope under [[Memory & Context Policy]]. Existing optional workspace-write approval is distinct from standing repository edits. |
 | Arbitrary host-path writes | Not granted by repository membership or ordinary approvals. |
 

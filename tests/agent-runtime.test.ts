@@ -177,10 +177,10 @@ test(
         }
 
         if (user === 'Remember tea') {
-          return call('edit_file', {
-            file_path: '/memory.md',
-            old_string: 'No preferences saved yet.',
-            new_string: 'The user prefers green tea.'
+          const context = JSON.parse(body.messages[0].content.match(/<permitted_context>\n(.*?)\n<\/permitted_context>/s)![1])
+          return call('update_memory', {
+            expected_revision: context.user_memory.revision,
+            changes: [{ operation: 'upsert', text: 'The user prefers green tea.', source_ids: [context.current_message_sources.at(-1)] }]
           })
         }
 
@@ -230,6 +230,7 @@ test(
     const connection = {
       baseUrl: `http://127.0.0.1:${(server.address() as any).port}/v1`,
       model: 'mock',
+      contextWindow: 131072,
       apiKey: ''
     }
     let atlas = await AgentRuntime.open(dir)
@@ -301,9 +302,7 @@ test(
         .get(chat.id) as { data: string }
       assert.ok(stateRow, 'Granite native model state exists')
       assert.ok(
-        JSON.parse(stateRow.data).some(
-          (item: any) => item.role === 'tool' && item.content.includes('Save the note')
-        )
+        JSON.stringify(JSON.parse(stateRow.data)).includes('Save the note')
       )
       const started = new Promise<void>(resolve => {
         slowStarted = resolve

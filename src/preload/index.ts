@@ -62,6 +62,7 @@ contextBridge.exposeInMainWorld('granite', {
     createRepository: (agentId, projectId) => ipcRenderer.invoke('organization:createRepository', agentId, projectId),
     chooseRepository: (agentId, projectId) => ipcRenderer.invoke('organization:chooseRepository', agentId, projectId)
   },
+  context: { read: (agentId, chatId, sourceId) => ipcRenderer.invoke('context:read', agentId, chatId, sourceId) },
   workspace: {
     entries: (agentId, path) => ipcRenderer.invoke('workspace:entries', agentId, path),
     read: (agentId, path) => ipcRenderer.invoke('workspace:read', agentId, path),

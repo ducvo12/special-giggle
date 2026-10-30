@@ -2,7 +2,8 @@ import { contextDisplay } from './context-display'
 import { useId, useRef, useState } from 'react'
 import type { ContextUsage } from '../../../../shared/chat'
 
-export default function ContextIndicator({ usage, limit, maxOutput, busy, loading, hasResponse }: {
+export default function ContextIndicator({ usage, limit, maxOutput, busy, loading, hasResponse, status }: {
+  status?: import('../../../../shared/context').ContextStatus
   usage?: ContextUsage
   limit?: number
   maxOutput?: number
@@ -38,6 +39,7 @@ export default function ContextIndicator({ usage, limit, maxOutput, busy, loadin
       <div id={id} role="tooltip" className="context-tooltip" style={position}>
         <strong>Context usage</strong>
         <span>{display.summary}</span>
+        {status && <p>{status.inputTokens.toLocaleString()} estimated request tokens / {status.inputBudget.toLocaleString()} input budget. {status.window.toLocaleString()} window. {status.compactions} compactions. {status.counting}.</p>}
         <dl>
           <div><dt>Used</dt><dd>{display.used}</dd></div>
           <div><dt>Context window</dt><dd>{display.limit}</dd></div>

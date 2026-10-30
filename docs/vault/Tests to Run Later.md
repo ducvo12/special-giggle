@@ -26,7 +26,7 @@ Run the following variants through both adapters. For each, inspect the visible 
 | F2 | Enable write approval after a proposal was generated; change settings during an existing approval wait. | An action that now requires approval cannot proceed without it. Old approvals become invalid and cannot authorize a changed action. Saving settings itself does not Stop the run. |
 | F3 | Try to change the model/provider after the first prompt, including while it is still queued; change the saved connection's endpoint/model. | UI and backend preserve the chat's binding. No request silently uses a different model/provider. New chats can choose a different model. Supported reasoning-effort changes remain possible between runs. |
 | F4 | Move a never-started queued chat between eligible Shared locations; then repeat with an active chat during streaming, approval and a later model wait. | An eligible queued move succeeds and uses its current location at dispatch. Started runs cannot move, including during approval or subsequent capacity waits. |
-| F5 | Move queued work into a Closed section or a repository project before dispatch; attempt replies directly in those locations. | For the current build, Shared repository projects execute with the correct tools; Closed/temporary runs retain their availability notice until passes 4/5. After those passes, expect enforced scoped execution instead of rejection. Preserve the saved prompt and avoid stuck work in every case. |
+| F5 | Move queued work into a Closed section or a repository project before dispatch; attempt replies directly in those locations. | For the current build, Shared repository projects execute with the correct tools; Closed runs use section-isolated context now; temporary runs retain their availability notice until Pass 5. Verify the current location and enforced scope at dispatch. Preserve the saved prompt and avoid stuck work in every case. |
 | F6 | Update the disposable agent's memory file between model calls using a controlled external edit; separately edit identity mid-run, then start a new run. | Current eligible memory appears on the next request. Identity stays fixed for the existing run and updates on the next run. The app's own file editor respects its documented active-run editing limit. |
 | F7 | Concurrent native edits change two separate facts in the same memory/note file; attempt stale editing through the existing user editor. | Both independent changes survive. Current native mutations serialize, and the existing user-editor conflict boundary does not overwrite a newer file. |
 
@@ -81,3 +81,13 @@ These remain verification work, distinct from building new capabilities:
 - [ ] Measure baseline task duration, resource usage and large-repository behavior before claiming performance parity or choosing optimizations.
 
 Passes 4–6 add their own acceptance cases in [[Harness Implementation Plan]]. A passed build, mock loop or earlier milestone is not evidence that every later integration works.
+
+
+## Pass 4 follow-up acceptance
+
+Deterministic backend and disposable desktop/package checks are recorded in [[Pass 4 Implementation & Testing]]. They do not establish live model quality or performance parity.
+
+- [ ] Live hosted and LM Studio/local models: source-backed cross-chat retrieval, tool following, compaction on realistic long work, configured/advertised windows and normal continuation.
+- [ ] Larger personal-history/repository corpora: representative latency/resource use, ignore conventions and long-output quality. Advanced retrieval remains in [[Things to Optimize]].
+- [ ] Cross-platform packaging/confinement beyond the tested macOS arm64 package. Repository search currently requires macOS confinement.
+- [ ] Extended concurrent external file modifications and crash points during file/SQLite publication; normal revision conflicts and startup recovery have deterministic coverage.

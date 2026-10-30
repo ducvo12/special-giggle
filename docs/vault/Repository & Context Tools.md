@@ -1,6 +1,6 @@
 # Repository & Context Tools
 
-> Consolidated October 29, 2026. Repository tools are implemented in passes 3/3A; native conversation-context retrieval is planned for pass 4. Context API names below are illustrative. This note describes the v0.1 boundary; v0.2 exceptions are separate.
+> Consolidated October 29, 2026. Repository tools are implemented in passes 3/3A; native conversation-context retrieval is implemented in pass 4. See [[Pass 4 Implementation & Testing]] for verification and limitations. This note describes the v0.1 boundary; v0.2 exceptions are separate.
 
 Start visually: [[Available Agent Tools.canvas]] · [[Context Retrieval.canvas]] · [[Repository Access.canvas]]
 
@@ -23,11 +23,11 @@ Repository enforcement, guarded file sessions, commands, authorization, previews
 
 Commands can download dependencies under bounded authorization, preserve safe contained relative package links and share isolated HOME/cache within a run. No fixed command time or repository count/size ceiling remains. Output previews and native text operations stay bounded. Commands cannot write directly into the live repository; completed changes publish after validation, while unfinished copies are discarded. Stop keeps published edits. Managed previews serve a labeled isolated snapshot and publish no writes.
 
-Current limitations include macOS-only command confinement, real local `.git` metadata rather than linked worktree pointers, no inherited host credentials and expensive full copies/manifests. Closed-section execution awaits pass 4; temporary execution awaits pass 5. See [the current harness guide](../harness.md) and dated verification records for exact coverage.
+Current limitations include macOS-only command confinement, real local `.git` metadata rather than linked worktree pointers, no inherited host credentials and expensive full copies/manifests. Closed execution uses enforced section scope; temporary execution awaits pass 5. See [the current harness guide](../harness.md) and dated verification records for exact coverage.
 
 ## Repository tools depend on membership
 
-**Pass-4 extension — planned:** improve the existing filename/text search with an established lexical engine where practical, case/regex controls, sensible dependency/generated ignore rules, explicit scoped inclusion and clearer bounded-result continuation. This changes search quality and usability, not repository access. Semantic search/embeddings, richer symbol/import maps and advanced ranking remain v0.3 evaluation work. The current basic scanner is still the implementation until this extension is delivered.
+**Pass-4 search:** pinned packaged ripgrep 15.0.0 via `@vscode/ripgrep` 1.18.0, with literal/regex/case controls, filename globs, ignore rules, explicit hidden/ignored inclusion, excerpts and revision-sensitive cursors. It searches without copying the repository. Filename filtering uses minimatch after ignore-aware enumeration. Search currently requires the macOS read-only sandbox. Semantic search, embeddings and richer symbol/import maps remain v0.3 evaluation work.
 
 | Current chat location/retention | Repository reads | Repository edits |
 | --- | --- | --- |
@@ -48,9 +48,11 @@ The approved creation of a project's first repository uses the existing dedicate
 
 ## Context tools are distinct from repository tools
 
+`update_memory`, `save_note`, `update_chat_summary` and `propose_identity_change` supply the corresponding scoped writes. Identity always requires an exact approval. Summary proposals publish only after successful run completion; later tool mutations discard an earlier staged summary. Use typed memory updates rather than generic file replacement.
+
 Use a compact native read-only context toolset, available directly where the chat has eligible sources:
 
-| Illustrative tool | Purpose |
+| Native tool | Purpose |
 | --- | --- |
 | `list_context` | Browse permitted section/project/chat entries and knowledge notes with stable source IDs, brief labels and pagination. |
 | `search_context` | Search permitted saved titles, summaries, messages and notes; return bounded hits with excerpts and source references. |

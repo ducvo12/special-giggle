@@ -6,6 +6,8 @@ import { defaultHarnessSettings, type HarnessSettings } from '../../shared/harne
 import type { AgentFilesystem } from '../workspace/filesystem.ts'
 
 const schema = z.object({
+  contextWindow: z.number().int().min(4096).max(2000000).optional(),
+  maxOutputTokens: z.number().int().min(256).max(128000).optional(),
   instructions: z.string().max(32_000),
   terminal: z.boolean(),
   approveWrites: z.boolean(),

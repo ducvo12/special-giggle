@@ -86,6 +86,11 @@ port.on('message', async ({ data }: { data: Request }) => {
       case 'agents:saveIdentity':
         value = await agent.saveIdentity(args[0] as string, args[1] as string, args[2] as string)
         break
+      case 'context:read':
+        await agent.context.sync(args[0] as string)
+        value = { ...agent.context.get(args[0] as string, args[1] as string, args[2] as string),
+          ...(String(args[2]).endsWith(':/memory.md') ? { items: agent.context.memoryItems(args[0] as string) } : {}) }
+        break
       case 'harness:get':
         value = await agent.settings(args[0] as string)
         break

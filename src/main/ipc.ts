@@ -24,6 +24,7 @@ export function registerIpc(directory: string) {
   const store = new ConnectionStore(directory, protection)
   const chatgpt = new ChatGPTAccounts(directory, protection)
   const modelCatalog = new AccountModelCatalog(chatgpt)
+  const apiMetadata = new Map<string, import('../shared/chat').ModelOption[]>()
   const repositoryEditors = new RepositoryEditors(directory)
   // Start discovery before the window opens. Model pickers and messages share
   // this request; later messages use the session's cached result.
@@ -142,7 +143,9 @@ export function registerIpc(directory: string) {
       const connection = await store.resolve(id)
 
       if (connection.provider !== 'chatgpt') {
-        return listModelCatalog(connection)
+        const models = await listModelCatalog(connection)
+        apiMetadata.set(`${id}:${connection.baseUrl}`, models)
+        return models
       }
 
       return modelCatalog.get(connection.accountId ?? '', refresh)
@@ -312,6 +315,7 @@ export function registerIpc(directory: string) {
     'conversations:rename': { action: 'rename', limits: [64, 100, 200] },
     'conversations:delete': { action: 'delete', limits: [64, 100] },
     'conversations:get': { action: 'get', limits: [64, 100] },
+    'context:read': { action: 'context:read', limits: [64, 100, 512] },
     'workspace:entries': { action: 'entries', limits: [64, 1024] },
     'workspace:renameNote': { action: 'workspace:renameNote', limits: [64, 1024, 120] },
     'workspace:read': { action: 'read', limits: [64, 1024] }
@@ -430,6 +434,10 @@ export function registerIpc(directory: string) {
 
           if (connection.provider === 'chatgpt') {
             await modelCatalog.prepare(connection)
+          } else {
+            const metadata = apiMetadata.get(`${connectionId}:${connection.baseUrl}`)?.find(model => model.id === connection.model)
+            connection.contextWindow = metadata?.contextWindow
+            connection.maxOutputTokens = metadata?.maxOutputTokens
           }
 
           if (request.stopped) {

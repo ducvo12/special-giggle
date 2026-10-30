@@ -32,7 +32,7 @@ export function agentWorkerBuild(): Plugin {
           emptyOutDir: false,
           rollupOptions: {
             input: resolve('src/backend/agents/worker.ts'),
-            external: ['better-sqlite3'],
+            external: ['better-sqlite3', '@vscode/ripgrep'],
             output: {
               format: 'cjs',
               entryFileNames: 'agent-worker.js',

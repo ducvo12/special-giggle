@@ -17,6 +17,7 @@ export function responsesAdapter(options: ModelOptions): ModelAdapter {
         instructions,
         input,
         store: false,
+        ...(options.connection.provider !== 'chatgpt' && options.connection.maxOutputTokens ? { max_output_tokens: options.connection.maxOutputTokens } : {}),
         stream: true,
         include: ['reasoning.encrypted_content'],
         ...(options.connection.effort ? { reasoning: { effort: options.connection.effort } } : {}),

@@ -482,3 +482,8 @@
 .message.resumed-entry {
   animation: none;
 }
+
+.context-sources { margin-top: 12px; font-size: 12px; color: var(--text-muted); }
+.context-source-links { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.context-source-reader { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-top: 8px; }
+.context-source-reader pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 360px; overflow: auto; }

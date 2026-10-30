@@ -4,7 +4,7 @@ import type { AgentMessage } from '../../../../shared/agent'
 
 export function runLabel(run: RunSnapshot) {
   if (run.phase === 'queued') return `${run.queue?.reason ?? 'Queued'}${run.queue?.position ? ` · position ${run.queue.position}` : ''}`
-  return ({ preparing: 'Preparing reply', streaming: 'Responding', tools: 'Using tools', question: 'Waiting for your answer', approval: 'Waiting for your approval',
+  return ({ compacting: 'Compacting context', preparing: 'Preparing reply', streaming: 'Responding', tools: 'Using tools', question: 'Waiting for your answer', approval: 'Waiting for your approval',
     reconnecting: 'Reconnecting · one retry', stopping: 'Stopping', complete: 'Finished', stopped: 'Stopped',
     interrupted: 'Interrupted — Granite restarted', not_started: 'Not started — Granite restarted', error: 'Reply could not finish' })[run.phase]
 }

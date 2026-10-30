@@ -1,3 +1,5 @@
+import type { ContextSession } from '../../context/session.ts'
+import { contextTools } from './context.ts'
 import { z } from 'zod'
 import Ajv from 'ajv'
 import type { AgentFilesystem } from '../../workspace/filesystem.ts'
@@ -11,6 +13,8 @@ import { repositoryTools, type RepositoryTools } from './repository.ts'
 import { StaleRepositoryEdit } from '../../repositories/session.ts'
 import { connectMcp } from './mcp.ts'
 
+const contextReads = new Set(['list_context','search_context','read_context','read_file','ls','grep','glob','load_skill','write_todos','repo_read','repo_list','repo_search','list_repositories'])
+
 export async function createToolRegistry(options: {
   workspace: AgentFilesystem
   settings: HarnessSettings
@@ -20,11 +24,13 @@ export async function createToolRegistry(options: {
   onTool: (tool: ToolActivity) => void
   getSettings?: () => Promise<HarnessSettings>
   hasSteering?: () => boolean
+  context?: ContextSession
   repository?: RepositoryTools
 }) {
   const { workspace, settings, signal, approve } = options
   const skills = settings.skills ? await listSkills(workspace) : []
-  const definitions = fileTools(workspace)
+  const definitions = fileTools(workspace, options.context).filter(tool => (!options.context?.closed && (!options.context?.temporary || tool.permission === 'read')) || tool.name === 'write_todos')
+  if (options.context) definitions.push(...contextTools(options.context))
   if (options.askQuestion) {
     const schema = z.object({ questions: z.array(z.object({ title: z.string().min(1).max(1000), options: z.array(z.string().min(1).max(200)).min(2).max(6).optional(), optional: z.boolean().optional().describe('For text-only questions, allow an empty answer. Defaults to false. Custom text in multiple-choice questions is always optional.') })).min(1).max(3) })
     definitions.push({ name: 'ask_user', description: 'Ask the user for missing consequential choices and wait for their answer in this task. Provide concise questions with optional suggested choices; free text is always supported. For text-only questions, set optional:true when the user may leave the answer blank; otherwise it is required. Custom text in multiple-choice questions is always optional. A blank answer means no answer was provided, never approval. Reuse known choices and requested defaults. Ask before replacing existing work if authorization is unclear. Never request passwords, tokens or credentials in chat. Stop or new direction withdraws the question; do not feed withdrawn/stale answers to a command. If the user rejects a question, do not treat that as an answer or approval, and do not repeat the unchanged question. Continue only with work that does not depend on the rejected choice.',
@@ -34,8 +40,8 @@ export async function createToolRegistry(options: {
 
   if (options.repository) definitions.push(...repositoryTools(options.repository).filter(tool => (!tool.name.startsWith('repo_command') && !tool.name.startsWith('repo_preview')) || settings.terminal))
 
-  if (settings.terminal && !options.repository?.owner) {
-    definitions.push(terminalTool(workspace, signal))
+  if (settings.terminal && !options.context?.closed && !options.context?.temporary && !options.repository?.owner) {
+    definitions.push(terminalTool(workspace, signal, Boolean(options.context)))
   }
 
   if (skills.length) {
@@ -137,6 +143,8 @@ export async function createToolRegistry(options: {
         if (!permitted(tool, current)) throw new Error('This tool is no longer permitted. This action did not run.')
         if (options.hasSteering?.()) throw new Error('Superseded by a new user message. This action did not run.')
 
+        await options.context?.refresh()
+        if (options.context?.rebuild && options.context.used && !contextReads.has(tool.name)) throw new Error('Retrieved context changed. This action did not run; refresh current evidence before proceeding.')
         const preview = await tool.approval?.(args)
         if (preview) {
           const allowed = await approve(preview.kind, preview.title, preview.detail)
@@ -179,7 +187,15 @@ export async function createToolRegistry(options: {
           throw new Error('Write approval is now required. Propose this action again with current permissions.')
         }
         if (options.hasSteering?.()) throw new Error('Superseded by a new user message. This action did not run.')
+        if (options.context && !['update_chat_summary','list_context','search_context','read_context','read_file','ls','grep','glob','load_skill','write_todos','repo_read','repo_list','repo_search','list_repositories'].includes(tool.name)) options.context.pendingSummary = undefined
+        await options.context?.refresh()
+        if (options.context?.rebuild && options.context.used && !contextReads.has(tool.name)) throw new Error('Retrieved context changed while waiting. This action did not run; inspect current evidence.')
         result = await tool.run(args)
+        if (options.context && ['read_file','grep','glob','ls','terminal'].includes(tool.name)) {
+          // Legacy file reads also participate in native-cache invalidation.
+          const rows = options.context.service.db.prepare("SELECT id,revision FROM context_documents WHERE agentId=? AND sectionId IS NULL AND path IS NOT NULL").all(options.context.agentId) as { id: string; revision: string }[]
+          for (const row of rows) options.context.refs.set(row.id, row.revision)
+        }
         success = !(
           result &&
           typeof result === 'object' &&

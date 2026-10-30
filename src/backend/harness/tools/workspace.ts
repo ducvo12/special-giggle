@@ -1,3 +1,6 @@
+import type { ContextSession } from '../../context/session.ts'
+import { textFile } from '../../context/files.ts'
+import { revision } from '../../context/store.ts'
 import { z } from 'zod'
 import type { AgentFilesystem } from '../../workspace/filesystem.ts'
 import type { ToolDefinition } from '../types.ts'
@@ -19,7 +22,7 @@ async function serializeWrite<T>(root: string, action: () => Promise<T>) {
   }
 }
 
-export function fileTools(workspace: AgentFilesystem): ToolDefinition[] {
+export function fileTools(workspace: AgentFilesystem, context?: ContextSession): ToolDefinition[] {
   const path = z.string().min(1).max(1024)
   const content = z.string().max(100_000)
   const define = (
@@ -38,6 +41,25 @@ export function fileTools(workspace: AgentFilesystem): ToolDefinition[] {
       return permission === 'write' ? serializeWrite(workspace.root, () => run(args)) : run(args)
     }
   })
+
+  const contextWrite = async (args: any, edit: boolean) => {
+    const session = context!, { service, agentId, chatId, signal } = session
+    const path = args.file_path as string
+    await workspace.check(path)
+    if (path !== '/memory.md' && !path.startsWith('/notes/')) throw new Error('Only memory and Markdown notes are writable. Use propose_identity_change for identity.')
+    const before = await textFile(workspace.root, path)
+    if (!edit && before !== null) throw new Error('File exists; read it before editing.')
+    if (edit && (before === null || !before.includes(args.old_string))) throw new Error('Exact text was not found; read the current file.')
+    if (edit && !args.replace_all && before!.indexOf(args.old_string) !== before!.lastIndexOf(args.old_string)) throw new Error('Text is ambiguous; use a unique replacement.')
+    const current = service.scope(agentId, chatId).chat.messages.filter(message => message.role === 'user' && message.delivery !== 'pending' && message.delivery !== 'cancelled').at(-1)
+    if (!current) throw new Error('A source user message is required.')
+    if (path === '/memory.md') throw new Error('Use update_memory for typed, revision-guarded fact changes. edit_file does not edit user memory.')
+    const content = edit ? args.replace_all ? before!.split(args.old_string).join(args.new_string) : before!.replace(args.old_string, args.new_string) : args.content
+    const evidence = service.supports(agentId, chatId, [`message:${current.id}`, ...session.refs.keys()].filter(id => id !== `file:${agentId}:/memory.md`)).filter(source => source.id !== `file:${agentId}:${path}`).map(source => source.id)
+    const saved = await service.saveNote(agentId, chatId, 'agent', path.slice('/notes/'.length), content, before === null ? null : revision(before), evidence, signal)
+    session.refs.set(saved.source_id, saved.revision)
+    return saved
+  }
 
   return [
     define(
@@ -60,14 +82,14 @@ export function fileTools(workspace: AgentFilesystem): ToolDefinition[] {
     ),
     define(
       'write_file',
-      'Create a workspace text file. Identity, configuration, and skills are read-only.',
+      'Create a Markdown knowledge note under /notes. Use save_note to supply precise source references. Identity, configuration, skills and memory cannot be created by this tool.',
       z.object({ file_path: path, content }),
       'write',
-      args => workspace.write(args.file_path, args.content)
+      args => context ? contextWrite(args, false) : workspace.write(args.file_path, args.content)
     ),
     define(
       'edit_file',
-      'Replace exact text in a workspace file. Identity, configuration, and skills are read-only.',
+      'Replace exact text in a knowledge note. Use update_memory for user facts and propose_identity_change for identity; configuration and skills are read-only.',
       z.object({
         file_path: path,
         old_string: content.min(1),
@@ -75,7 +97,7 @@ export function fileTools(workspace: AgentFilesystem): ToolDefinition[] {
         replace_all: z.boolean().optional()
       }),
       'write',
-      args => workspace.edit(args.file_path, args.old_string, args.new_string, args.replace_all)
+      args => context ? contextWrite(args, true) : workspace.edit(args.file_path, args.old_string, args.new_string, args.replace_all)
     ),
     define(
       'glob',

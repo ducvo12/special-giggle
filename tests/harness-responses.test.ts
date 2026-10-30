@@ -201,7 +201,7 @@ async function fixture() {
 
     if (user === 'Terminal') {
       return tool('terminal', {
-        command: "printf 'terminal works' > notes/terminal.txt; cat notes/terminal.txt"
+        command: "printf 'terminal works' > terminal-output.txt; cat terminal-output.txt"
       })
     }
 

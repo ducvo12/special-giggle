@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { chmodSync } from 'node:fs'
 import { SqliteSaver } from '@langchain/langgraph-checkpoint-sqlite'
 import type {
@@ -20,6 +20,7 @@ export class AgentStore {
 
   constructor(path: string) {
     this.saver = SqliteSaver.fromConnString(path)
+    this.saver.db.function('context_hash', { deterministic: true }, (value: unknown) => createHash('sha256').update(String(value ?? '')).digest('hex'))
     chmodSync(path, 0o600)
     this.saver.db.pragma('journal_mode = WAL')
     this.saver.db.transaction(() => {

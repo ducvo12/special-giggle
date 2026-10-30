@@ -10,11 +10,11 @@
 | Pass 2 — Run lifecycle and scheduling | Implemented; selected desktop checks passed | [[Pass 2 Implementation & Testing]] · [[Pass 2 Focused Verification Results]] |
 | Pass 3 — Repository tools and change visibility | Implemented; basic verification complete | [[Pass 3 Implementation & Testing]] |
 | Pass 3A.1 / 3A.2 — Autonomous project setup | Implemented; recorded framework builds, real-model and desktop checks | [[Pass 3A.1 Implementation & Testing]] · [[Pass 3A.2 Implementation & Testing]] |
-| Pass 4 — Context, memory and retrieval | Next; planned | [[Harness Implementation Plan#Pass 4 — Context, Memory and Retrieval]] |
+| Pass 4 — Context, memory and retrieval | Implemented; ready for user verification | [[Pass 4 Implementation & Testing]] · [[Pass 4 Implementation Plan]] |
 | Pass 5 — Lifecycle and extensions | Planned | Temporary expiry/Keep, container deletion, missing-folder recovery, skill imports, scoped MCP and optional tool lookup |
 | Pass 6 — Integration and release verification | Planned | Whole-app verification, migration, packaging and available hosted/local providers |
 
-Implementation is not exhaustive acceptance. [[Tests to Run Later]] tracks unfinished checks separately from [[Things to Optimize]]. Closed-section execution awaits pass 4; temporary-chat execution and expiry await pass 5. Existing basic memory and agent/chat deletion do not complete those later passes.
+Implementation is not exhaustive acceptance. [[Tests to Run Later]] tracks unfinished checks separately from [[Things to Optimize]]. Closed-section execution is enabled with scoped context; temporary-chat execution and expiry await pass 5. Existing basic memory and agent/chat deletion do not complete those later passes.
 
 ## Current specifications
 

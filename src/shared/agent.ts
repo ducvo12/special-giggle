@@ -13,6 +13,8 @@ export interface ToolActivity {
 }
 
 export interface AgentMessage extends Message {
+  sources?: import('./context').ContextReference[]
+  contextStatus?: import('./context').ContextStatus
   runId?: string
   questionId?: string
   questions?: { id: string; questions: import('./run').UserQuestion['questions']; status: 'pending' | 'answered' | 'rejected' | 'withdrawn' | 'interrupted'; answers?: string[] }[]

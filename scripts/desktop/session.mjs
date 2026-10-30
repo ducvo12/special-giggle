@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 
-export function desktopSession(directory, port, environment = {}, entry = '.') {
+export function desktopSession(directory, port, environment = {}, entry = '.', executable) {
   let app,
     socket,
     next = 0,
@@ -46,8 +46,8 @@ export function desktopSession(directory, port, environment = {}, entry = '.') {
 
   async function launch() {
     app = spawn(
-      './node_modules/electron/dist/Electron.app/Contents/MacOS/Electron',
-      [entry, `--remote-debugging-port=${port}`, `--user-data-dir=${directory}`],
+      executable ?? './node_modules/electron/dist/Electron.app/Contents/MacOS/Electron',
+      [...(executable ? [] : [entry]), `--remote-debugging-port=${port}`, `--user-data-dir=${directory}`],
       {
         stdio: ['ignore', 'ignore', 'pipe'],
         env: { ...process.env, ...environment, ELECTRON_RUN_AS_NODE: '' }

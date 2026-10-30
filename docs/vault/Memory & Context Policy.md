@@ -1,6 +1,6 @@
 # Memory & Context Policy
 
-> Accepted pass-4 specification, consolidated October 29, 2026. Full scoped retrieval, source-backed memory/summary maintenance and model-aware compaction are planned, not yet delivered. Existing basic memory-file tools do not complete this policy. Temporary execution/expiry remains planned for pass 5; tuning is later work.
+> Accepted pass-4 specification, consolidated October 29, 2026. Scoped retrieval, source-backed memory/summary maintenance and model-aware compaction are implemented; [[Pass 4 Implementation & Testing]] records baseline verification and remaining acceptance. Temporary execution/expiry remains planned for pass 5; tuning is later work.
 
 Related: [[Harness Design]] · [[Memory & Context.canvas]] · [[Decision Register]] · [[Things to Optimize]]
 

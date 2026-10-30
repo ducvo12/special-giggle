@@ -1,4 +1,4 @@
-export type RunPhase = 'queued' | 'preparing' | 'streaming' | 'tools' | 'approval' |
+export type RunPhase = 'compacting' | 'queued' | 'preparing' | 'streaming' | 'tools' | 'approval' |
   'question' | 'reconnecting' | 'stopping' | 'complete' | 'stopped' | 'error' | 'interrupted' | 'not_started'
 
 export interface UserQuestion {
@@ -22,6 +22,7 @@ export interface RunSnapshot {
   startedAt: number | null
   endedAt: number | null
   messageIds: string[]
+  context?: import('./context').ContextStatus
   queue?: { reason: string; position?: number }
   error?: string
   repository?: { projectId: string; name: string; files: number; added: number; removed: number; state: 'active' | 'settled' | 'attention'; error?: string; commandVersion?: number }

@@ -78,7 +78,7 @@ Support requests such as “Make this repository a Next.js project” and comple
 
 ## Pass 4 — Context, Memory and Retrieval
 
-**Status:** Next — planned. Existing basic memory-file tools do not deliver scoped cross-chat retrieval or model-aware compaction.
+**Status:** Implemented; ready for user verification. [[Pass 4 Implementation & Testing]] records 169 passing automated checks, desktop/package evidence and remaining live-provider acceptance.
 
 Detailed implementation and reuse proposal: [[Pass 4 Implementation Plan]].
 

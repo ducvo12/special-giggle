@@ -1,6 +1,6 @@
 # Pass 4 Implementation Plan
 
-> Implementation proposal, October 29, 2026. No application implementation or dependency installation has started. This makes the accepted pass-4 scope concrete; named dependency choices below are recommendations, not claims of completed integration. The behavior contract remains [[Harness Implementation Plan]], [[Memory & Context Policy]] and [[Tools & Permissions]].
+> Accepted implementation plan, October 29, 2026. The baseline is implemented; see [[Pass 4 Implementation & Testing]] for evidence and remaining acceptance. The text below records the intended scope, not a claim of final acceptance. The behavior contract remains [[Harness Implementation Plan]], [[Memory & Context Policy]] and [[Tools & Permissions]].
 
 Related: [[Available Agent Tools.canvas]] · [[Repository & Context Tools]] · [[Start Here]] · [[Tests to Run Later]].
 
@@ -24,7 +24,7 @@ Refresh relevant editable files at request/read boundaries. External/manual chan
 
 ## 2. Three read-only context tools
 
-| Proposed API | Input / result |
+| Native API | Input / result |
 | --- | --- |
 | `list_context` | Optional permitted section/project/source-type filters and cursor. Return a bounded directory with IDs, titles, location and brief current metadata; metadata access is scoped. |
 | `search_context` | Plain search query plus optional narrowing filters/cursor. Return bounded excerpts, message/source IDs, source kind, location, revision and continuation. Search original messages as well as notes and summaries. |
@@ -34,9 +34,9 @@ Read operations do not update memory, edit repositories or discover tools. `look
 
 ### Complete proposed tool additions and exposure
 
-Seven new built-in names are proposed for review. Names/schemas are not implemented; existing `repo_search` is upgraded rather than duplicated. Every exposed tool carries a concise description and a typed input schema identifying required fields. Granite validates inputs and current access at execution.
+Seven built-in context tools are now implemented; existing `repo_search` is upgraded rather than duplicated. Every exposed tool carries a concise description and a typed input schema identifying required fields. Granite validates inputs and current access at execution.
 
-| Proposed tool | Purpose | Required inputs; optional inputs |
+| Native tool | Purpose | Required inputs; optional inputs |
 | --- | --- | --- |
 | `list_context` | Browse eligible source metadata. | None required; optional narrowing filters, cursor and limit. |
 | `search_context` | Find excerpts in eligible saved content. | `query`; optional filters, cursor and limit. |

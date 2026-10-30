@@ -136,6 +136,7 @@ export default function ChatView({
           <MessageList
             key={conversationId || 'new-chat'}
             agent={agent}
+            conversationId={conversationId}
             busy={busy}
             loaded={loaded}
             identityDirty={identityDirty}
@@ -212,6 +213,7 @@ export default function ChatView({
 
                 <div className="composer-actions">
                   <ContextIndicator
+                    status={run?.context ?? contextResponse?.contextStatus}
                     usage={contextResponse?.contextUsage}
                     loading={!loaded || modelSelection.contextLoading}
                     hasResponse={Boolean(contextResponse)}

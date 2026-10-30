@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { lstat, readdir, readFile } from 'node:fs/promises'
-import { matchesGlob } from 'node:path'
+import { searchRepository } from '../../repositories/search.ts'
 import type { ToolDefinition } from '../types.ts'
 import type { RepositoryTarget } from '../../repositories/access.ts'
 import { setupCommand } from '../../repositories/authorization.ts'
@@ -52,33 +52,7 @@ export function repositoryTools(context: RepositoryTools): ToolDefinition[] {
       // Reuse the established ranged-reader underneath Granite's mount checks.
       return { ...(await new AgentFilesystem(repository.paths.root).read(args.path, args.offset, args.limit)), revision: fingerprint(data) }
     }),
-    define('repo_search', 'Find filenames by simple glob, or literal text with bounded excerpts. Skips links and Git metadata. Does not load the whole repository into context.', z.object({ project_id: project, path: path.default(''), glob: z.string().max(512).default('**/*'), text: z.string().max(500).optional(), limit: z.number().int().min(1).max(100).default(50) }), async args => {
-      if (/[{}]/.test(args.glob)) throw new Error('Use a simple glob without brace expansion.')
-      const repository = target(args.project_id), results: { path: string; line?: number; text?: string }[] = []
-      let visited = 0, truncated = false
-      async function visit(dir: string) {
-        for (const entry of await readdir(await repository.paths.check(dir), { withFileTypes: true })) {
-          context.owner?.signal.throwIfAborted()
-          if (++visited > 25_000 || results.length >= args.limit) { truncated = true; return }
-          if (entry.name.toLowerCase() === '.git' || entry.isSymbolicLink()) continue
-          const file = dir ? `${dir}/${entry.name}` : entry.name
-          const absolute = await repository.paths.check(file)
-          if (entry.isDirectory()) await visit(file)
-          else if (entry.isFile() && matchesGlob(file, args.glob)) {
-            if (args.text === undefined) results.push({ path: file })
-            else if ((await lstat(absolute)).size <= 1_000_000) {
-              const data = await readFile(absolute)
-              if (!data.includes(0)) for (const [index, text] of data.toString().split('\n').entries()) {
-                if (text.includes(args.text)) results.push({ path: file, line: index + 1, text: text.slice(0, 500) })
-                if (results.length >= args.limit) break
-              }
-            }
-          }
-        }
-      }
-      await visit(args.path)
-      return { results, truncated }
-    }),
+    define('repo_search', 'Search a permitted repository using packaged ripgrep. Filename glob or literal/regex text, case controls, excerpts and cursor pagination. Respects ignore rules and skips Git metadata, links, dependencies and generated folders. Hidden/ignored opt-in requires an explicit subdirectory. No whole-repo context dump.', z.object({ project_id: project, path: path.default(''), glob: z.string().max(512).default('**/*'), text: z.string().max(500).optional(), regex: z.boolean().default(false), case_sensitive: z.boolean().default(true), include_ignored: z.boolean().default(false), hidden: z.boolean().default(false), cursor: z.string().max(2000).optional(), limit: z.number().int().min(1).max(100).default(50) }), async args => searchRepository(target(args.project_id).paths, args, context.signal)),
     define('request_repository_edit', 'When the user requests edits from outside a project, ask to move this chat permanently into that project between runs. This does not move or grant write access.', z.object({ project_id: project }), async args => {
       target(args.project_id)
       context.requestEntry(args.project_id)

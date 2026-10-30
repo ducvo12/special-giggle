@@ -84,7 +84,7 @@ Chats/messages, membership and private native model state live in SQLite; extern
 
 The sidebar is a file explorer for agents, identity/memory, notes, sections, projects and chats. Markdown has preview/Edit/Save/Cancel; revision checks protect external edits, unsaved drafts protect navigation, and core filenames stay fixed. The human editor currently blocks saves during agent work. Identity starts blank; the editor offers an unsaved preset rather than replacing existing content. Runtime instructions remain in code, with additional user instructions/tool settings in `harness.json`.
 
-Agent/chat deletion already exists but requires work to finish and cannot erase unresolved recovery data. Full active/queued cascade deletion for projects/sections and associated source cleanup belongs to passes 4/5. Internal code follows physical folder deletion; externally linked targets survive. Do not describe the planned lifecycle as implemented.
+Agent/chat deletion already exists but requires work to finish and cannot erase unresolved recovery data. Source cleanup is implemented in Pass 4; full active/queued cascade deletion for projects/sections belongs to Pass 5. Internal code follows physical folder deletion; externally linked targets survive. Do not describe the planned lifecycle as implemented.
 
 ## Connections and execution
 
@@ -92,7 +92,7 @@ Open Settings → Connections to add independent ChatGPT sign-in, a Responses AP
 
 For LM Studio on another device, use that device's reachable server address (for example `http://192.168.1.50:1234/v1`); localhost refers to Granite's machine. The network/firewall must permit access. API keys use Electron safeStorage and are not sent back to the renderer; Linux plaintext fallback is rejected. Endpoint changes with saved keys require explicit key handling. Account sign-in belongs to Granite, not Codex.
 
-There are **no whole-run time/step/tool-count caps** and no fixed terminal deadline. The current loop has a two-million-byte input/instruction guard with bounded tool/output previews; model-aware schema/token accounting and compaction are pass 4. Chat Completions currently requests up to 4,096 output tokens; Responses follows its adapter/provider allowance. Actual provider errors/limits remain failures. Stop and crashes keep applied edits, settle owned work and do not replay unfinished actions.
+There are **no whole-run time/step/tool-count caps** and no fixed terminal deadline. `src/backend/context/` owns scoped source indexing, provenance, file reconciliation, request token budgets and revision-aware cache reuse. The loop counts schemas and compacts older valid history before the configured model window fills. Output reserves and fallback limits are configurable in Tools & skills. Full transcripts remain saved. See [the harness guide](harness.md) and [Pass 4 verification](<vault/Verification/Pass 4 Implementation & Testing.md>).
 
 Repository commands, interactive sessions and previews currently require macOS confinement. Ordinary sessions/cache end with the run; only a verified ready managed preview may remain afterward without occupying model/project capacity. Previews use isolated snapshots, require refresh for newer code and stop on owning Stop/deletion/app closure. Commands support safe contained relative installer links, bounded download authorization and guarded publication. Full details: [harness guide](harness.md).
 

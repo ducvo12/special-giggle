@@ -22,7 +22,7 @@ export function chatCompletionsAdapter(options: ModelOptions): ModelAdapter {
         })),
         stream: true,
         stream_options: { include_usage: true },
-        max_tokens: 4096,
+        max_tokens: options.connection.maxOutputTokens ?? 4096,
         ...(options.connection.effort ? { reasoning_effort: options.connection.effort } : {})
       })
       await readModelEvents(response, event => {

@@ -1,3 +1,4 @@
+import ContextSources from './ContextSources'
 import ThoughtActivity from './ThoughtActivity'
 import { responseClock } from './response-clock'
 import ResponseTimings from './ResponseTimings'
@@ -8,6 +9,7 @@ import type { Agent, AgentMessage } from '../../../../shared/agent'
 import type { StreamActivity } from '../../../../shared/chat'
 
 type Props = {
+  conversationId: string
   agent: Agent | undefined
   busy: boolean
   loaded: boolean
@@ -21,6 +23,7 @@ type Props = {
 
 export default function MessageList({
   agent,
+  conversationId,
   busy,
   loaded,
   identityDirty,
@@ -109,6 +112,7 @@ export default function MessageList({
           {message.questions?.map(question => <div className="question-history" key={question.id}>
             {question.questions.map((item, index) => <p key={index}>{item.title}{question.answers ? ` — ${question.answers[index] || 'No answer provided'}` : ` · ${question.status === 'pending' ? 'Awaiting answer' : question.status}`}</p>)}
           </div>)}
+          {agent && message.sources?.length ? <ContextSources agentId={agent.id} chatId={conversationId} sources={message.sources} /> : null}
           {message.role === 'assistant' && <ResponseTimings messageId={message.id} />}
 
           {message.notice && (

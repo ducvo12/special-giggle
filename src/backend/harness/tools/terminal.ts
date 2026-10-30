@@ -4,7 +4,7 @@ import { z } from 'zod'
 import type { AgentFilesystem } from '../../workspace/filesystem.ts'
 import type { ToolDefinition } from '../types.ts'
 
-export function terminalTool(workspace: AgentFilesystem, signal: AbortSignal): ToolDefinition {
+export function terminalTool(workspace: AgentFilesystem, signal: AbortSignal, protectContext = false): ToolDefinition {
   const schema = z.object({
     command: z.string().min(1),
     cwd: z.string().default('/')
@@ -39,6 +39,7 @@ export function terminalTool(workspace: AgentFilesystem, signal: AbortSignal): T
 (allow file-read* (subpath ${quoted}) (subpath "/System") (subpath "/usr") (subpath "/bin") (subpath "/sbin") (subpath "/Library") (subpath "/opt") (subpath "/dev") (subpath "/private/var/db/dyld"))
 (allow file-write* (subpath ${quoted}) (literal "/dev/null"))
 ${['identity.md', 'agent.json', 'harness.json', 'skills', 'tools', 'sections', 'projects'].map(name => `(deny file-write* (subpath ${JSON.stringify(`${root}/${name}`)}))`).join('\n')}
+${protectContext ? ['memory.md','notes'].map(name => `(deny file-write* (subpath ${JSON.stringify(`${root}/${name}`)}))`).join('\n') : ''}
 ${workspace.excludeOrganization ? `(deny file-read* (subpath ${JSON.stringify(`${root}/sections`)}) (subpath ${JSON.stringify(`${root}/projects`)}))` : ''}`
       signal.throwIfAborted()
 

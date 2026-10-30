@@ -197,7 +197,7 @@
       "y": 1260,
       "width": 625,
       "height": 262,
-      "text": "### `repo_search`\n\nFind repository filenames or literal text with bounded excerpts.\n\n**Available:** permitted repositories; mutation rules differ",
+      "text": "### `repo_search`\n\nPackaged ripgrep filename/text search in a permitted repository. Ignores dependencies/generated output by default; explicit hidden/ignored scope is supported.\n\n**Inputs:** project_id; path/glob, text, regex, case_sensitive, include_ignored, hidden, limit/cursor.\n**Output:** bounded file/line excerpts and next_cursor. Read-only; macOS sandbox.",
       "color": "5"
     },
     {
@@ -317,7 +317,7 @@
       "y": 2610,
       "width": 625,
       "height": 360,
-      "text": "## Workspace ≠ repository ≠ chat database\n\nGeneric workspace tools cannot read internal section/project stores or edit identity/configuration/skills.\nRepo tools are the repository path.\nPass 4 adds scoped conversation retrieval.",
+      "text": "## Workspace ≠ repository ≠ chat database\n\nGeneric workspace tools cannot read internal section/project stores or edit identity/configuration/skills.\nRepo tools are the repository path.\nScoped conversation retrieval uses native context tools.",
       "color": "6"
     },
     {
@@ -477,7 +477,7 @@
       "y": 3435,
       "width": 3475,
       "height": 885,
-      "label": "PLANNED · Not available to the model yet",
+      "label": "CONTEXT · Implemented native tools; optional lookup remains Pass 5",
       "color": "6"
     },
     {
@@ -487,8 +487,8 @@
       "y": 3510,
       "width": 625,
       "height": 345,
-      "text": "### `list_context` — PLANNED\n\nBrowse only eligible section/project/chat/note entries with stable IDs and pagination.\n\n**Status:** Pass 4 · illustrative API name",
-      "color": "6"
+      "text": "### `list_context`\n\nBrowse only eligible section/project/chat/note entries with stable IDs and pagination.\n\n**Status:** Implemented · backend scope checks · native schema every call",
+      "color": "2"
     },
     {
       "id": "planned_search",
@@ -497,8 +497,8 @@
       "y": 3510,
       "width": 625,
       "height": 345,
-      "text": "### `search_context` — PLANNED\n\nSearch eligible original messages, titles, notes and summaries. Bounded excerpts and sources.\n\n**Status:** Pass 4 · illustrative API name",
-      "color": "6"
+      "text": "### `search_context`\n\nSearch eligible original messages, titles, notes and summaries. Bounded excerpts and sources.\n\n**Status:** Implemented · backend scope checks · native schema every call",
+      "color": "2"
     },
     {
       "id": "planned_read",
@@ -507,8 +507,8 @@
       "y": 3510,
       "width": 625,
       "height": 345,
-      "text": "### `read_context` — PLANNED\n\nRead selected eligible source/message ranges; recheck scope, revision and deletion.\n\n**Status:** Pass 4 · illustrative API name",
-      "color": "6"
+      "text": "### `read_context`\n\nRead selected eligible source/message ranges; recheck scope, revision and deletion.\n\n**Status:** Implemented · backend scope checks · native schema every call",
+      "color": "2"
     },
     {
       "id": "planned_lookup",
@@ -527,8 +527,8 @@
       "y": 3510,
       "width": 625,
       "height": 345,
-      "text": "## Pass 4 · Proposed write tools\n\n`update_memory`: user facts\n`save_note`: scoped knowledge\n`update_chat_summary`: own chat\n`propose_identity_change`: exact approval\n\nNot implemented; scope-filtered.\n[[Pass 4 Implementation Plan]]",
-      "color": "6"
+      "text": "## Scoped memory and continuity writes\n\n`update_memory`: confirmed user facts\n`save_note`: sourced agent/section notes\n`update_chat_summary`: stages own continuity until completion\n`propose_identity_change`: exact approval; next-run activation\n\nShared/Closed scope enforced. Temporary execution remains Pass 5.\n[[Pass 4 Implementation & Testing]]",
+      "color": "2"
     },
     {
       "id": "automatic_context",
@@ -537,7 +537,7 @@
       "y": 3900,
       "width": 3425,
       "height": 375,
-      "text": "## Automatically supplied context is separate from tools\n\nCurrently: Granite instructions, agent profile/personality, current memory.md, this chat’s history/tool outcomes, task permissions, eligible repository directory, configured instructions and enabled skill catalog. Personality is stable for a run; memory refreshes between requests.\nNotes, full skills and code arrive through tool reads. Other chats/section summaries are not currently searchable or automatically shared. Pass 4 designs those sources, freshness, scope and context-fit/compaction together.\n\nSuggested next review: decide which context tools to add, what each may read/write, what is inserted automatically, and what remains on-demand. [[Memory & Context Policy]]",
+      "text": "## Automatically supplied context\n\nPolicy, schemas, personality, current task/steering, valid chat/tool history, eligible user memory, selected local project/section continuity and notes, a bounded source directory, repository permissions and skill catalog.\n\nDetails arrive through scoped list/search/read tools. Closed context stays inside its section; Shared repositories remain separately readable. Source revisions govern cache reuse. Model-aware budgeting includes schemas; older history is compacted internally without deleting the transcript.\n\n[[Memory & Context Policy]] · [[Pass 4 Implementation & Testing]]",
       "color": "6"
     },
     {
@@ -548,7 +548,7 @@
       "width": 3425,
       "height": 260,
       "color": "6",
-      "text": "## Pass 4 · Basic repository-search improvements — PLANNED\n\nImprove the existing repo_search tool using an established lexical implementation where practical. Add case/regex controls, sensible dependency/generated ignore rules with explicit scoped inclusion, and clear bounded results/continuation. Preserve permission checks and cancellation.\n\nThis is separate from search_context, which searches saved conversations/notes. Embeddings, semantic retrieval and richer symbol/import indexes remain v0.3.\n\n[[Harness Implementation Plan#Pass 4 — Context, Memory and Retrieval]]"
+      "text": "## Repository search · Implemented\n\nPinned packaged ripgrep 15.0.0: filename/literal/regex/case search, ignore-aware enumeration, scoped hidden/ignored opt-in and checked result paths. Bounded excerpts and stale-sensitive cursors; cancellable read-only macOS sandbox without copying the repository.\n\nsearch_context separately searches saved conversations/notes. Semantic retrieval and richer code indexes remain v0.3.\n\n[[Pass 4 Implementation & Testing]]"
     }
   ],
   "edges": [

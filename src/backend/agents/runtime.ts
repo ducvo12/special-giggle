@@ -1,3 +1,6 @@
+import { ContextService } from '../context/service.ts'
+import { ContextSession, safeHistory } from '../context/session.ts'
+import { revision } from '../context/store.ts'
 import { isAbsolute, join } from 'node:path'
 import { mkdirSync, rmdirSync, rmSync } from 'node:fs'
 import { mkdir, realpath, stat } from 'node:fs/promises'
@@ -32,8 +35,8 @@ import {
 
 const instructions = `You are a personal agent running in Granite. Your name and personality come from the agent profile and identity below.
 Your file tools use a virtual workspace rooted at /. Use /notes/ for notes. Repository files are available only through the separate repo_ tools.
-Use /memory.md for explicit user preferences across conversations. Read existing content before editing. Never store secrets or guesses as facts.
-Identity, agent configuration, harness settings, and skills are read-only to tools; the user manages them in the application.
+Use context tools for permitted chat history, confirmed user facts, notes and continuity summaries. Use update_memory and save_note for durable writes with original source references; legacy workspace edits also use the context layer. Never store secrets or guesses as facts.
+Identity changes require propose_identity_change and approval of the exact replacement. Configuration and skills are read-only to tools. Closed chats have section-only context and notes, without agent memory or global file/terminal tools.
 For a simple question, answer directly. Use plans and tools only when they help complete the user's request. For file changes, actually call tools and report their outcome.
 Load a relevant skill from the available catalog before applying its instructions. MCP and terminal tools are available only if the user enabled them.
 Granite enforces permissions independently of your instructions. Respect a denied action; do not attempt a different tool to bypass it.
@@ -56,6 +59,7 @@ export class AgentRuntime {
   questions = new QuestionQueue()
   private scheduler = new ModelScheduler()
   private projectScheduler = new ModelScheduler()
+  context: ContextService
   repositories: RepositoryStore
   authorization: SetupAuthorization
   previews: PreviewManager
@@ -97,6 +101,7 @@ export class AgentRuntime {
     this.directory = directory
     this.store = store
     this.registry = registry
+    this.context = new ContextService(store, directory)
     this.repositories = new RepositoryStore(store, directory)
     this.authorization = new SetupAuthorization(store)
     this.previews = new PreviewManager(store, directory)
@@ -216,6 +221,8 @@ export class AgentRuntime {
         this.previews.remove(agentId)
         this.authorization.remove(agentId)
         this.repositories.removeRecords(agentId)
+        this.context.db.prepare('DELETE FROM context_items WHERE agentId=?').run(agentId)
+        this.context.db.prepare('DELETE FROM context_documents WHERE agentId=?').run(agentId)
         this.store.deleteAgent(agentId)
         rmSync(workspace.root, { recursive: true })
       })()
@@ -360,6 +367,7 @@ export class AgentRuntime {
         this.repositories.removeRecords(agentId, id)
         this.store.deleteConversation(agentId, id)
       })()
+      await this.context.sync(agentId)
     } finally {
       this.changingAgents = false
     }
@@ -445,8 +453,6 @@ export class AgentRuntime {
 
   private validateLocation(agentId: string, conversationId: string) {
     const conversation = this.store.get(agentId, conversationId)
-    const section = this.store.organization.section(agentId, conversation.sectionId)
-    if (section.mode === 'closed') throw new Error('Closed-section runs will be available after isolated context is implemented. You can organize chats here now.')
     if (conversation.retention === 'temporary') throw new Error('Temporary-chat runs are not available until expiry and memory isolation are implemented.')
     if (conversation.projectId && this.store.organization.project(agentId, conversation.projectId).repositoryPath) this.repositories.assertAvailable(conversation.projectId)
     return conversation
@@ -605,11 +611,23 @@ export class AgentRuntime {
       const profile = await this.registry.get(agentId)
       const humanWorkspace = await this.registry.workspace(agentId)
       const workspace = new AgentFilesystem(humanWorkspace.root, { excludeOrganization: true })
+      const context = new ContextSession(this.context, agentId, conversationId, signal, source => {
+        if (!turn) return
+        const sources = turn.message.sources ??= []
+        const old = sources.findIndex(item => item.id === source.id)
+        const { content: _content, ...reference } = source as import('../../shared/context.ts').ContextDocument
+        if (old >= 0) sources[old] = reference
+        else if (sources.length < 20) sources.push(reference)
+        persist()
+      })
+      await context.refresh()
       let state: NativeItem[] | undefined
       do {
         const result = await runHarness({
           connection, workspace, settings: await settings(), instructions: '', history: [], text: '', state,
-          signal,
+          signal, context,
+          rebuildHistory: () => safeHistory(this.store.get(agentId, conversationId).messages),
+          onContext: status => { run.context = status; if (turn) { turn.message.contextStatus = status; persist() }; this.publish(job) },
           repository: {
             signal, owner: repository, authorization: this.authorization, previews: this.previews,
             access: () => repositoryAccess(this.store, this.directory, agentId, conversationId),
@@ -642,10 +660,11 @@ export class AgentRuntime {
             this.validateLocation(agentId, conversationId)
             initialize()
             identity ??= await workspaceText(workspace, '/identity.md')
-            const memory = await workspaceText(workspace, '/memory.md')
+            await context.refresh()
+            const orientation = await context.orientation()
             return [instructions, turn?.interrupted ? 'The previous run was interrupted. Completed file changes remain. Inspect current files before continuing unfinished work.' : '',
-              '<agent_profile>', JSON.stringify(profile), '</agent_profile>', '<identity>', identity, '</identity>',
-              '<user_memory>', memory, '</user_memory>',
+              '<agent_profile>', JSON.stringify(profile), '</agent_profile>', '<identity>', identity, `Revision: ${revision(identity)}`, '</identity>',
+              '<permitted_context>', orientation, '</permitted_context>',
               '<task_permissions>', JSON.stringify(this.authorization.list(agentId, conversationId).filter(grant => grant.runId === run.id && grant.operation !== 'preview')), '</task_permissions>',
               'For setup, use one supported package-manager command per tool call. Pass network:true for authorized downloads. A setup grant covers related npm/pnpm/yarn/bun install/create or supported npx scaffold commands; compound shell commands and other network actions require their own approval. Build with networking disabled unless a separate needed action is authorized. Check resulting files and build output even if a CLI exits zero. Use ask_user for missing choices, then keep working in the same task. You may start a local preview whenever useful for the task without asking for authorization. Respect an explicit instruction not to preview and user Stop actions. Use repo_preview_start with the supplied HOST/PORT environment and wait for actual ready status. A ready preview can remain after your final reply, but it serves its recorded snapshot; refresh after edits.',
               '<repositories>', JSON.stringify(repositoryAccess(this.store, this.directory, agentId, conversationId).map(({ paths, ...access }) => access)), '</repositories>',
@@ -745,6 +764,7 @@ export class AgentRuntime {
           }
         })
         state = result.state
+        context.save()
         signal.throwIfAborted()
         // Closing optional transports is asynchronous. Messages accepted during
         // that boundary still belong to this run and must precede finalization.
@@ -756,6 +776,7 @@ export class AgentRuntime {
         run.endedAt = Date.now()
         this.publish(job, 'complete')
       })()
+      try { context.commitSummary(turn!.message) } catch { /* A changed source makes a derived summary unavailable; never fail completed work. */ }
       this.publishMessages(job)
       return { stopped: false }
     } catch (error) {

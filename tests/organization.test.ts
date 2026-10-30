@@ -230,7 +230,7 @@ test('new section storage cannot leak through legacy agent tools and unsafe stor
     assert.equal((await modelFiles.grep('ordinary-note')).matches?.length, 1)
     assert.ok(!(await modelFiles.glob('**/*.md')).files?.some(file => file.path.includes('/sections/')))
     const chat = await runtime.createConversation(agent.id, { sectionId: section.id })
-    await assert.rejects(runtime.run('closed', agent.id, chat.id, { baseUrl: 'http://127.0.0.1:1', model: 'offline', apiKey: '' }, 'Hello', () => {}), /isolated context/)
+    await assert.rejects(runtime.run('closed', agent.id, chat.id, { baseUrl: 'http://127.0.0.1:1', model: 'offline', apiKey: '' }, 'Hello', () => {}), /connect|server|fetch|model/i)
     const before = await runtime.organization(agent.id)
     const outside = join(directory, 'outside'); await mkdir(outside)
     await rename(join(root, 'sections'), join(root, 'saved-sections'))

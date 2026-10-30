@@ -6,6 +6,8 @@ import type { RepositoryEditorChoices } from './repository-editor'
 import type { ConnectionUsage, RateLimitWindow } from './connection-usage'
 
 export interface Connection {
+  contextWindow?: number
+  maxOutputTokens?: number
   maxConcurrentRequests?: number
   connectionId?: string
   provider?: 'openai' | 'codex' | 'chatgpt'
@@ -131,6 +133,9 @@ export interface GraniteBridge {
     renameProject: (agentId: string, id: string, name: string) => Promise<Result<Project>>
     createRepository: (agentId: string, projectId: string) => Promise<Result<Project>>
     chooseRepository: (agentId: string, projectId: string) => Promise<Result<Project | null>>
+  }
+  context: {
+    read: (agentId: string, chatId: string, sourceId: string) => Promise<Result<import('./context').ContextDocument & { items?: { id: string; text: string; source_ids: string[] }[] }>>
   }
   workspace: {
     entries: (agentId: string, path: string) => Promise<Result<WorkspaceEntry[]>>

@@ -7,7 +7,7 @@ import { AgentRuntime } from '../src/backend/agents/runtime.ts'
 
 function rowCounts(runtime: AgentRuntime) {
   const tables = runtime.store.saver.db
-    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'context_fts_%'")
     .all() as { name: string }[]
 
   return Object.fromEntries(
