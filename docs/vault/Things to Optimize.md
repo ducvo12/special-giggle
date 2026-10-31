@@ -12,9 +12,18 @@ These are feature extensions, not a reason to postpone required isolation/recove
 - [ ] Extend macOS-only commands to additional platforms, Git layouts and terminal capabilities without weakening supervision, scope or recovery.
 - [ ] Evaluate scoped cross-project dependency/cache reuse; preserve agent/Closed isolation and credential boundaries. Within-run HOME/cache continuity is already implemented.
 - [ ] Add useful domain/proxy/network controls beyond authorized downloads and confined local previews. Downloads, serving, web search and remote publication retain separate permissions.
-- [ ] Evaluate hosted web search/provider tools with model/account checks, visible activity, clickable sources and portable fallback for local/incompatible providers. Verify API-key and ChatGPT-plan availability separately; no silent separately billed fallback. Granite currently exposes its own function tools, not hosted search. References: [Responses web search](https://developers.openai.com/api/docs/guides/tools-web-search) and [plan-sharing limitations](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations).
+- [ ] Add web search and page-content retrieval for documentation and research. Evaluate hosted web search/provider tools with model/account checks, visible activity, clickable sources and portable fallback for local/incompatible providers. Verify API-key and ChatGPT-plan availability separately; no silent separately billed fallback. Granite currently exposes its own function tools, not hosted search. References: [Responses web search](https://developers.openai.com/api/docs/guides/tools-web-search) and [plan-sharing limitations](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations).
+- [ ] Add browser interaction and visual verification: navigation, clicks, typing, page-structure inspection and screenshots, plus available console/network diagnostics. Start with local website testing in a dedicated browser environment so the agent can build, interact, inspect and fix. Design browser session ownership, access boundaries, visible activity and Stop behavior; treat broader browsing/signed-in account access as a later expansion within this capability. Existing managed previews/user-clicked links are not agent browser control. This does not assign general desktop control to v0.2.
 
 ## v0.3 — Efficiency and orchestration
+
+### Long and complicated coding tasks
+
+Serious coding evaluations start in **v0.1**: establish multi-file task baselines with passes 3/3A, stress long histories and compaction with pass 4, and include end-to-end coding tasks in pass 6 release verification. Continue evaluating practical completion as v0.2 adds capabilities. v0.3 owns deeper efficiency tuning; earlier reliability failures remain earlier work.
+
+- [ ] Maintain a repeatable suite of realistic feature additions, bug fixes and refactors, including tasks that cross UI/backend/persistence boundaries, recover from failed builds and retain requirements through compaction. Keep some tasks outside the tuning set.
+- [ ] Measure verified completion, regressions, user interventions, elapsed time and total tokens/cost per successful task. Compare Granite versions and, where feasible, Codex using the same model, starting repository and task requirements; avoid assuming a universal performance percentage.
+- [ ] Test long tasks and large repositories separately as well as together. Use failure evidence to prioritize context retention, navigation, execution feedback and recovery improvements.
 
 ### Large repositories
 
@@ -22,6 +31,9 @@ Basic lexical-search improvements (established search implementation, ignore han
 
 - [ ] Measure and tune lexical search, bounded/batched reads, generated/dependency exclusions, response latency, context use and task success on representative large repositories.
 - [ ] Evaluate incremental file/symbol/import maps and stale-index detection. Add semantic retrieval only where it improves results relative to its cost and scoped indexing requirements.
+- [ ] Evaluate repository graphs for code navigation: parser-derived files, symbols, definitions, imports and references, with bounded retrieval of relevant neighborhoods or ranked repository maps. Start with a lightweight map; a dedicated graph database or LLM-generated graph is not an adopted requirement. Keep the graph outside model context and supply only useful maps/snippets. [Aider repository maps](https://aider.chat/docs/repomap.html) provide an existing implementation example.
+- [ ] Compare lexical search alone against maps/graph-assisted retrieval on the same tasks and model. Measure verified task success, total input/output tokens, cache effects, indexing/update cost and latency. Graphs can improve navigation but do not guarantee token savings: published [RepoGraph experiments](https://arxiv.org/html/2410.14684v2) improved resolution in tested configurations while increasing token use. Treat those older-model benchmark results as evidence to investigate, not a Granite performance forecast.
+- [ ] Scope each index to the permitted repository/worktree and current file revisions; refresh or invalidate changed/deleted symbols and links, including uncommitted agent edits. Verify freshness and isolation before using retrieved graph results for editing.
 
 ### Model context
 
@@ -51,6 +63,7 @@ Basic permission-filtered core plus portable lookup ships in **pass 5**.
 
 ## Unassigned — do not silently add to a release
 
+- [ ] Evaluate application/desktop control beyond browser interaction when a concrete native-app or cross-application workflow justifies it. Start with a targeted workflow; design operating-system support, scoped app/account access, visible actions, cancellation and result verification before broad desktop access. Keep this future capability unassigned rather than automatically adding it to v0.3.
 - [ ] Evaluate automatic file restoration versus explicit Undo after Stop/crash. Preserve pre-existing/concurrent edits, use durable operation-specific records and guarded restoration, handle creations/deletions/renames/commands, retain conflicts and verify actual results. Do not promise reversal of Git history, downloads or external effects. Current Stop/crash/chat deletion **keep completed edits**; no rollback journal is a v0.1 requirement.
 - [ ] Evaluate provider-reported account allowance windows, preferably using the existing sign-in. The prior investigation found no compatible reader for the current plan-sharing connection; do not require another login solely for meters. Existing request/token counts are not subscription allowance. [Investigation](../research/chatgpt-usage-meter.md).
 - [ ] Evaluate optional Codex app-server adoption as a separate architecture choice, preserving Granite's data/tool scopes and provider portability. Direct Responses access does not supply that runtime. Hosted search does not require replacing Granite's loop. [App-server reference](https://learn.chatgpt.com/docs/app-server).

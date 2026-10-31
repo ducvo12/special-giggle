@@ -44,7 +44,8 @@ Treat that as a direction for practical task coverage, not a promise of exact fe
 - **Platform and terminal support:** extend the initial macOS command implementation to additional command platforms, supported Git metadata layouts and advanced terminal tooling. Preserve supervision, authorization and recovery.
 - **Shared caches:** evaluate scoped cross-project dependency/cache reuse without leaking credentials or crossing Closed/agent boundaries. Existing within-workflow continuity remains baseline behavior.
 - **Networking:** broader domain/proxy controls and useful network capabilities beyond the existing authorized setup/local-preview workflow. Preserve the distinctions between downloads, local serving and remote writes/deployment.
-- **Web search and provider tools:** evaluate hosted search/provider-native tools, model/account capability checks, visible search activity, citations and portable fallback paths for incompatible/local models. Verify API-key and account-sign-in behavior separately; assignment is not a claim that every provider supports every tool.
+- **Web search and provider tools:** add search and page-content retrieval for documentation, research and other tasks, with visible activity and clickable sources. Evaluate hosted search/provider-native tools, model/account capability checks and portable fallback paths for incompatible/local models. Verify API-key and account-sign-in behavior separately; assignment is not a claim that every provider supports every tool.
+- **Browser interaction and visual verification:** let the agent navigate pages, click, type, inspect page structure/screenshots and use available console/network diagnostics to test and fix websites. Start with local website testing in a dedicated browser environment; broader browsing and signed-in account access need explicit session/access design. Existing preview servers and user-clicked links do not provide agent browser interaction. General native-application/desktop control remains unassigned.
 
 Platform breadth and new terminal/network capabilities belong here; making the existing command-copy/change-tracking implementation more efficient belongs in v0.3.
 
@@ -63,6 +64,7 @@ The user's main goal for v0.3 is optimization. Subagents are also explicitly ass
 
 Do not silently add these separate earlier ideas to either release:
 
+- Application/desktop control beyond the browser: begin with a concrete native-app or cross-application workflow, then design scoped access, visible actions, cancellation and verification. No version is assigned; this is a future capability, not automatically v0.3 optimization work.
 - Automatic file restoration or an explicit Undo interface, including guarded restoration after Stop/crash.
 - Provider-reported account allowance meters, preferably without a separate sign-in just for limits.
 - Optional adoption of Codex app-server as a broader runtime architecture choice. Provider tools in v0.2 do not by themselves commit Granite to replacing its own harness.
