@@ -7,6 +7,7 @@ import RepositoryChanges from './RepositoryChanges'
 import ProjectActivity from './ProjectActivity'
 import AttachedFiles from './AttachedFiles'
 import ActivitySection from './ActivitySection'
+import ContextActivity from './ContextActivity'
 import { activitySummary } from './activity-summary'
 
 export default function ActivityPanel({ agentId, conversationId, repository, busy, stopping, run, messages, attachments, disabled, onAttachmentsChange, onStop }: {
@@ -42,6 +43,7 @@ export default function ActivityPanel({ agentId, conversationId, repository, bus
       {error && <p className="activity-error" role="alert">{error}</p>}
       <RepositoryChanges agentId={agentId} conversationId={conversationId} run={run} reports={reports}
         onChange={updated => setReports(previous => previous.map(report => report.runId === updated.runId ? updated : report))} />
+      <ContextActivity agentId={agentId} chatId={conversationId} messages={messages} />
       <AttachedFiles key={`${agentId}:${conversationId}`} attachments={attachments} messages={messages} disabled={disabled} onChange={onAttachmentsChange} />
       <ActivitySection title="Terminal processes" summary={<span className="activity-count">{active.length}</span>}>
         {active.map(command => <details key={`${command.runId}:${command.id}`} className="activity-item">

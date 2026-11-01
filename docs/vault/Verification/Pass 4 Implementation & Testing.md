@@ -44,3 +44,15 @@ Repository search/commands currently require macOS confinement; other platform p
 Embeddings, semantic/hybrid retrieval, richer code maps, large-corpus ranking, more efficient context selection and compaction tuning remain [[Things to Optimize]] / v0.3 evaluation work. Temporary lifecycle, container cascade deletion, optional tool lookup, skill installation and scoped integrations remain Pass 5. No run budgets, subagents or automatic code rollback were added.
 
 Related: [[Pass 4 Implementation Plan]] · [[Harness Implementation Plan]] · [[Memory & Context Policy]] · [[Available Agent Tools.canvas]]. The earlier [[Pass 4 Implementation Checkpoint]] is historical pause evidence.
+
+
+## Source interface cleanup — October 31, 2026
+
+The answer now has a small **Sources** disclosure, collapsed by default. Its count is the number of grouped chats/files, rather than every retrieved message. Messages and summaries from one chat share a group; distinct chats remain separate even when their titles match. Opening a group exposes its individual saved entries. Each source entry toggles its reader open/closed; selecting another entry switches the reader. The separate Close source button has been removed. The current run's user prompts/steering are omitted from this compact list; older same-chat history remains eligible.
+
+Chat details now contains **Context retrieval**, with the unfiltered recorded references for each reply, including current-question/search hits. This is an access record, not a verified-citation list. Backend source tracking, scope and memory cleanup are unchanged. Source IDs/revisions remain available in the details reader; ordinary source reading emphasizes the saved text rather than technical identifiers.
+
+Verification: type checking and build passed; three focused grouping/history tests passed. The disposable desktop runner verifies default collapse, chat grouping, current-question exclusion without deleting the saved reference, original-message opening, and the unfiltered details view. The full walkthrough also passed its existing Closed-scope and repository-search checks on retry; its first attempt timed out during the later Closed-chat reply, after source assertions had passed. Screenshots were visually inspected. Evidence: `/tmp/granite-source-ui-build.log`, `/tmp/granite-source-ui-desktop.log`; the latter records the retained disposable profile/screenshot folder. This frontend follow-up did not rerun the complete backend suite.
+
+
+Source-toggle follow-up: type checking/build passed and the disposable desktop walkthrough verifies opening, closing on a second click and reopening the same saved message, with accessible expanded state. Late results from a closed or superseded read are ignored. Logs: `/tmp/granite-source-toggle-build.log` and `/tmp/granite-source-toggle-desktop.log`.

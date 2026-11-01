@@ -483,7 +483,29 @@
   animation: none;
 }
 
-.context-sources { margin-top: 12px; font-size: 12px; color: var(--text-muted); }
-.context-source-links { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.context-source-reader { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-top: 8px; }
-.context-source-reader pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 360px; overflow: auto; }
+/* Context is secondary to the answer. Keep its directory collapsed and compact. */
+.context-sources { margin-top: 10px; color: var(--text-muted); font-size: 11px; line-height: 1.5; }
+.context-sources > summary { display: inline-flex; align-items: center; gap: 6px; padding: 2px 0; list-style: none; cursor: pointer; }
+.context-sources > summary::-webkit-details-marker { display: none; }
+.context-sources > summary::before { content: '▸'; font-size: 10px; }
+.context-sources[open] > summary::before { content: '▾'; }
+.context-sources summary:hover { color: var(--text-strong); }
+.context-source-count { color: var(--text-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.context-source-links { display: flex; flex-direction: column; align-items: stretch; gap: 3px; margin-top: 5px; max-width: 560px; }
+.context-source-group { min-width: 0; }
+.context-source-link { display: block; max-width: 100%; padding: 3px 0; border: 0; border-radius: 0; background: transparent; color: var(--text-secondary); font-size: 11px; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.context-source-link:hover:not(:disabled) { background: transparent; color: var(--text-strong); text-decoration: underline; text-underline-offset: 3px; }
+.context-source-group > details > summary { display: flex; align-items: baseline; gap: 10px; padding: 3px 0; cursor: pointer; list-style: none; color: var(--text-secondary); }
+.context-source-group > details > summary > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.context-source-group > details > summary > .context-source-count { flex-shrink: 0; }
+.context-source-entries { padding-left: 12px; border-left: 1px solid var(--surface-selected); }
+.context-source-reader { border-left: 2px solid var(--surface-selected); padding: 8px 12px; margin-top: 8px; color: var(--text-secondary); }
+.context-source-reader h3 { margin: 8px 0 4px; font-size: 12px; font-weight: 500; }
+.context-source-reader small { font-size: 10px; color: var(--text-muted); overflow-wrap: anywhere; }
+.context-source-reader pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 300px; overflow: auto; font-size: 11px; }
+.context-source-revision { display: block; margin-top: 4px; }
+.context-source-loading { display: block; padding: 4px 0; }
+.context-source-trace .context-source-links { max-width: 100%; }
+.context-retrieval-reply > summary { align-items: baseline; }
+.context-source-group > details > summary::before { content: '▸'; font-size: 10px; flex-shrink: 0; }
+.context-source-group > details[open] > summary::before { content: '▾'; }

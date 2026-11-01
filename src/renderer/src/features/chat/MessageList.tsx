@@ -1,4 +1,5 @@
 import ContextSources from './ContextSources'
+import { replyQuestions } from './context-sources'
 import ThoughtActivity from './ThoughtActivity'
 import { responseClock } from './response-clock'
 import ResponseTimings from './ResponseTimings'
@@ -47,6 +48,8 @@ export default function MessageList({
       end.current?.scrollIntoView({ block: 'end', behavior: 'instant' })
     }
   }, [loaded, end, follow])
+
+  const questions = replyQuestions(messages)
 
   return (
     <section
@@ -112,7 +115,7 @@ export default function MessageList({
           {message.questions?.map(question => <div className="question-history" key={question.id}>
             {question.questions.map((item, index) => <p key={index}>{item.title}{question.answers ? ` — ${question.answers[index] || 'No answer provided'}` : ` · ${question.status === 'pending' ? 'Awaiting answer' : question.status}`}</p>)}
           </div>)}
-          {agent && message.sources?.length ? <ContextSources agentId={agent.id} chatId={conversationId} sources={message.sources} /> : null}
+          {agent && message.sources?.length ? <ContextSources agentId={agent.id} chatId={conversationId} sources={message.sources} excludeMessageIds={questions.get(message.id)} /> : null}
           {message.role === 'assistant' && <ResponseTimings messageId={message.id} />}
 
           {message.notice && (
