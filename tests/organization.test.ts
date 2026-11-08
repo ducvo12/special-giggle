@@ -176,7 +176,7 @@ test('moves retain transcript and IDs, enforce Closed/project boundaries and inv
     assert.equal(runtime.store.get(agent.id, chat.id).id, chat.id)
     const temporary = runtime.store.create(agent.id, { sectionId: closed.id }, 'temporary')
     await assert.rejects(runtime.moveConversation(agent.id, temporary.id, { sectionId: closed.id, projectId: project.id }), /Keep a temporary chat/)
-    assert.equal(runtime.store.get(agent.id, temporary.id).expiresAt, null)
+    assert.equal(typeof runtime.store.get(agent.id, temporary.id).expiresAt, 'number')
   } finally { runtime.close(); await rm(directory, { recursive: true, force: true }) }
 })
 
@@ -200,7 +200,7 @@ test('repository links bind all project chats, allow duplicate physical roots an
     assert.equal(attached.repositoryPath, canonical); assert.equal(duplicate.repositoryPath, canonical)
     await assert.rejects(runtime.moveConversation(agent.id, chat.id, { sectionId: section.id, projectId: null }), /cannot leave/)
     await assert.rejects(runtime.attachRepository(agent.id, project.id, directory), /already has a repository/)
-    assert.throws(() => runtime.store.saver.db.prepare('UPDATE projects SET repositoryPath = NULL WHERE id = ?').run(project.id), /already has a repository/)
+    assert.throws(() => runtime.store.saver.db.prepare('UPDATE projects SET repositoryPath = NULL WHERE id = ?').run(project.id), /cannot detach back to chat-only|already has a repository/)
     const outside = await runtime.createConversation(agent.id, { sectionId: section.id })
     await runtime.moveConversation(agent.id, outside.id, { sectionId: section.id, projectId: project.id })
     const unattached = await runtime.createProject(agent.id, section.id, 'Failed attachment')

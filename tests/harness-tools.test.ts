@@ -91,6 +91,7 @@ test(
       )
       await assert.rejects(workspace.write('/skills/safe-skill/SKILL.md', 'override'))
       await assert.rejects(workspace.write('/harness.json', '{}'))
+      await mkdir(join(workspace.root, 'skills'), { recursive: true })
       await symlink(directory, join(workspace.root, 'skills', 'escape'))
       assert.ok(!(await runtime.skills(agent.id)).some(skill => skill.name === 'escape'))
     } finally {

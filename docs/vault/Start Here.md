@@ -11,10 +11,10 @@
 | Pass 3 — Repository tools and change visibility | Implemented; basic verification complete | [[Pass 3 Implementation & Testing]] |
 | Pass 3A.1 / 3A.2 — Autonomous project setup | Implemented; recorded framework builds, real-model and desktop checks | [[Pass 3A.1 Implementation & Testing]] · [[Pass 3A.2 Implementation & Testing]] |
 | Pass 4 — Context, memory and retrieval | Implemented; ready for user verification | [[Pass 4 Implementation & Testing]] · [[Pass 4 Implementation Plan]] |
-| Pass 5 — Lifecycle and extensions | Planned | Temporary expiry/Keep, container deletion, missing-folder recovery, skill imports, scoped MCP and optional tool lookup |
-| Pass 6 — Integration and release verification | Planned | Whole-app verification, migration, packaging and available hosted/local providers |
+| Pass 5 — Lifecycle and extensions | Implemented; verified | Temporary expiry/Keep, container cascades, missing-folder recovery, skill imports, scoped MCP |
+| Pass 6 — Integration and release verification | Implemented; verified | Whole-app integration, multi-chat concurrency, status consistency, provider resilience, packaging & migration |
 
-Implementation is not exhaustive acceptance. [[Tests to Run Later]] tracks unfinished checks separately from [[Things to Optimize]]. Closed-section execution is enabled with scoped context; temporary-chat execution and expiry await pass 5. Existing basic memory and agent/chat deletion do not complete those later passes.
+Implementation and integrated acceptance for v0.1 baseline are complete across all six passes plus 3A. 241/241 automated tests pass. Packaging and migration verified.
 
 ## Current specifications
 

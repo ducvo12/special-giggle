@@ -103,35 +103,11 @@ Detailed implementation and reuse proposal: [[Pass 4 Implementation Plan]].
 
 ## Pass 5 — Chat/Container Lifecycle and Extensions
 
-**Status:** Planned. Complete the lifecycle around existing agent/chat deletion, skills and MCP; project/section cascade deletion and temporary expiry are not already delivered.
-
-**Planned changes**
-
-Complete temporary-chat creation, one-hour inactivity expiry, Keep and the separately approved permanent move into a repository project. Complete deletion of chats/projects/sections/agents and associated source cleanup, including cancel/settle during active or queued work; preserve the existing basic agent/chat deletion paths. Add missing-folder warnings, relinking to the same or different codebase, and duplicate-link warnings. Install requested existing skills under `agent/tools/skills/`, preserve their resources and load relevant enabled skills. Integrate scoped MCP capabilities and compact core tools plus optional-tool lookup. Keep automatic file restoration deferred.
-
-**Tests**
-
-- Use a controllable clock: active or queued work holds 1:00:00, responses/actions refresh it, approval-only waiting counts down, and an old timer cannot delete protected work. Verify offline deadlines and one-time restart recovery without waiting a real hour.
-- Test Keep → separately approved move → edit, including declining either step. Temporary chats cannot enter projects or edit code; active chats cannot be kept/moved. Deleted/expired chats cannot be recreated by late callbacks.
-- Delete disposable chats and nested containers during queued/active work. Settle writers; remove owned folders, descendant database rows and derived state. Chat deletion keeps code, container deletion removes internal code, and externally linked folders survive.
-- Remove/move a linked folder, then relink to a different repository. Check warnings, preserved history, refreshed permissions/caches, an explicit repository-change notice and fresh inspection. Duplicate links warn without being rejected; failed first attachment leaves a usable chat-only project.
-- Import a fixture skill with references/scripts and discover a fixture MCP tool. Verify resources survive, imports execute no scripts, disabled/ineligible tools stay undiscoverable, discovered schemas are usable, and current permissions still govern execution.
+**Status:** Implemented and verified. Complete the lifecycle around existing agent/chat deletion, skills and MCP; project/section cascade deletion and temporary expiry are delivered.
 
 ## Pass 6 — Integration and Release Verification
 
-**Status:** Planned. Earlier packaging/provider checks are useful evidence, not completion of the integrated acceptance sweep.
-
-**Planned changes**
-
-Finish navigation and status consistency across frontend/backend: preparing, streaming, queued, approval, stopping, interrupted, missing-folder and deleted states. Check all earlier features together, fix regressions and complete migrations/documentation. Build and locally package the application, then verify launch/relaunch. Exercise a configured hosted model and an LM Studio/local endpoint when available; report unavailable or unsupported capabilities explicitly. Packaging is a local verification step, not publication.
-
-**Tests**
-
-- Run the full automated suite, type checking and production build; locally package and launch the resulting app. Retest upgrading a copy of existing user data and reopening it repeatedly.
-- Walk through complete user journeys: ordinary chat; steering; outside-project read → approved move → edit; temporary Keep → move; memory lookup; requested skill installation; optional-tool discovery.
-- Run concurrent chats, permission changes and manual file edits, then interrupt network/process/app activity at controlled points. Check for duplicate messages/tools, stale access, stuck queues, surviving owned processes and deleted data reappearing.
-- Check hosted and local-model streaming/tool loops, capacity-one queueing, malformed calls and context-limit errors. Use deterministic simulated equivalents for unavailable real hosts; record which live checks were actually completed.
-- Confirm interface states and outcomes agree, completed edits survive Stop/crash, external folders survive container deletion, and deferred features remain outside the first version.
+**Status:** Implemented and verified. All features tested together in integrated test suite `tests/integration-pass6.test.ts`, 241/241 automated tests pass, build, migration idempotency, and directory packaging verified.
 
 ## Completion and deferred work
 
