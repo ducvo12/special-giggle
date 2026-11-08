@@ -116,11 +116,17 @@ export class ContextStore {
       ...(row.path ? { path: row.path } : {}), ...(row.sectionId ? { sectionId: row.sectionId } : {}), projectId: row.projectId }
   }
 
-  get(agentId: string, chatId: string, id: string): ContextDocument {
+  find(agentId: string, chatId: string, id: string): ContextDocument | undefined {
     const scope = this.eligible(agentId, chatId)
     const row = this.db.prepare(`SELECT d.* FROM context_documents d WHERE ${scope.clause} AND d.id=?`).get(...scope.values, id) as Row | undefined
-    if (!row) throw new Error('Context source is unavailable in this chat.')
+    if (!row) return undefined
     return { ...this.reference(row), agentId: row.agentId, content: row.content, updatedAt: row.updatedAt, role: row.role ?? undefined }
+  }
+
+  get(agentId: string, chatId: string, id: string): ContextDocument {
+    const document = this.find(agentId, chatId, id)
+    if (!document) throw new Error('Context source is unavailable in this chat.')
+    return document
   }
 
   list(agentId: string, chatId: string, filters: ContextFilters = {}, query?: string) {

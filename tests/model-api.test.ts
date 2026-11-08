@@ -1,37 +1,18 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
-import { chat, listModels, listModelCatalog, safely } from '../src/backend/models/api.ts'
+import { listModels, listModelCatalog, safely } from '../src/backend/models/api.ts'
 
-test('API adapter discovers models, sends history and authentication, and handles failures', async () => {
-  const server = createServer(async (request, response) => {
+test('model discovery sends authentication, retains metadata, and handles failures without exposing provider details', async () => {
+  let status = 200
+  let body = JSON.stringify({ data: [{ id: 'test-model', supported_reasoning_levels: ['medium', 'high'], default_reasoning_level: 'medium' }] })
+  const server = createServer((request, response) => {
+    assert.equal(request.method, 'GET')
+    assert.equal(request.url, '/v1/models')
     assert.equal(request.headers.authorization, 'Bearer test-key')
+    response.statusCode = status
     response.setHeader('Content-Type', 'application/json')
-
-    if (request.url === '/v1/models') {
-      return response.end(JSON.stringify({ data: [{ id: 'test-model', supported_reasoning_levels: ['medium', 'high'], default_reasoning_level: 'medium' }] }))
-    }
-
-    let body = ''
-
-    for await (const chunk of request) {
-      body += chunk
-    }
-
-    const payload = JSON.parse(body)
-    assert.equal(request.url, '/v1/chat/completions')
-    assert.deepEqual(payload.messages, [{ role: 'user', content: 'Hello' }])
-
-    if (payload.model === 'bad-model') {
-      response.statusCode = 401
-
-      return response.end('{"error":"private provider detail"}')
-    }
-
-    assert.equal(payload.stream, false)
-    response.end(
-      JSON.stringify({ choices: [{ message: { content: 'Hello from the mock model' } }] })
-    )
+    response.end(body)
   })
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
   const address = server.address()
@@ -49,13 +30,9 @@ test('API adapter discovers models, sends history and authentication, and handle
       reasoningLevels: [{ effort: 'medium' }, { effort: 'high' }],
       defaultReasoningLevel: 'medium'
     }])
-    assert.equal(
-      await chat(connection, [{ role: 'user', content: 'Hello' }]),
-      'Hello from the mock model'
-    )
-    const result = await safely(() =>
-      chat({ ...connection, model: 'bad-model' }, [{ role: 'user', content: 'Hello' }])
-    )
+    status = 401
+    body = '{"error":"private provider detail"}'
+    const result = await safely(() => listModels(connection))
     assert.equal(result.ok, false)
 
     if (!result.ok) {
@@ -63,11 +40,20 @@ test('API adapter discovers models, sends history and authentication, and handle
       assert.doesNotMatch(result.error, /private provider detail/)
     }
 
+    status = 200
+    body = 'private provider detail'
+    await assert.rejects(listModels(connection), error => {
+      assert.match(String(error), /did not return JSON/)
+      assert.doesNotMatch(String(error), /private provider detail/)
+      return true
+    })
+    body = '{"data":{}}'
+    await assert.rejects(listModels(connection), /unexpected model list/)
+
     assert.equal(
       (await safely(() => listModels({ ...connection, baseUrl: 'file:///tmp' }))).ok,
       false
     )
-    assert.equal((await safely(() => chat(connection, []))).ok, false)
   } finally {
     await new Promise<void>((resolve, reject) =>
       server.close(error => (error ? reject(error) : resolve()))

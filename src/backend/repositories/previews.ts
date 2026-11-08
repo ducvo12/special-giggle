@@ -80,7 +80,7 @@ export class PreviewManager {
       state.revision = revision(before)
       record.workspace = await realpath(await mkdtemp(join(tmpdir(), 'granite-repository-command-'))); this.save(record)
       const root = join(record.workspace, 'repository')
-      await copyCommandWorkspace(paths.root, root, true, signal)
+      await copyCommandWorkspace(paths.root, root, signal)
       if (revision(await scanTree(paths, signal, false)) !== state.revision || revision(await scanTree(new RepositoryPaths(root, this.privateRoot), signal, false, true)) !== state.revision) throw new Error('Repository changed while preparing the preview. Restart from current code.')
       record.home = await realpath(await mkdtemp(join(tmpdir(), 'granite-preview-environment-'))); this.save(record)
       entry.handle = await startRepositoryProcess({ root, container: record.workspace, privateRoot: this.privateRoot, cwd: join(root, state.cwd),

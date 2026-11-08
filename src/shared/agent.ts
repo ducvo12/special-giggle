@@ -1,4 +1,14 @@
 import type { ContextUsage, Message } from './chat'
+
+export interface AgentDeletionResult {
+  cleanupPending: boolean
+}
+
+export interface AgentDeletionIssue {
+  agentId: string
+  message: string
+  stagedPath: string
+}
 import type { ChatRetention, ConversationLocation } from './organization'
 
 export type RunStatus = 'running' | 'complete' | 'stopped' | 'interrupted' | 'error'

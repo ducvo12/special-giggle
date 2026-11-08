@@ -4,16 +4,44 @@ import { mkdtemp, mkdir, readFile, writeFile, readlink, lstat, realpath, rm } fr
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { spawn } from 'node:child_process'
-import { watch } from 'node:fs'
 import { AgentRuntime } from '../src/backend/agents/runtime.ts'
 import { RepositorySession } from '../src/backend/repositories/session.ts'
-import { TerminalOutput } from '../src/backend/repositories/terminal-output.ts'
+import { captureTerminalOutput, TerminalOutput } from '../src/backend/repositories/terminal-output.ts'
+import { PassThrough } from 'node:stream'
+import { once } from 'node:events'
 import { processGroup, settleProcess, type ProcessRecord } from '../src/backend/repositories/process.ts'
 import { createToolRegistry } from '../src/backend/harness/tools/registry.ts'
 import { repositoryAccess } from '../src/backend/repositories/access.ts'
 import { defaultHarnessSettings } from '../src/shared/harness.ts'
 
 const mac = { skip: process.platform !== 'darwin', timeout: 30_000 }
+
+test('stdout and stderr decode split UTF-8 independently and flush incomplete tails', async () => {
+  const stdout = new PassThrough()
+  const stderr = new PassThrough()
+  const output = new TerminalOutput()
+  captureTerminalOutput(stdout, output)
+  captureTerminalOutput(stderr, output)
+  stdout.write(Buffer.from([0xf0, 0x9f]))
+  stderr.write(Buffer.from('error'))
+  stdout.write(Buffer.from([0x98, 0x80]))
+  assert.equal(output.tail(), 'error😀')
+  const ended = Promise.all([once(stdout, 'end'), once(stderr, 'end')])
+  stdout.end(Buffer.from([0xe2]))
+  stderr.end()
+  await ended
+  assert.equal(output.tail(), 'error😀�')
+})
+
+test('a later no-op Git command cannot erase an earlier Git mutation report', mac, async () => {
+  const f = await fixture()
+  try {
+    assert.equal((await f.session.command('/usr/bin/git', ['init'], { gitWrite: true })).exitCode, 0)
+    assert.equal(f.session.record.report.gitChanged, true)
+    assert.equal((await f.session.command('/usr/bin/git', ['status', '--porcelain'], { gitWrite: true })).exitCode, 0)
+    assert.equal(f.session.record.report.gitChanged, true)
+  } finally { await f.close() }
+})
 async function until<T>(read: () => Promise<T>, check: (value: T) => boolean): Promise<T> {
   for (let i = 0; i < 300; i++) { const value = await read(); if (check(value)) return value; await new Promise(r => setTimeout(r, 10)) }
   throw new Error('Session fixture did not reach the expected state.')
@@ -51,7 +79,7 @@ chmod +x node_modules/demo/bin/demo
 ln -s ../demo/bin/demo node_modules/.bin/demo
 printf '%s' "$install" > "$HOME/setup-answer"
 printf complete`
-    let state = await f.session.startCommand(command, '', false, true, 90, 25)
+    let state = await f.session.startCommand(command, { columns: 90, rows: 25 })
     assert.equal(state.status, 'running', JSON.stringify(state))
     assert.match(state.output, /25\s+90/)
     assert.match(state.output, /Project name/)
@@ -76,6 +104,20 @@ printf complete`
     await f.session.close()
     await assert.rejects(lstat(home), { code: 'ENOENT' })
     await assert.rejects(f.session.readCommand(state.id), /unavailable/)
+  } finally { await f.close() }
+})
+
+test('a quiet running PTY publishes its trailing prompt without another output chunk', mac, async () => {
+  const f = await fixture()
+  try {
+    const command = await f.session.startCommand('printf Ready; read first; printf "Quiet prompt? "; read second')
+    await f.session.inputCommand(command.id, 0, 'next\r')
+    await until(async () => f.session.record.report.commands ?? [], commands =>
+      commands.some(item => item.status === 'running' && item.output.includes('Quiet prompt?'))
+    )
+    const stored = f.runtime.repositories.records().find(record => record.runId === 'session-fixture')!
+    assert.ok(stored.report.commands?.some(item => item.output.includes('Quiet prompt?')))
+    await f.session.stopCommand(command.id)
   } finally { await f.close() }
 })
 
@@ -145,7 +187,7 @@ test('link replacement/deletion and contained hard-link outputs publish without 
   const f = await fixture()
   try {
     assert.equal((await f.session.command('/bin/sh', ['-c', 'printf a > a; printf b > b; ln -s a alias'])).exitCode, 0)
-    assert.notEqual(f.session.record.report.state, 'attention', f.session.record.report.error)
+    assert.notEqual(f.session.record.report.state, 'attention', f.session.record.report.error ?? 'Unexpected attention state')
     assert.equal((await f.session.command('/bin/sh', ['-c', 'rm alias; ln -s b alias; mkdir -p node_modules/pkg; printf bin > node_modules/pkg/bin; ln node_modules/pkg/bin node_modules/pkg/copy'])).exitCode, 0)
     assert.equal(await readlink(join(f.root, 'alias')), 'b')
     assert.notEqual((await lstat(join(f.root, 'node_modules/pkg/bin'))).ino, (await lstat(join(f.root, 'node_modules/pkg/copy'))).ino)
@@ -185,23 +227,27 @@ test('interactive publication rejects concurrent live edits before importing gen
   } finally { await f.close() }
 })
 
-test('Stop during publication retains applied files and reports a partial checkpoint', mac, async () => {
+test('Stop during publication retains applied files and reports a partial checkpoint', mac, async context => {
   const f = await fixture()
-  let watcher: ReturnType<typeof watch> | undefined
   try {
-    let state = await f.session.startCommand('printf ready; read answer; printf kept > a.txt; /usr/bin/perl -e \'open(my $f, ">", "large.bin") or die; truncate($f, 25000000) or die;\'')
+    let state = await f.session.startCommand('printf ready; read answer; printf kept > a.txt; printf unfinished > b.txt')
     let stopping: Promise<unknown> | undefined
-    watcher = watch(f.root, (_, name) => {
-      if (String(name) === 'a.txt' && !stopping) stopping = f.session.stopCommand(state.id)
+    const existsRevision = f.session.existsRevision.bind(f.session)
+    context.mock.method(f.session, 'existsRevision', async (path: string) => {
+      const result = await existsRevision(path)
+      if (path === 'b.txt' && !stopping && await existsRevision('a.txt') !== null) {
+        stopping = f.session.stopCommand(state.id)
+      }
+      return result
     })
     state = await f.session.inputCommand(state.id, 0, 'continue\r')
     state = await until(() => f.session.readCommand(state.id, 0, 20), value => value.status === 'stopped')
     await stopping
     assert.equal(state.publication, 'partial')
     assert.equal(await readFile(join(f.root, 'a.txt'), 'utf8'), 'kept')
-    await assert.rejects(lstat(join(f.root, 'large.bin')), { code: 'ENOENT' })
+    await assert.rejects(lstat(join(f.root, 'b.txt')), { code: 'ENOENT' })
     assert.ok(f.session.record.report.changes.some(change => change.path === 'a.txt'))
-  } finally { watcher?.close(); await f.close() }
+  } finally { await f.close() }
 })
 
 test('session schemas honor terminal settings and reject another run’s session identifiers', mac, async () => {

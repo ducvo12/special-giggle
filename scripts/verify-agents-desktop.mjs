@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict'
-import { spawn } from 'node:child_process'
 import { createServer } from 'node:http'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { verifyDeletion } from './desktop/verify-deletion.mjs'
+import { desktopSession } from './desktop/session.mjs'
 
 // Acceptance test: agent creation, identity editing, and both introductions go
 // through actual React controls. Only connection setup uses the public bridge.
@@ -29,114 +29,21 @@ const directory = profile ?? (await mkdtemp(join(tmpdir(), 'granite-agents-ui-')
 
 const answers = {}
 
-let app,
-  socket,
-  stderr = '',
-  server
+let server
 
-let next = 0
-
-const callbacks = new Map()
-
-const wait = async (check, label, limit = 20_000) => {
-  const until = Date.now() + limit
-
-  while (Date.now() < until) {
-    if (await check()) {
-      return
-    }
-
-    await new Promise(resolve => setTimeout(resolve, 100))
-  }
-
-  throw new Error(`Timed out: ${label}. ${stderr.slice(-3000)}`)
-}
-
-function rpc(method, params = {}) {
-  return new Promise((resolve, reject) => {
-    const id = ++next
-    callbacks.set(id, { resolve, reject })
-    socket.send(JSON.stringify({ id, method, params }))
-  })
-}
-
-async function evaluate(expression) {
-  const result = await rpc('Runtime.evaluate', {
-    expression,
-    awaitPromise: true,
-    returnByValue: true
-  })
-
-  if (result.exceptionDetails) {
-    throw new Error(JSON.stringify(result.exceptionDetails))
-  }
-
-  return result.result.value
-}
-
+let session
 async function launch() {
-  const executable = packaged
-    ? './release/mac-arm64/Granite.app/Contents/MacOS/Granite'
-    : './node_modules/electron/dist/Electron.app/Contents/MacOS/Electron'
-  app = spawn(
-    executable,
-    [...(packaged ? [] : ['.']), '--remote-debugging-port=9442', `--user-data-dir=${directory}`],
-    {
-      stdio: ['ignore', 'ignore', 'pipe'],
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: '' }
-    }
-  )
-  app.stderr.on('data', data => {
-    stderr += data
-  })
-  let page
-  await wait(async () => {
-    try {
-      page = (await (await fetch('http://127.0.0.1:9442/json')).json()).find(
-        page => page.type === 'page'
-      )
-
-      return Boolean(page)
-    } catch {
-      return false
-    }
-  }, 'desktop startup')
-  socket = new WebSocket(page.webSocketDebuggerUrl)
-  await new Promise(resolve => socket.addEventListener('open', resolve, { once: true }))
-  socket.addEventListener('message', event => {
-    const message = JSON.parse(event.data),
-      callback = callbacks.get(message.id)
-
-    if (callback) {
-      callbacks.delete(message.id)
-      message.error ? callback.reject(message.error) : callback.resolve(message.result)
-    }
-  })
-  await wait(
-    () => evaluate('document.querySelector(".agent-dropdown-trigger")?.disabled === false'),
-    'agent registry loaded'
-  )
+  session = desktopSession(directory, 9442, {}, '.', packaged ? './release/mac-arm64/Granite.app/Contents/MacOS/Granite' : undefined)
+  await session.launch()
+  // Completed replies can still be revealing text; keep content checks deterministic.
+  await session.rpc('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] })
 }
-
-async function click(text) {
-  assert.ok(
-    await evaluate(`(() => {
-    const button = [...document.querySelectorAll('button')].find(button => button.textContent.trim() === ${JSON.stringify(text)});
-    if (!button || button.disabled) return false;
-    button.click(); return true;
-  })()`),
-    `Button available: ${text}`
-  )
-}
-
-async function fill(selector, value, kind = 'input') {
-  await evaluate(`(() => {
-    const element = document.querySelector(${JSON.stringify(selector)});
-    if (!element) throw new Error('Control not found');
-    Object.getOwnPropertyDescriptor(${kind === 'textarea' ? 'HTMLTextAreaElement' : 'HTMLInputElement'}.prototype, 'value').set.call(element, ${JSON.stringify(value)});
-    element.dispatchEvent(new Event('input', { bubbles: true }));
-  })()`)
-}
+const quit = () => session?.quit()
+const rpc = (...args) => session.rpc(...args)
+const evaluate = (...args) => session.evaluate(...args)
+const click = (...args) => session.click(...args)
+const fill = (...args) => session.fill(...args)
+const wait = (...args) => session.wait(...args)
 
 async function selectAgent(id) {
   await evaluate('document.querySelector(".agent-dropdown-trigger").click()')
@@ -144,7 +51,7 @@ async function selectAgent(id) {
     `(() => { const choice = [...document.querySelectorAll('[role="menuitemradio"]')].find(item => item.dataset.agentId === ${JSON.stringify(id)}); if (!choice) throw new Error('Agent missing'); choice.click(); })()`
   )
   await wait(
-    () => evaluate('!document.querySelector(".agent-dropdown-trigger").disabled'),
+    () => evaluate(`document.querySelector('.agent-dropdown-trigger').dataset.agentId === ${JSON.stringify(id)} && !document.querySelector('.agent-dropdown-trigger').disabled`),
     'agent switch'
   )
 }
@@ -154,7 +61,7 @@ async function ask(name) {
   const start = Date.now()
   const before = await evaluate('document.querySelectorAll(".assistant").length')
   await fill('textarea[aria-label="Message"]', question, 'textarea')
-  await click('Send ↗')
+  await click('Send message')
   await wait(
     () =>
       evaluate(
@@ -187,13 +94,6 @@ async function ask(name) {
   console.log('ANSWER', name, JSON.stringify(answers[name]))
 }
 
-async function quit() {
-  socket.close()
-  app.kill()
-  await new Promise(resolve => app.once('exit', resolve))
-  await new Promise(resolve => setTimeout(resolve, 300))
-}
-
 try {
   if (offline) {
     await verifyDeletion({ directory, launch, quit, evaluate, click, fill, wait, rpc })
@@ -213,6 +113,12 @@ try {
       }
     } else {
       server = createServer(async (request, response) => {
+        if (request.url === '/v1/models') {
+          response.writeHead(200, { 'Content-Type': 'application/json' })
+          response.end(JSON.stringify({ data: [{ id: 'mock' }] }))
+          return
+        }
+
         let raw = ''
 
         for await (const chunk of request) {
@@ -255,16 +161,16 @@ try {
     await launch()
     await click('Create agent')
     await fill('input[aria-label="Agent name"]', 'Atlas')
-    await click('Create agent')
+    await evaluate('document.querySelector(".connection-editor button").click()')
     await wait(
-      () => evaluate('document.querySelector(".identity-editor")?.value.includes("# Atlas")'),
+      () => evaluate('document.querySelector(".file-preview[aria-busy=false]")?.textContent.includes("This file is empty.")'),
       'first agent'
     )
     const atlasId = await evaluate(
       'document.querySelector(".agent-dropdown-trigger").dataset.agentId'
     )
-    await click('Save and continue')
-    await wait(() => evaluate('Boolean(document.querySelector(".chat-main"))'), 'Atlas setup saved')
+    assert.equal(await readFile(join(directory, 'agents', atlasId, 'identity.md'), 'utf8'), '')
+    await click('New chat')
     const saved = await evaluate(`window.granite.connections.save(${JSON.stringify(connection)})`)
     assert.ok(saved.ok)
     await rpc('Page.reload')
@@ -276,21 +182,23 @@ try {
     await evaluate('document.querySelector(".agent-dropdown-trigger").click()')
     await evaluate('document.querySelector(".agent-menu-create").click()')
     await fill('input[aria-label="Agent name"]', 'Nova')
-    await click('Create agent')
+    await evaluate('document.querySelector(".connection-editor button").click()')
     await wait(
-      () => evaluate('document.querySelector(".identity-editor")?.value.includes("# Nova")'),
+      () => evaluate('document.querySelector(".file-preview[aria-busy=false]")?.textContent.includes("This file is empty.")'),
       'new agent identity'
     )
     const identity =
       '# Nova\nYou are Nova, a cheerful, curious personal assistant.\nUse at least three friendly emojis in every response, especially introductions, such as 🌟 😊 🚀.\nBe helpful, honest, and clear. Your name is Nova.\n'
-    await fill('textarea[aria-label="Agent identity"]', identity, 'textarea')
+    await click('Edit')
+    await fill('textarea[aria-label="Edit identity.md"]', identity, 'textarea')
+    await wait(() => evaluate('document.querySelector(".agent-dropdown-trigger").disabled'), 'identity dirty')
     assert.ok(
       await evaluate('document.querySelector(".agent-dropdown-trigger").disabled'),
       'Unsaved identity edits are protected'
     )
-    await click('Save and continue')
+    await click('Save')
     await wait(
-      () => evaluate('Boolean(document.querySelector(".chat-main"))'),
+      () => evaluate('Boolean(document.querySelector(".file-preview[aria-busy=false]")) && !document.querySelector(".agent-dropdown-trigger").disabled'),
       'identity saved'
     )
     const novaId = await evaluate(
@@ -301,6 +209,7 @@ try {
       await readFile(join(directory, 'agents', atlasId, 'identity.md'), 'utf8'),
       /three friendly emojis/
     )
+    await click('New chat')
     assert.equal(
       await evaluate('document.querySelectorAll(".assistant").length'),
       0,
@@ -343,15 +252,8 @@ try {
       'PASS agent creation through UI, persisted identity edits, both introductions, emoji style, separate conversations, agent switching, restart recovery'
     )
   }
-} catch (error) {
-  console.error(stderr)
-  throw error
 } finally {
-  socket?.close()
-
-  if (app?.exitCode === null) {
-    app.kill()
-  }
+  await quit()
 
   server?.closeAllConnections()
   server?.close()

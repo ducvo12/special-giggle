@@ -16,7 +16,6 @@ export default function App() {
   const [page, setPage] = useState<Page>('chat')
   const [newChatFocus, setNewChatFocus] = useState(0)
   const messageInput = useRef<HTMLTextAreaElement>(null)
-  const [settingsVisit, setSettingsVisit] = useState(0)
   const [sidebarVisible, setSidebarVisible] = useState(true)
   const [identityDirty, setIdentityDirty] = useState(false)
   const [selectedFile, setSelectedFile] = useState('/identity.md')
@@ -36,7 +35,6 @@ export default function App() {
     conversations,
     organization,
     location,
-    runUnavailable,
     selectLocation,
     changeOrganization,
     moveConversation,
@@ -57,7 +55,6 @@ export default function App() {
     runPending,
     cancelPending,
     viewBusy,
-    activeConversationId,
     stopping,
     approval,
     answerQuestion,
@@ -190,19 +187,13 @@ export default function App() {
                 setError('')
                 void loadConversation(id)
               }}
-              onPageChange={next => {
-                if (next === 'settings') {
-                  setSettingsVisit(visit => visit + 1)
-                }
-                setPage(next)
-              }}
+              onPageChange={setPage}
             />
           )
         )}
 
         {page === 'settings' ? (
           <Settings
-            key={settingsVisit}
             connections={connections}
             onChange={next => {
               setConnections(next)
@@ -262,11 +253,6 @@ export default function App() {
             onApprove={approve}
             onAnswerQuestion={answerQuestion}
             onRejectQuestion={rejectQuestion}
-            requestPending={false}
-            onOpenActiveChat={() => {
-              setPage('chat')
-              if (activeConversationId) void loadConversation(activeConversationId)
-            }}
             loaded={loaded && !managingAgents}
             identityDirty={identityDirty}
             messages={messages}
@@ -279,7 +265,6 @@ export default function App() {
             onAttachmentsChange={setAttachments}
             elapsed={elapsed}
             stopping={stopping}
-            runUnavailable={runUnavailable}
             onSelectConnection={setSelectedId}
             onOpenSettings={() => setPage('settings')}
             onCreateAgent={() => setPage('create-agent')}
@@ -305,15 +290,23 @@ export default function App() {
           setSelectedFile(path => path === previous ? next : path)
         }} />}
 
-      {recovery && <div className="modal-backdrop">
+      {recovery && <div className="modal-backdrop" onKeyDown={event => { if (event.key === 'Escape') void dismissRecovery() }}>
         <section className="recovery-dialog" role="alertdialog" aria-modal="true" aria-labelledby="recovery-title">
-          <h2 id="recovery-title">Granite closed before work finished</h2>
-          <p>{recovery.active} interrupted run{recovery.active === 1 ? '' : 's'} stopped. Completed changes are kept.</p>
+          <h2 id="recovery-title">
+            {recovery.agentDeletions?.length ? 'Recovery needs attention' : 'Granite closed before work finished'}
+          </h2>
+          {recovery.active > 0 && <p>{recovery.active} interrupted run{recovery.active === 1 ? '' : 's'} stopped. Completed changes are kept.</p>}
           {Boolean(recovery.previews) && <p>{recovery.previews} local preview(s) were interrupted. Restart explicitly from the owning chat; previews are never resumed automatically.</p>}
           {recovery.pending > 0 && <p>{recovery.pending} queued request{recovery.pending === 1 ? '' : 's'} did not start. Their messages are saved; use Run pending messages in each chat when ready.</p>}
           {Boolean(recovery.repositories) && <p>{recovery.repositories} repository outcome{recovery.repositories === 1 ? '' : 's'} need review. Open the affected chat’s repository changes; dismissing this notice does not unlock its writes.</p>}
+          {recovery.agentDeletions?.map(issue => (
+            <p key={issue.stagedPath}>
+              Agent deletion recovery {issue.agentId}: {issue.message} Preserved storage: {issue.stagedPath}.
+              Cleanup is retried at startup. Conflicting folders are never merged or overwritten; affected agents remain unavailable.
+            </p>
+          ))}
           <p>Dismissing this notice will not restart any work.</p>
-          <button onClick={() => void dismissRecovery()}>OK</button>
+          <button autoFocus onClick={() => void dismissRecovery()}>OK</button>
         </section>
       </div>}
     </div>

@@ -6,9 +6,9 @@ import { copyVerifiedFile, inspectFile } from './files.ts'
 
 // Command subprocesses never receive write access to the live repository. Even
 // deliberately detached descendants can only change this disposable copy.
-export async function copyCommandWorkspace(source: string, destination: string, git: boolean, signal?: AbortSignal) {
+export async function copyCommandWorkspace(source: string, destination: string, signal?: AbortSignal) {
   await cp(source, destination, { recursive: true, dereference: false, verbatimSymlinks: true, preserveTimestamps: true,
-    filter: path => { signal?.throwIfAborted(); return git || !path.slice(source.length).split('/').some(part => part.toLowerCase() === '.git') } })
+    filter: () => { signal?.throwIfAborted(); return true } })
 }
 
 export async function gitManifest(root: string, signal?: AbortSignal): Promise<TreeState> {
@@ -30,27 +30,37 @@ export async function gitManifest(root: string, signal?: AbortSignal): Promise<T
   return result
 }
 
-export async function mergeGitFile(root: string, stage: string, path: string, before?: string, after?: string) {
+export async function mergeGitFile(root: string, stage: string, path: string, before: string | undefined, after: string | undefined, signal: AbortSignal) {
+  signal.throwIfAborted()
   if (!path.startsWith('.git/') || path.split('/').some(part => part === '..' || part === '.')) throw new Error('Invalid metadata path.')
   const target = join(root, path)
-  let current: string | undefined
-  try {
-    // Check every parent again. Worktree metadata aliases and symlinks cannot
-    // redirect an authorized Git write into another repository/application.
-    const parts = path.split('/')
-    for (let i = 1; i <= parts.length; i++) {
-      try { if ((await lstat(join(root, ...parts.slice(0, i)))).isSymbolicLink()) throw new Error('Git metadata path became a symbolic link.') }
-      catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
+  const currentRevision = async () => {
+    try {
+      // Recheck parents as well as the leaf before publishing metadata.
+      const parts = path.split('/')
+      for (let i = 1; i <= parts.length; i++) {
+        try {
+          if ((await lstat(join(root, ...parts.slice(0, i)))).isSymbolicLink()) throw new Error('Git metadata path became a symbolic link.')
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+        }
+      }
+      return (await inspectFile(target, signal, false)).hash
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+      return undefined
     }
-    current = (await inspectFile(target, undefined, false)).hash
-  } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
+  }
+  const current = await currentRevision()
   if (current === after) return // Existing immutable objects can be shared safely.
   if (current !== before) throw new Error(`Git metadata changed concurrently: ${path}. Review the remaining Git outcome.`)
-  if (!after) { await rm(target); return }
+  if (!after) { signal.throwIfAborted(); await rm(target); return }
   await mkdir(dirname(target), { recursive: true })
   const temporary = join(dirname(target), `.granite-${randomUUID()}`)
   try {
-    await copyVerifiedFile(join(stage, path), temporary, after, 0o644)
+    await copyVerifiedFile(join(stage, path), temporary, after, 0o644, signal)
+    if (await currentRevision() !== before) throw new Error(`Git metadata changed concurrently: ${path}. Review the remaining Git outcome.`)
+    signal.throwIfAborted()
     if (!before) await link(temporary, target)
     else await rename(temporary, target)
   } finally { await rm(temporary, { force: true }) }

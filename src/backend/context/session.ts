@@ -1,4 +1,5 @@
 import type { AgentMessage } from '../../shared/agent.ts'
+import { cachedRetrievalTools } from './tool-policy.ts'
 import type { ContextReference } from '../../shared/context.ts'
 import type { ContextService } from './service.ts'
 import { textFile } from './files.ts'
@@ -27,7 +28,7 @@ export class ContextSession {
   async refresh() {
     await this.service.sync(this.agentId)
     for (const [id, version] of this.refs) {
-      try { if (this.service.get(this.agentId, this.chatId, id).revision === version) continue } catch {}
+      if (this.service.find(this.agentId, this.chatId, id)?.revision === version) continue
       this.rebuild = true
     }
     if (this.rebuild) {
@@ -79,6 +80,10 @@ export class ContextSession {
     this.pendingSummary = undefined
   }
   save() { this.service.db.prepare('INSERT OR REPLACE INTO context_state_refs VALUES(?,?)').run(this.chatId, JSON.stringify([...this.refs])) }
+  saveCompaction(summary: string, source: string, cut: number) {
+    this.service.db.prepare('INSERT OR REPLACE INTO context_compactions(conversationId,summary,createdAt,boundary) VALUES(?,?,?,?)')
+      .run(this.chatId, summary, Date.now(), JSON.stringify({ prefixRevision: revision(source), cut, refs: [...this.refs] }))
+  }
   async identityPreview() {
     const content = await textFile(this.service.root(this.agentId), '/identity.md') ?? ''
     return { content, revision: revision(content) }
@@ -89,6 +94,6 @@ export function safeHistory(messages: AgentMessage[]) {
   return messages.map(message => ({ ...message,
     // Context tool results are caches. Only saved visible dialogue survives an
     // invalidation; it is independent conversation history, never fresh evidence.
-    tools: message.tools?.filter(tool => !['list_context','search_context','read_context','read_file','grep','glob','ls','load_skill'].includes(tool.name))
+    tools: message.tools?.filter(tool => !cachedRetrievalTools.has(tool.name))
   }))
 }

@@ -7,7 +7,18 @@ import { desktopSession } from './desktop/session.mjs'
 
 const directory = await mkdtemp(join(tmpdir(), 'granite-harness-ui-'))
 
-const { launch, quit, rpc, evaluate, click, fill, wait } = desktopSession(directory, 9443)
+let session
+async function launch() {
+  session = desktopSession(directory, 9443)
+  await session.launch()
+  await session.rpc('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] })
+}
+const quit = () => session?.quit()
+const rpc = (...args) => session.rpc(...args)
+const evaluate = (...args) => session.evaluate(...args)
+const click = (...args) => session.click(...args)
+const fill = (...args) => session.fill(...args)
+const wait = (...args) => session.wait(...args)
 
 let number = 0
 
@@ -71,28 +82,33 @@ const server = createServer(async (req, res) => {
 
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
 
-async function selectLabel(label, value) {
-  const selector = await evaluate(`(() => {
-    const element = [...document.querySelectorAll('label')].find(item => item.firstChild.textContent.trim() === ${JSON.stringify(label)})?.querySelector('select');
-    if (!element) throw new Error('Control not found: ' + ${JSON.stringify(label)});
-    element.dataset.testControl = ${JSON.stringify(label)};
-    return '[data-test-control="' + ${JSON.stringify(label)} + '"]';
-  })()`)
-  await fill(selector, value, 'select')
+async function connectProvider(name) {
+  assert.ok(await evaluate(`(() => {
+    const card = [...document.querySelectorAll('[aria-label="Popular providers"] .provider-card')].find(item => item.querySelector('.provider-name')?.textContent === ${JSON.stringify(name)});
+    const button = card?.querySelector('button');
+    if (!button || button.disabled) return false;
+    button.click(); return true;
+  })()`), `Connect provider: ${name}`)
+}
+
+async function answerApproval(label) {
+  assert.ok(await evaluate(`(() => {
+    const button = [...document.querySelectorAll('.approval-dialog button')].find(item => item.lastElementChild?.textContent === ${JSON.stringify(label)});
+    if (!button || button.disabled) return false;
+    button.click(); return true;
+  })()`), `Approval choice available: ${label}`)
 }
 
 try {
   await launch()
   await click('Create agent')
   await fill('input[aria-label="Agent name"]', 'Harness test')
-  await click('Create agent')
+  await evaluate('document.querySelector(".connection-editor button").click()')
   await wait(
-    () => evaluate('Boolean(document.querySelector(".identity-editor"))'),
-    'identity draft'
+    () => evaluate('document.querySelector(".file-preview[aria-busy=false]")?.textContent.includes("This file is empty.")'),
+    'blank identity preview'
   )
-  await click('Save and continue')
-  await wait(() => evaluate('Boolean(document.querySelector(".chat-main"))'), 'identity saved')
-  await click('⌘ Tools & skills')
+  await evaluate('[...document.querySelectorAll(".agent-files button")].find(button => button.textContent.includes("tools & skills/")).click()')
   await wait(
     () => evaluate('Boolean(document.querySelector(".harness-settings fieldset:not(:disabled)"))'),
     'agent tools loaded'
@@ -121,37 +137,44 @@ try {
     'skill saved'
   )
   await click('Back to chat')
-  await click('Connect model')
-  await click('+ Add connection')
-  await selectLabel('Connection type', 'chatgpt')
+  await click('Settings')
+  await connectProvider('OpenAI')
   await wait(
     () =>
       evaluate(
-        'Boolean([...document.querySelectorAll("button")].find(item => item.textContent.trim() === "Continue with ChatGPT"))'
+        'Boolean([...document.querySelectorAll("button")].find(item => item.textContent.trim() === "Connect ChatGPT account"))'
       ),
     'direct ChatGPT connection UI'
   )
   assert.equal(await evaluate('typeof window.granite.codex'), 'undefined')
-  await selectLabel('Connection type', 'openai')
-  await selectLabel('API protocol', 'responses')
+  await click('Back to providers')
+  await connectProvider('OpenAI-compatible')
   await fill('input[placeholder="Home desktop"]', 'Direct harness test')
   await fill('input[type=url]', `http://127.0.0.1:${server.address().port}/v1`)
   await click('Load models')
   await wait(
     () =>
-      evaluate('document.querySelector("input[list=available-models]")?.value === "harness-mock"'),
+      evaluate(`document.querySelector('input[aria-label="Model ID"]')?.value === 'harness-mock'`),
     'model loaded'
   )
   await click('Save connection')
   await wait(
-    () => evaluate('Boolean(document.querySelector(".connection-card"))'),
+    () => evaluate(`Boolean(document.querySelector('[aria-label="Connected providers"] .provider-card'))`),
     'connection saved'
   )
-  await click('Back to chat')
+  // Custom-provider UI currently saves Chat Completions. Select Responses via
+  // the public bridge for this fixture's Responses tool/opaque-state contract.
+  const connections = await evaluate('window.granite.connections.list()')
+  assert.ok(connections.ok)
+  const connection = connections.value[0]
+  assert.ok((await evaluate(`window.granite.connections.save(${JSON.stringify({ ...connection, protocol: 'responses', apiKey: '' })})`)).ok)
+  await click('Back to workspace')
+  await rpc('Page.reload')
+  await wait(() => evaluate('document.querySelector("textarea[aria-label=Message]")?.disabled === false'), 'Responses fixture ready')
   await fill('textarea[aria-label="Message"]', 'Save a note', 'textarea')
-  await click('Send ↗')
+  await click('Send message')
   await wait(
-    () => evaluate('Boolean(document.querySelector("[role=alertdialog]"))'),
+    () => evaluate('Boolean(document.querySelector(".approval-dialog[role=region]"))'),
     'Granite approval shown'
   )
   const agent = (await evaluate('window.granite.agents.list()')).value[0]
@@ -163,7 +186,7 @@ try {
     '/private/tmp/granite-harness-approval.png',
     Buffer.from(screenshot.data, 'base64')
   )
-  await click('Deny')
+  await answerApproval('Reject')
   await wait(() => evaluate('!document.querySelector(".stop-button")'), 'denied action finished')
   assert.match(
     await evaluate('document.querySelector(".assistant")?.textContent'),
@@ -173,28 +196,28 @@ try {
     code: 'ENOENT'
   })
   await fill('textarea[aria-label="Message"]', 'Try writing now', 'textarea')
-  await click('Send ↗')
+  await click('Send message')
   await wait(
-    () => evaluate('Boolean(document.querySelector("[role=alertdialog]"))'),
+    () => evaluate('Boolean(document.querySelector(".approval-dialog[role=region]"))'),
     'new approval'
   )
-  await click('Allow once')
+  await answerApproval('Allow once')
   await wait(() => evaluate('!document.querySelector(".stop-button")'), 'approved action finished')
   assert.match(
     await readFile(join(directory, 'agents', agent.id, 'notes/harness-ui.md'), 'utf8'),
     /Granite owns/
   )
   await fill('textarea[aria-label="Message"]', 'Wait for approval', 'textarea')
-  await click('Send ↗')
+  await click('Send message')
   await wait(
-    () => evaluate('Boolean(document.querySelector("[role=alertdialog]"))'),
+    () => evaluate('Boolean(document.querySelector(".approval-dialog[role=region]"))'),
     'pending approval'
   )
-  await click('Stop agent')
+  await click('■ Stop')
   await wait(
     () =>
       evaluate(
-        '!document.querySelector("[role=alertdialog]") && !document.querySelector(".stop-button")'
+        '!document.querySelector(".approval-dialog") && !document.querySelector(".stop-button")'
       ),
     'stopped during approval'
   )

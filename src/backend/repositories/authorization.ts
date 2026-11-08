@@ -14,6 +14,7 @@ export function setupCommand(command: string): { operation: 'install' | 'create'
   try { tokens = parse(command) } catch { return }
   if (!tokens.length || tokens.some(token => typeof token !== 'string')) return
   const words = tokens as string[]
+  if (words.some(word => word.startsWith('/') || word.split('/').includes('..'))) return
   if (words.some(word => /^(?:--?(?:prefix|cwd|dir|global)|-g|-C)(?:=|$)/.test(word) || /^(?:https?:|git\+|file:|link:)/.test(word))) return
   const [bin, action] = words
   if (['npm','pnpm','yarn','bun'].includes(bin) && ['install','i','add','ci'].includes(action)) return { operation: 'install' }
@@ -26,7 +27,6 @@ export function setupCommand(command: string): { operation: 'install' | 'create'
   if (!framework) return
   // CLI output paths must remain within the selected repository; flags may not
   // redirect package-manager state into global or unrelated folders.
-  if (words.some(word => word.startsWith('/') || word.split('/').includes('..'))) return
   return { operation: 'create', framework: framework === 'vite' ? 'vite' : 'next' }
 }
 

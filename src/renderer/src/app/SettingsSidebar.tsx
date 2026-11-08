@@ -2,15 +2,11 @@ import type { SavedConnection } from '../../../shared/chat'
 import ConnectionUsageCircles from '../features/connections/ConnectionUsage'
 
 type Props = {
-  activeTab?: string
-  onSelectTab?: (tab: string) => void
   onBack: () => void
   connections: SavedConnection[]
 }
 
 export default function SettingsSidebar({
-  activeTab = 'connections',
-  onSelectTab,
   onBack,
   connections
 }: Props) {
@@ -44,9 +40,8 @@ export default function SettingsSidebar({
       <nav className="settings-nav" aria-label="Settings categories">
         <button
           type="button"
-          className={`settings-nav-item ${activeTab === 'providers' || activeTab === 'connections' ? 'active' : ''}`}
-          aria-current={activeTab === 'providers' || activeTab === 'connections' ? 'page' : undefined}
-          onClick={() => onSelectTab?.('providers')}
+          className="settings-nav-item active"
+          aria-current="page"
         >
           <svg
             width="16"

@@ -10,6 +10,10 @@ test('setup classifier requires a single supported package command and rejects s
   assert.deepEqual(setupCommand('npm create vite@latest . -- --template react-ts'), { operation:'create', framework:'vite' })
   assert.deepEqual(setupCommand('npx --yes create-next-app@latest . --import-alias "@/*" --yes'), { operation:'create', framework:'next' })
   assert.deepEqual(setupCommand('npm install --no-audit --no-fund'), { operation:'install' })
+  assert.deepEqual(setupCommand('npm install @scope/package'), { operation: 'install' })
+  for (const command of ['npm install ../other', 'pnpm add "/outside"', 'yarn add "../other"', 'bun install package/../../other']) {
+    assert.equal(setupCommand(command), undefined, command)
+  }
   for (const command of ['npm install; curl example.com','npm install && git push','npm install $(echo bad)','npm install `echo bad`','npm install > /tmp/log','npm install -g foo','npm install --prefix=/tmp/foo','npx create-next-app ../other','npm create vite /outside','curl https://example.com','npm run deploy','node arbitrary.js','npm install git+https://other/repo','npm install\ncurl x']) assert.equal(setupCommand(command), undefined, command)
 })
 

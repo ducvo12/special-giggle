@@ -4,10 +4,10 @@ import { mkdtemp, rm, writeFile, readFile, mkdir, realpath, symlink } from 'node
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { AgentRuntime } from '../src/backend/agents/runtime.ts'
-import { ContextSession } from '../src/backend/context/session.ts'
+import { ContextSession, safeHistory } from '../src/backend/context/session.ts'
+import type { AgentMessage } from '../src/shared/agent.ts'
 import { createToolRegistry } from '../src/backend/harness/tools/registry.ts'
 import { defaultHarnessSettings } from '../src/shared/harness.ts'
-import { revision } from '../src/backend/context/store.ts'
 import { contextBudget, compactionCut } from '../src/backend/context/budget.ts'
 import { searchRepository } from '../src/backend/repositories/search.ts'
 import { RepositoryPaths } from '../src/backend/repositories/paths.ts'
@@ -67,6 +67,78 @@ test('FTS backfill and all metadata/read paths isolate agents, Closed sections a
   } finally { await f.close() }
 })
 
+test('tool capabilities and permissions respect Shared, Closed and temporary chats', async () => {
+  const f = await fixture()
+  const reads = { list_context: 'read', search_context: 'read', read_context: 'read' }
+  const files = { ls: 'read', read_file: 'read', glob: 'read', grep: 'read' }
+  const continuity = { update_chat_summary: 'read', save_note: 'write' }
+  try {
+    const temporaryShared = f.runtime.store.create(f.agent.id, { sectionId: f.shared.id }, 'temporary')
+    const temporaryClosed = f.runtime.store.create(f.agent.id, { sectionId: f.closed.id }, 'temporary')
+    const scenarios = [
+      { chat: f.a.id, expected: { ...reads, ...files, ...continuity, write_todos: 'read', write_file: 'write', edit_file: 'write', update_memory: 'write', propose_identity_change: 'read', terminal: 'terminal' } },
+      { chat: f.b.id, expected: { ...reads, ...continuity, write_todos: 'read' } },
+      { chat: temporaryShared.id, expected: { ...reads, ...files, write_todos: 'read' } },
+      { chat: temporaryClosed.id, expected: { ...reads, write_todos: 'read' } }
+    ]
+
+    for (const scenario of scenarios) {
+      const session = f.session(scenario.chat)
+      const registry = await createToolRegistry({
+        workspace: await f.runtime.registry.workspace(f.agent.id),
+        context: session,
+        signal: session.signal,
+        settings: { ...defaultHarnessSettings, skills: false, terminal: true },
+        approve: async () => true,
+        onTool() {}
+      })
+      try {
+        assert.deepEqual(Object.fromEntries(registry.definitions.map(tool => [tool.name, tool.permission])), scenario.expected)
+        assert.equal(Boolean(registry.definitions.find(tool => tool.name === 'propose_identity_change')?.approval), scenario.chat === f.a.id)
+      } finally {
+        await registry.close()
+      }
+    }
+  } finally {
+    await f.close()
+  }
+})
+
+test('history invalidation removes cached retrieval results but preserves completed actions', () => {
+  const cached = ['list_context', 'search_context', 'read_context', 'read_file', 'grep', 'glob', 'ls', 'load_skill']
+  const retained = ['write_file', 'edit_file', 'save_note', 'update_memory', 'repo_read', 'repo_edit', 'ask_user']
+  const messages: AgentMessage[] = [{
+    id: 'reply',
+    role: 'assistant',
+    content: 'Completed work',
+    tools: [...cached, ...retained].map(name => ({ id: name, name, input: '{}', output: name, status: 'complete' }))
+  }]
+
+  const history = safeHistory(messages)
+
+  assert.equal(history[0].content, 'Completed work')
+  assert.deepEqual(history[0].tools?.map(tool => tool.name), retained)
+  assert.equal(messages[0].tools?.length, cached.length + retained.length, 'Saved transcript remains intact')
+})
+
+test('unexpected context lookup failures do not invalidate or delete saved continuation state', async context => {
+  const f = await fixture()
+  try {
+    const id = f.message(f.a.id, 'lookup-source', 'A valid source')
+    const session = f.session()
+    await session.refresh()
+    session.rebuild = false
+    session.read(id)
+    session.save()
+    f.runtime.store.saveModelState(f.a.id, 'fixture', [{ role: 'user', content: 'Keep continuation' }])
+    context.mock.method(f.runtime.context, 'find', () => { throw new Error('Database unavailable') })
+    await assert.rejects(session.refresh(), /Database unavailable/)
+    assert.equal(session.rebuild, false)
+    assert.ok(session.refs.has(id))
+    assert.deepEqual(f.runtime.store.modelState(f.a.id, 'fixture'), [{ role: 'user', content: 'Keep continuation' }])
+  } finally { await f.close() }
+})
+
 test('source-supported memory retains independent confirmations, removes sole evidence and preserves manual edits', async () => {
   const f = await fixture()
   try {
@@ -118,7 +190,7 @@ test('summary freshness, original source deletion, cache invalidation, and resta
 test('budget counts schemas, reserves headroom and cuts only after paired native tool results', () => {
   const connection = { baseUrl: '', apiKey: '', model: 'unknown', contextWindow: 16000 }
   const plain = contextBudget(connection, defaultHarnessSettings, [], 'policy', [])
-  const withTools = contextBudget(connection, defaultHarnessSettings, [], 'policy', [{ name: 'read', description: 'x'.repeat(10000), parameters: {}, permission: 'read', run: async () => '' }])
+  const withTools = contextBudget(connection, defaultHarnessSettings, [], 'policy', [{ name: 'read', description: 'x'.repeat(10000), parameters: {}, permission: 'read', parse: args => args, run: async () => '' }])
   assert.equal(plain.inputBudget, 12000); assert.ok(withTools.inputTokens > plain.inputTokens + 3000)
   assert.match(plain.counting, /estimate/)
   const input = [{ role: 'user' }, { role: 'assistant', tool_calls: [{ id: 'a' }, { id: 'b' }] }, { role: 'tool', tool_call_id: 'a' }, { role: 'tool', tool_call_id: 'b' }, { role: 'user' }, { role: 'assistant' }]

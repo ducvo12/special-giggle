@@ -15,6 +15,7 @@ export interface ToolDefinition {
   label?: string
   description: string
   parameters: Record<string, unknown>
+  parse: (args: unknown) => any
   permission: 'read' | 'write' | 'terminal' | 'mcp' | 'repository'
   approval?: (args: any) => Promise<{ kind: import('../../shared/harness.ts').ApprovalRequest['kind']; title: string; detail: string } | null>
   approved?: (args: any, allowed: boolean) => void

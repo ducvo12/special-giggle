@@ -1,6 +1,7 @@
 import type { ModelOption } from '../../shared/chat.ts'
 import { contextMetadata, reasoningMetadata } from '../models/catalog.ts'
 import { randomUUID } from 'node:crypto'
+import { z } from 'zod'
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose'
 import type { ChatGPTAccount } from '../../shared/harness.ts'
 import { browserLogin } from './browser-login.ts'
@@ -32,7 +33,9 @@ interface Discovery {
 
 async function accountJson(response: Response) {
   try {
-    return await response.json()
+    const value: unknown = await response.json()
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Expected an object')
+    return value as Record<string, unknown>
   } catch {
     throw new Error('ChatGPT returned an invalid account response. Try signing in again.')
   }
@@ -76,8 +79,9 @@ export class ChatGPTAccounts {
 
     const data = await readJson(this.directory, 'chatgpt-accounts.json')
 
-    if (data) {
+    if (data !== undefined) {
       if (
+        !data || typeof data !== 'object' ||
         typeof data.hostId !== 'string' ||
         !Array.isArray(data.accounts) ||
         data.accounts.some(
@@ -103,11 +107,11 @@ export class ChatGPTAccounts {
     this.loaded = true
   }
 
-  private async persist(records: RecordEntry[]) {
+  private async persist(records: RecordEntry[], signal?: AbortSignal) {
     await atomicJson(this.directory, 'chatgpt-accounts.json', {
       hostId: this.hostId,
       accounts: records
-    })
+    }, signal)
     this.records = records
   }
 
@@ -119,11 +123,12 @@ export class ChatGPTAccounts {
     const value = unseal(this.protection, record.encrypted)
 
     if (
+      !value || typeof value !== 'object' ||
       typeof value.access !== 'string' ||
       typeof value.refresh !== 'string' ||
       typeof value.identity !== 'string' ||
-      typeof value.expiresAt !== 'number' ||
-      !Array.isArray(value.scopes)
+      !Number.isFinite(value.expiresAt) ||
+      !Array.isArray(value.scopes) || value.scopes.some((scope: unknown) => typeof scope !== 'string')
     ) {
       throw new Error('Invalid saved credentials. Sign in again.')
     }
@@ -169,7 +174,12 @@ export class ChatGPTAccounts {
       throw new Error('Could not load ChatGPT sign-in configuration.')
     }
 
-    const data = (await accountJson(response)) as Discovery
+    const parsed = z.object({
+      issuer: z.string(), authorization_endpoint: z.string(), token_endpoint: z.string(),
+      jwks_uri: z.string(), revocation_endpoint: z.string().optional()
+    }).safeParse(await accountJson(response))
+    if (!parsed.success) throw new Error('ChatGPT returned invalid sign-in configuration.')
+    const data = parsed.data
 
     if (data.issuer !== this.origin) {
       throw new Error('Unexpected sign-in issuer.')
@@ -191,7 +201,7 @@ export class ChatGPTAccounts {
     return data
   }
 
-  private async exchange(params: Record<string, string>, signal?: AbortSignal): Promise<any> {
+  private async exchange(params: Record<string, string>, signal?: AbortSignal): Promise<Record<string, unknown>> {
     const metadata = await this.metadata(signal)
     const response = await fetch(metadata.token_endpoint, {
       method: 'POST',
@@ -234,15 +244,17 @@ export class ChatGPTAccounts {
     }
   }
 
-  private fromResponse(response: any, previous?: Tokens): Tokens {
-    if (
-      response.token_type?.toLowerCase() !== 'bearer' ||
-      typeof response.access_token !== 'string' ||
-      !Number.isFinite(response.expires_in) ||
-      response.expires_in <= 0
-    ) {
+  private fromResponse(raw: unknown, previous?: Tokens): Tokens {
+    const parsed = z.object({
+      token_type: z.string().regex(/^bearer$/i), access_token: z.string(), expires_in: z.number().positive(),
+      refresh_token: z.string().optional(), id_token: z.string().optional(), scope: z.string().optional()
+    }).safeParse(raw)
+    if (!parsed.success) {
       throw new Error('ChatGPT returned an invalid token response.')
     }
+    const response = parsed.data
+    const expiresAt = Date.now() + response.expires_in * 1000
+    if (!Number.isFinite(expiresAt)) throw new Error('ChatGPT returned an invalid token response.')
 
     const scopes =
       typeof response.scope === 'string'
@@ -261,7 +273,7 @@ export class ChatGPTAccounts {
           : (previous?.refresh ?? ''),
       identity:
         typeof response.id_token === 'string' ? response.id_token : (previous?.identity ?? ''),
-      expiresAt: Date.now() + response.expires_in * 1000,
+      expiresAt,
       scopes
     }
   }
@@ -325,6 +337,7 @@ export class ChatGPTAccounts {
       controller.signal.throwIfAborted()
 
       return await this.serialize(async () => {
+        controller.signal.throwIfAborted()
         const previous = this.records.find(
           record => record.subject === identity.sub
         )
@@ -335,7 +348,7 @@ export class ChatGPTAccounts {
           email: typeof identity.email === 'string' ? identity.email : 'ChatGPT account',
           encrypted: seal(this.protection, tokens)
         }
-        await this.persist([...this.records.filter(item => item.id !== record.id), record])
+        await this.persist([...this.records.filter(item => item.id !== record.id), record], controller.signal)
 
         return this.public(record)
       })
@@ -387,7 +400,7 @@ export class ChatGPTAccounts {
         const refreshed = this.fromResponse(response, tokens)
 
         if (
-          response.id_token &&
+          typeof response.id_token === 'string' && response.id_token &&
           (await this.verify(response.id_token, record.clientId)).sub !== record.subject
         ) {
           throw new Error('ChatGPT returned a different account during refresh.')
@@ -475,11 +488,11 @@ export class ChatGPTAccounts {
         throw new Error('Account not found.')
       }
 
-      const tokens = this.tokens(record)
-      let revoked = !tokens?.refresh
-
-      if (tokens?.refresh) {
-        try {
+      let revoked = false
+      try {
+        const tokens = this.tokens(record)
+        revoked = !tokens?.refresh
+        if (tokens?.refresh) {
           const metadata = await this.metadata()
 
           if (metadata.revocation_endpoint) {
@@ -497,9 +510,9 @@ export class ChatGPTAccounts {
             revoked = response.status === 200
             await response.body?.cancel()
           }
-        } catch {
-          /* always clear local credentials, report unconfirmed revocation */
         }
+      } catch {
+        /* Always clear local credentials, even if unlocking or revocation failed. */
       }
 
       await this.persist(

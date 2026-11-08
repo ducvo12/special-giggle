@@ -8,19 +8,21 @@ const server = new Server(
   { capabilities: { tools: {} } }
 )
 
+const mode = process.argv[3]
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [
+  ...(mode === 'pagination' ? { nextCursor: 'repeat' } : {}),
+  tools: Array.from({ length: mode === 'too-many' ? 81 : 1 }, () => (
     {
       name: 'echo',
       description: 'Return the supplied message.',
       inputSchema: {
         type: 'object',
-        properties: { message: { type: 'string' } },
-        required: ['message'],
+        properties: { message: { type: mode === 'invalid-schema' ? 'unsupported' : 'string', ...(mode === 'defaults' ? { default: 'Fallback' } : {}) } },
+        required: mode === 'defaults' ? [] : ['message'],
         additionalProperties: false
       }
     }
-  ]
+  ))
 }))
 
 server.setRequestHandler(CallToolRequestSchema, async request => {

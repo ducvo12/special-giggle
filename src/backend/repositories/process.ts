@@ -5,11 +5,10 @@ import { basename, dirname, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { within } from './paths.ts'
 import { createRequire } from 'node:module'
-import { StringDecoder } from 'node:string_decoder'
-import { TerminalOutput } from './terminal-output.ts'
+import { captureTerminalOutput, TerminalOutput } from './terminal-output.ts'
 
 export interface ProcessRecord { pid: number; token: string; pty?: { pid: number; token: string } }
-export interface CommandResult { output: string; exitCode: number | null; timedOut: boolean; truncated: boolean; stopped?: boolean }
+export interface CommandResult { output: string; exitCode: number | null; truncated: boolean; stopped?: boolean }
 
 // The outer supervisor owns the PTY master and parent-liveness pipe. The PTY
 // leader waits for a second durable PID acknowledgement before starting code.
@@ -179,9 +178,9 @@ export async function startRepositoryProcess(options: RepositoryProcessOptions) 
   }
   let resolveReady!: () => void
   const ready = new Promise<void>(resolve => { resolveReady = resolve })
-  const decoder = new StringDecoder('utf8')
-  const append = (chunk: Buffer) => { const clean = output.append(decoder.write(chunk)); if (clean) options.onOutput?.(clean) }
-  child.stdout!.on('data', append); child.stderr!.on('data', append)
+  for (const stream of [child.stdout!, child.stderr!]) {
+    captureTerminalOutput(stream, output, options.onOutput)
+  }
   child.stdin!.on('error', () => {})
   const done = new Promise<CommandResult>((resolve, reject) => {
     child.stdio[3]!.on('data', (chunk: Buffer) => {
@@ -207,7 +206,7 @@ export async function startRepositoryProcess(options: RepositoryProcessOptions) 
       const wasStopped = stopped; stop(); cleanup()
       if (options.signal.aborted) reject(options.signal.reason)
       else if (settlementError) reject(new Error(settlementError))
-      else resolve({ ...output.preview(), exitCode, timedOut: false, ...(wasStopped ? { stopped: true } : {}) })
+      else resolve({ ...output.preview(), exitCode, ...(wasStopped ? { stopped: true } : {}) })
     })
     options.signal.addEventListener('abort', stop, { once: true })
     try {

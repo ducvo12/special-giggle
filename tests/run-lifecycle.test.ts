@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { AgentRuntime } from '../src/backend/agents/runtime.ts'
 import { ModelScheduler } from '../src/backend/harness/scheduler.ts'
+import { RepositorySession } from '../src/backend/repositories/session.ts'
 import { defaultHarnessSettings } from '../src/shared/harness.ts'
 
 const tick = () => new Promise(resolve => setTimeout(resolve, 10))
@@ -64,6 +65,94 @@ test('model leases are FIFO, cancellable and share local endpoint capacity', asy
   finish(); finish()
 })
 
+test('real running jobs protect their agent and chat while unrelated agents remain editable', async () => {
+  let held: ServerResponse | undefined
+  const f = await fixture((_body, res) => { held = res; chunk(res, { content: 'Working' }) })
+  try {
+    const chat = await f.runtime.createConversation(f.agent.id)
+    const location = f.runtime.store.get(f.agent.id, chat.id)
+    await f.runtime.saveMarkdown(f.agent.id, '/notes/keep.md', 'Keep', null)
+    const other = await f.runtime.createAgent('Independent')
+    const run = f.runtime.run('held', f.agent.id, chat.id, f.connection, 'Work', () => {})
+    await until(() => Boolean(held))
+    await assert.rejects(f.runtime.deleteAgent(f.agent.id), /current operation/)
+    await assert.rejects(f.runtime.deleteConversation(f.agent.id, chat.id), /current operation/)
+    await assert.rejects(f.runtime.renameConversation(f.agent.id, chat.id, 'Busy'), /current operation/)
+    await assert.rejects(f.runtime.moveConversation(f.agent.id, chat.id, location), /current operation/)
+    await assert.rejects(f.runtime.renameNote(f.agent.id, '/notes/keep.md', 'Other'), /current operation/)
+    await assert.rejects(f.runtime.saveMarkdown(f.agent.id, '/notes/during.md', 'New', null), /current operation/)
+    await f.runtime.saveMarkdown(other.id, '/notes/allowed.md', 'Allowed', null)
+    f.runtime.stop('held')
+    await run
+  } finally { await f.close() }
+})
+
+for (const action of ['message', 'stop'] as const) {
+  test(`${action} during final settlement cannot be lost or overwritten by completion`, { timeout: 10000 }, async context => {
+    const f = await fixture((_body, res) => answer(res))
+    let release!: () => void
+    let entered!: () => void
+    const gate = new Promise<void>(resolve => { release = resolve })
+    const settling = new Promise<void>(resolve => { entered = resolve })
+    const original = RepositorySession.prototype.close
+    let held = false
+    context.mock.method(RepositorySession.prototype, 'close', async function(this: RepositorySession) {
+      if (this.record.runId === 'closing' && !held) {
+        held = true
+        entered()
+        await gate
+      }
+      return original.call(this)
+    })
+    try {
+      const section = await f.runtime.createSection(f.agent.id, 'Code', 'shared')
+      const project = await f.runtime.createProject(f.agent.id, section.id, 'Finalization')
+      await f.runtime.createRepository(f.agent.id, project.id)
+      const chat = await f.runtime.createConversation(f.agent.id, { sectionId: section.id, projectId: project.id })
+      const closing = f.runtime.run('closing', f.agent.id, chat.id, f.connection, 'First', () => {})
+      await settling
+      if (action === 'stop') {
+        f.runtime.stop('closing')
+        release()
+        assert.equal((await closing).stopped, true)
+        assert.equal(f.runtime.listRuns().find(run => run.id === 'closing')?.phase, 'stopped')
+      } else {
+        const next = f.runtime.run('successor', f.agent.id, chat.id, f.connection, 'Next direction', () => {})
+        assert.equal(f.runtime.listRuns().find(run => run.id === 'successor')?.phase, 'queued')
+        release()
+        await closing
+        const result = await next
+        assert.equal('steered' in result, false)
+        const message = f.runtime.store.get(f.agent.id, chat.id).messages.find(item => item.content === 'Next direction')!
+        assert.equal(message.runId, 'successor')
+        assert.equal(message.delivery, 'processed')
+      }
+    } finally {
+      release()
+      await f.close()
+    }
+  })
+}
+
+test('authorization cleanup failure still releases the repository project reservation', { timeout: 10000 }, async context => {
+  const f = await fixture((_body, res) => answer(res))
+  try {
+    const section = await f.runtime.createSection(f.agent.id, 'Code', 'shared')
+    const project = await f.runtime.createProject(f.agent.id, section.id, 'Cleanup')
+    await f.runtime.createRepository(f.agent.id, project.id)
+    const first = await f.runtime.createConversation(f.agent.id, { sectionId: section.id, projectId: project.id })
+    const second = await f.runtime.createConversation(f.agent.id, { sectionId: section.id, projectId: project.id })
+    const end = f.runtime.authorization.end.bind(f.runtime.authorization)
+    let fail = true
+    context.mock.method(f.runtime.authorization, 'end', (runId: string) => {
+      if (fail) { fail = false; throw new Error('Simulated authorization cleanup failure') }
+      return end(runId)
+    })
+    await assert.rejects(f.runtime.run('first', f.agent.id, first.id, f.connection, 'First', () => {}), /Simulated authorization cleanup failure/)
+    assert.equal((await f.runtime.run('second', f.agent.id, second.id, f.connection, 'Second', () => {})).stopped, false)
+  } finally { await f.close() }
+})
+
 test('queued chats retain one job and ordered prompts; active steering keeps the original task', { timeout: 15000 }, async () => {
   const held: ServerResponse[] = []
   const f = await fixture((body, res) => {
@@ -80,6 +169,7 @@ test('queued chats retain one job and ordered prompts; active steering keeps the
     const second = f.runtime.run('b', f.agent.id, b.id, f.connection, 'first queued', () => {})
     await until(() => f.runtime.listRuns().some(run => run.id === 'b' && run.queue?.position === 1))
     const extra = await f.runtime.run('b-steer', f.agent.id, b.id, f.connection, 'second queued', () => {})
+    assert.ok('runId' in extra)
     assert.equal(extra.runId, 'b')
     const section = await f.runtime.createSection(f.agent.id, 'While running', 'shared')
     await f.runtime.moveConversation(f.agent.id, b.id, { sectionId: section.id, projectId: null })
@@ -89,6 +179,7 @@ test('queued chats retain one job and ordered prompts; active steering keeps the
     const active = f.runtime.run('blue', f.agent.id, a.id, f.connection, 'Make the button blue', () => {})
     await until(() => held.length === 2)
     const steered = await f.runtime.run('green', f.agent.id, a.id, f.connection, 'Actually green', () => {})
+    assert.ok('runId' in steered)
     assert.equal(steered.runId, 'blue')
     await active
     const users = f.requests.at(-1).messages.filter((item: any) => item.role === 'user').map((item: any) => item.content)
@@ -227,6 +318,11 @@ test('concurrent native edits preserve independent changes to the same memory fi
       edit().run({ file_path: '/memory.md', old_string: 'Coffee', new_string: 'Black coffee' })
     ])
     assert.equal(await runtime.read(agent.id, '/memory.md'), 'Green tea\nBlack coffee')
+    await Promise.all([
+      assert.rejects(edit().run({ file_path: '/identity.md', old_string: 'Identity', new_string: 'Overwrite' }), /read-only/),
+      edit().run({ file_path: '/memory.md', old_string: 'Green tea', new_string: 'Jasmine tea' })
+    ])
+    assert.equal(await runtime.read(agent.id, '/memory.md'), 'Jasmine tea\nBlack coffee', 'A rejected write does not poison later queued edits')
   } finally { runtime.close(); await rm(directory, { recursive: true, force: true }) }
 })
 

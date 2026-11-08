@@ -87,7 +87,7 @@ export interface GraniteBridge {
   agents: {
     list: () => Promise<Result<Agent[]>>
     create: (name: string) => Promise<Result<Agent>>
-    delete: (agentId: string) => Promise<Result<void>>
+    delete: (agentId: string) => Promise<Result<import('./agent').AgentDeletionResult>>
     saveIdentity: (agentId: string, identity: string, expected: string) => Promise<Result<string>>
   }
   connections: {

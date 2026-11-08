@@ -40,8 +40,8 @@ test('Responses reports per-step usage, rather than accumulating overlapping con
 test('Chat Completions reads the usage chunk after finish_reason and supports providers omitting DONE', async context => {
   const usage: ContextUsage[] = []
   let includeDone = true
-  context.mock.method(globalThis, 'fetch', async (_url, init) => {
-    assert.equal(JSON.parse(String(init.body)).stream_options.include_usage, true)
+  context.mock.method(globalThis, 'fetch', async (_url: Parameters<typeof fetch>[0], init?: RequestInit) => {
+    assert.equal(JSON.parse(String(init?.body)).stream_options.include_usage, true)
     return events([
       { choices: [{ delta: { content: 'Hello' }, finish_reason: 'stop' }] },
       { choices: [], usage: { prompt_tokens: 50, completion_tokens: 10 } },

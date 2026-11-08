@@ -31,6 +31,7 @@ export interface RunSnapshot {
 }
 
 export interface RecoveryNotice {
+  agentDeletions?: import('./agent').AgentDeletionIssue[]
   active: number
   pending: number
   repositories?: number

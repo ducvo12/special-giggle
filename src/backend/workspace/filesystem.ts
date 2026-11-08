@@ -1,4 +1,5 @@
-import { realpath, lstat } from 'node:fs/promises'
+import { realpath, lstat, readdir, readFile } from 'node:fs/promises'
+import { minimatch } from 'minimatch'
 import { join, resolve, relative, sep } from 'node:path'
 import { FilesystemBackend, type GrepResult } from 'deepagents'
 
@@ -160,20 +161,45 @@ export class AgentFilesystem extends FilesystemBackend {
 
     await this.check(path)
 
-    if (this.excludeOrganization && path.replaceAll('/', '') === '') {
-      // Do not search protected section contents and filter afterward: their
-      // text must never enter an agent-wide grep result or its match budget.
-      const matches: NonNullable<GrepResult['matches']> = []
-      let truncated = false
-      for (const entry of (await this.ls('/')).files ?? []) {
-        const remaining = maxCount === null ? null : Math.max(0, maxCount - matches.length)
-        if (remaining === 0) { truncated = true; break }
-        const result = await super.grep(pattern, entry.path, glob, remaining)
-        matches.push(...(result.matches ?? []))
-        truncated ||= result.truncated ?? false
+    const matches: NonNullable<GrepResult['matches']> = []
+    const scope = join(this.root, path)
+    let truncated = false
+
+    const visit = async (absolute: string): Promise<void> => {
+      if (truncated) return
+      const virtual = '/' + relative(this.root, absolute).split(sep).join('/')
+      const parts = virtual.split('/').filter(Boolean)
+      if (parts.some(part => part.toLowerCase() === '.git')) return
+      if (this.excludeOrganization && ['sections', 'projects'].includes(parts[0]?.toLowerCase())) return
+      let info
+      try { info = await lstat(absolute) }
+      catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return
+        throw error
       }
-      return { matches, truncated }
+      if (info.isSymbolicLink()) return
+      await this.check(virtual)
+      if (info.isDirectory()) {
+        for (const name of (await readdir(absolute)).sort()) await visit(join(absolute, name))
+        return
+      }
+      if (!info.isFile() || info.size > 1_048_576) return
+      const candidate = relative(scope, absolute).split(sep).join('/') || parts.at(-1)!
+      if (glob && !minimatch(candidate, glob, { dot: true, matchBase: !glob.includes('/') })) return
+      const data = await readFile(absolute)
+      if (data.includes(0) || Buffer.from(data.toString('utf8')).compare(data) !== 0) return
+      const lines = data.toString('utf8').split('\n')
+      for (let index = 0; index < lines.length; index++) {
+        if (!lines[index].includes(pattern)) continue
+        if (maxCount !== null && matches.length >= maxCount) {
+          truncated = true
+          return
+        }
+        matches.push({ path: virtual, line: index + 1, text: lines[index].replace(/\r$/, '') })
+      }
     }
-    return super.grep(pattern, path, glob, maxCount)
+
+    await visit(scope)
+    return { matches, truncated }
   }
 }

@@ -37,8 +37,6 @@ type Props = {
   onAnswerQuestion: (answers: string[]) => Promise<boolean>
   onRejectQuestion: () => Promise<boolean>
   onApprove: (allow: boolean) => Promise<void>
-  requestPending: boolean
-  onOpenActiveChat: () => void
   loaded: boolean
   identityDirty: boolean
   messages: AgentMessage[]
@@ -51,7 +49,6 @@ type Props = {
   onAttachmentsChange: (files: ChatAttachment[]) => void
   elapsed: number
   stopping: boolean
-  runUnavailable?: string
   onSelectConnection: (id: string) => void
   onOpenSettings: () => void
   onCreateAgent: () => void
@@ -82,8 +79,6 @@ export default function ChatView({
   onApprove,
   onAnswerQuestion,
   onRejectQuestion,
-  requestPending,
-  onOpenActiveChat,
   loaded,
   identityDirty,
   messages,
@@ -96,7 +91,6 @@ export default function ChatView({
   onAttachmentsChange,
   elapsed,
   stopping,
-  runUnavailable,
   onSelectConnection,
   onOpenSettings,
   onCreateAgent,
@@ -149,17 +143,10 @@ export default function ChatView({
 
           <div className="composer-area">
             <ProjectEntryPrompt key={conversationId} run={run} currentProject={project?.id} onMove={onEnterProject} />
-            <RunControls run={run} messages={messages} disabled={submitting || !loaded || Boolean(runUnavailable)}
+            <RunControls run={run} messages={messages} disabled={submitting || !loaded}
               onContinue={onContinue} onRunPending={onRunPending} onCancelPending={onCancelPending} />
             {run?.question && <QuestionPrompt key={run.question.id} question={run.question} onAnswer={onAnswerQuestion} onReject={onRejectQuestion} />}
             {approval && <ApprovalPrompt key={approval.id} request={approval} onAnswer={onApprove} />}
-            {runUnavailable && <p className="organization-notice" role="status">{runUnavailable}</p>}
-            {requestPending && !busy && (
-              <div className="background-response" role="status">
-                <span>Another chat is responding</span>
-                <button type="button" className="quiet-button" onClick={onOpenActiveChat}>View reply</button>
-              </div>
-            )}
             {modelSelection.error && (
               <div className="error" role="alert">
                 {modelSelection.error} Reload models in Connections to try again.
@@ -187,7 +174,7 @@ export default function ChatView({
                 ref={messageInput}
                 aria-label="Message"
                 value={draft}
-                disabled={!connection || !agent || !loaded || Boolean(runUnavailable)}
+                disabled={submitting || !connection || !agent || !loaded}
                 placeholder={
                   connection
                     ? `Message ${agent?.name ?? 'your agent'}…`
@@ -256,7 +243,7 @@ export default function ChatView({
                       className="send-button"
                       aria-label={busy ? 'Send update' : 'Send message'}
                       title={busy ? 'Send a message to steer this run' : 'Send message'}
-                      disabled={submitting || (!draft.trim() && !attachments.length) || !modelSelection.ready || !agent || !loaded || Boolean(runUnavailable)}
+                      disabled={submitting || (!draft.trim() && !attachments.length) || !modelSelection.ready || !agent || !loaded}
                     >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                         <path d="M12 19V5m-6 6 6-6 6 6" />

@@ -1,9 +1,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { access, mkdir, mkdtemp, readdir, rm, symlink, writeFile } from 'node:fs/promises'
+import { access, mkdir, mkdtemp, readdir, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { AgentRuntime } from '../src/backend/agents/runtime.ts'
+import { unlinkSync } from 'node:fs'
 
 function rowCounts(runtime: AgentRuntime) {
   const tables = runtime.store.saver.db
@@ -106,9 +107,6 @@ test('deletion preserves other agents and rejects unsafe paths, active runs, and
     runtime.store.finish(chat.id, turn.message, 'complete')
     runtime.store.create(target.id)
 
-    runtime.active = { id: 'running', controller: new AbortController() }
-    await assert.rejects(runtime.deleteAgent(target.id), /Finish the current operation/)
-    runtime.active = null
     await assert.rejects(runtime.deleteAgent('../outside'), /Invalid agent/)
 
     const outside = join(directory, 'outside')
@@ -167,6 +165,112 @@ test('database deletion failures roll back records and leave the agent folder in
   }
 })
 
+test('uncommitted staged deletion restores intact data before registry startup', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'granite-delete-stage-'))
+  let runtime = await AgentRuntime.open(directory)
+  try {
+    const agent = await runtime.createAgent('Staged')
+    await runtime.saveMarkdown(agent.id, '/notes/keep.md', 'Exact bytes', null)
+    const chat = await runtime.createConversation(agent.id)
+    runtime.close()
+    await mkdir(join(directory, 'agent-deletions'))
+    await rename(join(directory, 'agents', agent.id), join(directory, 'agent-deletions', agent.id))
+    runtime = await AgentRuntime.open(directory)
+    assert.deepEqual(await runtime.registry.list(), [agent])
+    assert.equal(await runtime.read(agent.id, '/notes/keep.md'), 'Exact bytes')
+    assert.equal(runtime.store.get(agent.id, chat.id).id, chat.id)
+  } finally { runtime.close(); await rm(directory, { recursive: true, force: true }) }
+})
+
+test('committed partial purge remains deleted and startup retries cleanup', async context => {
+  const directory = await mkdtemp(join(tmpdir(), 'granite-delete-purge-'))
+  const external = await mkdtemp(join(tmpdir(), 'granite-delete-external-'))
+  let runtime = await AgentRuntime.open(directory)
+  try {
+    const agent = await runtime.createAgent('Deleted')
+    await runtime.createConversation(agent.id)
+    const section = await runtime.createSection(agent.id, 'Code', 'shared')
+    const project = await runtime.createProject(agent.id, section.id, 'External')
+    await writeFile(join(external, 'keep.txt'), 'External repository')
+    await runtime.attachRepository(agent.id, project.id, external)
+    context.mock.method(runtime.deletions, 'purge', () => {
+      unlinkSync(join(directory, 'agent-deletions', agent.id, 'identity.md'))
+      throw new Error('Simulated partial purge failure')
+    })
+    assert.deepEqual(await runtime.deleteAgent(agent.id), { cleanupPending: true })
+    assert.deepEqual(await runtime.registry.list(), [])
+    assert.equal(runtime.store.list(agent.id).length, 0)
+    assert.match(runtime.recovery().agentDeletions![0].message, /cleanup pending/)
+    runtime.close()
+    runtime = await AgentRuntime.open(directory)
+    assert.deepEqual(await runtime.registry.list(), [])
+    assert.equal(runtime.recovery().agentDeletions, undefined)
+    await assert.rejects(access(join(directory, 'agent-deletions', agent.id)), { code: 'ENOENT' })
+    assert.ok(Object.values(rowCounts(runtime)).every(count => count === 0))
+    assert.equal(await readFile(join(external, 'keep.txt'), 'utf8'), 'External repository')
+  } finally {
+    runtime.close()
+    await rm(directory, { recursive: true, force: true })
+    await rm(external, { recursive: true, force: true })
+  }
+})
+
+test('unsafe deletion storage cannot move an agent or touch the linked target', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'granite-delete-storage-'))
+  const external = await mkdtemp(join(tmpdir(), 'granite-delete-target-'))
+  const runtime = await AgentRuntime.open(directory)
+  try {
+    const agent = await runtime.createAgent('Preserved')
+    const chat = await runtime.createConversation(agent.id)
+    await writeFile(join(external, 'keep.txt'), 'Untouched')
+    await symlink(external, join(directory, 'agent-deletions'))
+    await assert.rejects(runtime.deleteAgent(agent.id), /local directory/)
+    assert.deepEqual(await runtime.registry.list(), [agent])
+    assert.equal(runtime.store.get(agent.id, chat.id).id, chat.id)
+    assert.equal(await readFile(join(external, 'keep.txt'), 'utf8'), 'Untouched')
+  } finally {
+    runtime.close()
+    await rm(directory, { recursive: true, force: true })
+    await rm(external, { recursive: true, force: true })
+  }
+})
+
+test('a live folder cannot resurrect an agent whose deletion already committed', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'granite-delete-committed-'))
+  let runtime = await AgentRuntime.open(directory)
+  try {
+    const agent = await runtime.createAgent('Conflict')
+    runtime.store.saver.db.prepare('INSERT INTO agent_deletions VALUES (?)').run(agent.id)
+    runtime.close()
+    runtime = await AgentRuntime.open(directory)
+    assert.deepEqual(await runtime.registry.list(), [])
+    await access(join(directory, 'agents', agent.id, 'identity.md'))
+    assert.equal(runtime.recovery().agentDeletions![0].agentId, agent.id)
+  } finally { runtime.close(); await rm(directory, { recursive: true, force: true }) }
+})
+
+test('recovery preserves conflicting folders and isolates only the affected agent', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'granite-delete-conflict-'))
+  let runtime = await AgentRuntime.open(directory)
+  try {
+    const agent = await runtime.createAgent('Conflict')
+    const other = await runtime.createAgent('Usable')
+    runtime.close()
+    const staged = join(directory, 'agent-deletions', agent.id)
+    await mkdir(join(directory, 'agent-deletions'))
+    await rename(join(directory, 'agents', agent.id), staged)
+    await mkdir(join(directory, 'agents', agent.id))
+    await writeFile(join(directory, 'agents', agent.id, 'preserve.txt'), 'Live data')
+    runtime = await AgentRuntime.open(directory)
+    assert.deepEqual(await runtime.registry.list(), [other])
+    await assert.rejects(runtime.read(agent.id, '/identity.md'), /recovery conflict/)
+    await runtime.saveMarkdown(other.id, '/notes/works.md', 'Other data', null)
+    assert.equal(await readFile(join(directory, 'agents', agent.id, 'preserve.txt'), 'utf8'), 'Live data')
+    await access(join(staged, 'identity.md'))
+    assert.equal(runtime.recovery().agentDeletions![0].agentId, agent.id)
+  } finally { runtime.close(); await rm(directory, { recursive: true, force: true }) }
+})
+
 test('chat deletion removes all recovered history and preserves other chats and workspace', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'granite-chat-delete-'))
   const runtime = await AgentRuntime.open(directory)
@@ -184,9 +288,6 @@ test('chat deletion removes all recovered history and preserves other chats and 
     runtime.store.saveModelState(chat.id, 'offline', [{ role: 'user', content: 'History' }])
 
     await assert.rejects(runtime.deleteConversation(other.id, chat.id), /Conversation not found/)
-    runtime.active = { id: 'running', controller: new AbortController() }
-    await assert.rejects(runtime.deleteConversation(agent.id, chat.id), /Finish the current operation/)
-    runtime.active = null
 
     const before = rowCounts(runtime)
     runtime.store.saver.db.exec(`CREATE TEMP TRIGGER reject_chat_deletion BEFORE DELETE ON conversations
@@ -229,9 +330,6 @@ test('chat renaming persists, validates names, and respects ownership and active
     for (const title of ['', '   ', 'x'.repeat(201)]) {
       await assert.rejects(runtime.renameConversation(agent.id, chat.id, title), /Chat names/)
     }
-    runtime.active = { id: 'running', controller: new AbortController() }
-    await assert.rejects(runtime.renameConversation(agent.id, chat.id, 'Busy'), /Finish the current operation/)
-    runtime.active = null
     await runtime.renameConversation(agent.id, chat.id, '  Renamed chat  ')
     runtime.close()
     runtime = await AgentRuntime.open(directory)

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
+import { atomicJson, type CredentialProtection } from '../auth/storage.ts'
 import { join } from 'node:path'
 import type { ConnectionDraft, SavedConnection, Connection } from '../../shared/chat'
 import { validateConnection } from '../models/api.ts'
@@ -50,20 +51,14 @@ interface StoredConnection extends Omit<SavedConnection, 'hasKey'> {
   encryptedKey?: string
 }
 
-interface SecretStorage {
-  available: () => boolean
-  encrypt: (text: string) => Buffer
-  decrypt: (data: Buffer) => string
-}
-
 export class ConnectionStore {
   private records: StoredConnection[] = []
   private loaded = false
   private queue: Promise<unknown> = Promise.resolve()
   private directory: string
-  private secrets: SecretStorage
+  private secrets: CredentialProtection
 
-  constructor(directory: string, secrets: SecretStorage) {
+  constructor(directory: string, secrets: CredentialProtection) {
     this.directory = directory
     this.secrets = secrets
   }
@@ -91,7 +86,7 @@ export class ConnectionStore {
             (item.protocol !== undefined &&
               !['chat-completions', 'responses'].includes(item.protocol)) ||
             (item.codexPath !== undefined && typeof item.codexPath !== 'string') ||
-            (item.effort !== undefined && typeof item.effort !== 'string') ||
+            (item.effort !== undefined && (typeof item.effort !== 'string' || !/^(|none|minimal|low|medium|high|xhigh|max|ultra)$/.test(item.effort))) ||
             (item.maxConcurrentRequests !== undefined && (!Number.isInteger(item.maxConcurrentRequests) || item.maxConcurrentRequests < 1 || item.maxConcurrentRequests > 32)) ||
             (item.encryptedKey !== undefined && typeof item.encryptedKey !== 'string')
         )
@@ -113,7 +108,6 @@ export class ConnectionStore {
 
   private public(record: StoredConnection): SavedConnection {
     const { encryptedKey, maxConcurrentRequests, ...connection } = record
-
     return { ...connection, ...(maxConcurrentRequests === undefined ? {} : { maxConcurrentRequests }), hasKey: Boolean(encryptedKey) }
   }
 
@@ -133,10 +127,7 @@ export class ConnectionStore {
   }
 
   private async persist(records: StoredConnection[]) {
-    await mkdir(this.directory, { recursive: true })
-    const temporary = join(this.directory, `connections-${randomUUID()}.tmp`)
-    await writeFile(temporary, JSON.stringify(records, null, 2), { mode: 0o600 })
-    await rename(temporary, join(this.directory, 'connections.json'))
+    await atomicJson(this.directory, 'connections.json', records)
     this.records = records
   }
 

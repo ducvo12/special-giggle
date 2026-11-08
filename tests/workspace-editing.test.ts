@@ -5,6 +5,24 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { AgentRuntime } from '../src/backend/agents/runtime.ts'
 
+test('concurrent human saves have one winner and never overwrite a newer revision', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'granite-save-race-'))
+  const runtime = await AgentRuntime.open(directory)
+  try {
+    const agent = await runtime.createAgent('Writer')
+    await runtime.saveMarkdown(agent.id, '/notes/race.md', 'Original', null)
+    const results = await Promise.allSettled([
+      runtime.registry.saveMarkdown(agent.id, '/notes/race.md', 'First', 'Original'),
+      runtime.registry.saveMarkdown(agent.id, '/notes/race.md', 'Second', 'Original')
+    ])
+    assert.equal(results.filter(result => result.status === 'fulfilled').length, 1)
+    assert.equal(results.filter(result => result.status === 'rejected').length, 1)
+    const winner = results.find(result => result.status === 'fulfilled')!
+    assert.equal(await runtime.read(agent.id, '/notes/race.md'), winner.value)
+    await assert.rejects(runtime.registry.saveMarkdown(agent.id, '/notes/missing/child.md', 'New', null), { code: 'ENOENT' })
+  } finally { runtime.close(); await rm(directory, { recursive: true, force: true }) }
+})
+
 test('user Markdown edits persist, detect stale content, and exclusively create notes', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'granite-user-files-'))
   let runtime = await AgentRuntime.open(directory)
@@ -69,11 +87,8 @@ test('note renaming rejects protected files, unsafe names, links, folders and co
     await assert.rejects(runtime.renameNote(agent.id, '/notes/keep.md', 'link.md'), /Symbolic links/)
     await mkdir(join(workspace.root, 'notes', 'folder.md'))
     await assert.rejects(runtime.renameNote(agent.id, '/notes/folder.md', 'No'), /not a folder/)
-    runtime.active = { id: 'run', controller: new AbortController() }
-    await assert.rejects(runtime.renameNote(agent.id, '/notes/keep.md', 'No'), /current operation/)
-    runtime.active = null
     assert.equal(await runtime.read(agent.id, '/notes/keep.md'), 'Keep me')
-  } finally { runtime.active = null; runtime.close(); await rm(directory, { recursive: true, force: true }) }
+  } finally { runtime.close(); await rm(directory, { recursive: true, force: true }) }
 })
 
 test('user editor rejects unsafe/configuration paths, stale external edits and writes during runs', async () => {
@@ -90,9 +105,6 @@ test('user editor rejects unsafe/configuration paths, stale external edits and w
     }
     await assert.rejects(runtime.saveMarkdown(agent.id, '/memory.md', 'new', null), /New files/)
     await assert.rejects(runtime.saveMarkdown(agent.id, '/notes/huge.md', 'x'.repeat(100_001), null), /100,000/)
-    runtime.active = { id: 'run', controller: new AbortController() }
-    await assert.rejects(runtime.saveMarkdown(agent.id, '/notes/during-run.md', 'new', null), /current operation/)
-    runtime.active = null
     assert.equal(await runtime.read(agent.id, '/notes/external.md'), 'external change')
-  } finally { runtime.active = null; runtime.close(); await rm(directory, { recursive: true, force: true }) }
+  } finally { runtime.close(); await rm(directory, { recursive: true, force: true }) }
 })

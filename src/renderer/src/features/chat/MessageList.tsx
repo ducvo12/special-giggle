@@ -1,9 +1,7 @@
 import ContextSources from './ContextSources'
 import { replyQuestions } from './context-sources'
 import ThoughtActivity from './ThoughtActivity'
-import { responseClock } from './response-clock'
 import ResponseTimings from './ResponseTimings'
-import { timingFor } from './devTimings'
 import StreamingText from './StreamingText'
 import { useLayoutEffect, useRef, type RefObject } from 'react'
 import type { Agent, AgentMessage } from '../../../../shared/agent'
@@ -82,7 +80,10 @@ export default function MessageList({
       )}
 
       {messages.map(message => (
-        <article className={`message ${message.role}${resumedEntries.current.has(message.id) || resumedReplies.current.has(responseClock.get(message.id)?.requestId ?? message.id) ? 'resumed-entry' : ''}`} key={responseClock.get(message.id)?.requestId ?? timingFor(message.id)?.requestId ?? message.id}>
+        <article
+          className={`message ${message.role}${resumedEntries.current.has(message.id) || resumedReplies.current.has(message.id) ? 'resumed-entry' : ''}`}
+          key={message.id}
+        >
           {message.role === 'user' && <span className="message-role">You</span>}
 
           {message.role === 'assistant' && <ThoughtActivity message={message} />}

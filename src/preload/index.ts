@@ -1,6 +1,15 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer as renderer } from 'electron'
+import type { IpcCalls } from '../shared/ipc.ts'
 import type { GraniteBridge, StreamDelta } from '../shared/chat'
 import type { ConnectionUsage } from '../shared/connection-usage'
+
+const ipcRenderer = {
+  invoke<Key extends keyof IpcCalls>(channel: Key, ...args: Parameters<IpcCalls[Key]>): ReturnType<IpcCalls[Key]> {
+    return renderer.invoke(channel, ...args) as ReturnType<IpcCalls[Key]>
+  },
+  on: renderer.on.bind(renderer),
+  removeListener: renderer.removeListener.bind(renderer)
+}
 
 contextBridge.exposeInMainWorld('granite', {
   platform: process.platform,

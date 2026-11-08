@@ -35,6 +35,7 @@ export async function publishText(root: string, path: string, content: string, e
   const check = async () => {
     signal?.throwIfAborted()
     const current = await textFile(root, path)
+    if (expected === null && current !== null) throw new Error('File already exists. Read its current revision before replacing it.')
     if ((current === null ? null : revision(current)) !== expected) throw new Error('Saved content changed. Read the current revision and propose a fresh update.')
   }
   await check()
@@ -46,6 +47,9 @@ export async function publishText(root: string, path: string, content: string, e
     await check()
     if (expected === null) await link(temporary, join(root, path))
     else await rename(temporary, join(root, path))
-  } finally { await unlink(temporary).catch(() => {}) }
+  } finally {
+    try { await unlink(temporary) }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
+  }
   return revision(content)
 }

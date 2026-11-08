@@ -1,7 +1,6 @@
 import type { ContextSession } from '../../context/session.ts'
 import { contextTools } from './context.ts'
 import { z } from 'zod'
-import Ajv from 'ajv'
 import type { AgentFilesystem } from '../../workspace/filesystem.ts'
 import type { ApprovalRequest, HarnessSettings } from '../../../shared/harness.ts'
 import type { ToolActivity } from '../../../shared/agent.ts'
@@ -13,7 +12,21 @@ import { repositoryTools, type RepositoryTools } from './repository.ts'
 import { StaleRepositoryEdit } from '../../repositories/session.ts'
 import { connectMcp } from './mcp.ts'
 
-const contextReads = new Set(['list_context','search_context','read_context','read_file','ls','grep','glob','load_skill','write_todos','repo_read','repo_list','repo_search','list_repositories'])
+const contextReads = new Set([
+  'list_context',
+  'search_context',
+  'read_context',
+  'read_file',
+  'ls',
+  'grep',
+  'glob',
+  'load_skill',
+  'write_todos',
+  'repo_read',
+  'repo_list',
+  'repo_search',
+  'list_repositories'
+])
 
 export async function createToolRegistry(options: {
   workspace: AgentFilesystem
@@ -32,9 +45,10 @@ export async function createToolRegistry(options: {
   const definitions = fileTools(workspace, options.context).filter(tool => (!options.context?.closed && (!options.context?.temporary || tool.permission === 'read')) || tool.name === 'write_todos')
   if (options.context) definitions.push(...contextTools(options.context))
   if (options.askQuestion) {
-    const schema = z.object({ questions: z.array(z.object({ title: z.string().min(1).max(1000), options: z.array(z.string().min(1).max(200)).min(2).max(6).optional(), optional: z.boolean().optional().describe('For text-only questions, allow an empty answer. Defaults to false. Custom text in multiple-choice questions is always optional.') })).min(1).max(3) })
+    const schema = z.object({ questions: z.array(z.strictObject({ title: z.string().min(1).max(1000), options: z.array(z.string().min(1).max(200)).min(2).max(6).optional(), optional: z.boolean().optional().describe('For text-only questions, allow an empty answer. Defaults to false. Custom text in multiple-choice questions is always optional.') })).min(1).max(3) })
     definitions.push({ name: 'ask_user', description: 'Ask the user for missing consequential choices and wait for their answer in this task. Provide concise questions with optional suggested choices; free text is always supported. For text-only questions, set optional:true when the user may leave the answer blank; otherwise it is required. Custom text in multiple-choice questions is always optional. A blank answer means no answer was provided, never approval. Reuse known choices and requested defaults. Ask before replacing existing work if authorization is unclear. Never request passwords, tokens or credentials in chat. Stop or new direction withdraws the question; do not feed withdrawn/stale answers to a command. If the user rejects a question, do not treat that as an answer or approval, and do not repeat the unchanged question. Continue only with work that does not depend on the rejected choice.',
       parameters: z.toJSONSchema(schema, { target: 'draft-7' }), permission: 'read',
+      parse: args => schema.strict().parse(args),
       run: async raw => options.askQuestion!(schema.parse(raw).questions) })
   }
 
@@ -50,6 +64,7 @@ export async function createToolRegistry(options: {
       name: 'load_skill',
       description: 'Load the instructions of a skill listed in the available skills catalog.',
       parameters: z.toJSONSchema(schema, { target: 'draft-7' }),
+      parse: args => schema.strict().parse(args),
       permission: 'read',
       run: async raw => {
         const { name } = schema.parse(raw)
@@ -69,8 +84,6 @@ export async function createToolRegistry(options: {
   )
   definitions.push(...mcp.tools)
   const registry = new Map(definitions.map(tool => [tool.name, tool]))
-  const validator = new Ajv({ strict: false, validateFormats: false, addUsedSchema: false, useDefaults: true })
-  const schemas = new Map(definitions.map(tool => [tool.name, validator.compile<Record<string, any>>(tool.parameters)]))
 
   const permitted = (tool: ToolDefinition, current: HarnessSettings) => {
     if ((tool.permission === 'terminal' || tool.name === 'repo_command') && !current.terminal) return false
@@ -135,7 +148,8 @@ export async function createToolRegistry(options: {
           validationError = true
           throw new Error('Tool arguments must be an object.')
         }
-        if (!schemas.get(call.name)!(args)) {
+        try { args = tool.parse(args) }
+        catch {
           validationError = true
           throw new Error('Invalid tool arguments. This action did not run.')
         }
@@ -187,7 +201,9 @@ export async function createToolRegistry(options: {
           throw new Error('Write approval is now required. Propose this action again with current permissions.')
         }
         if (options.hasSteering?.()) throw new Error('Superseded by a new user message. This action did not run.')
-        if (options.context && !['update_chat_summary','list_context','search_context','read_context','read_file','ls','grep','glob','load_skill','write_todos','repo_read','repo_list','repo_search','list_repositories'].includes(tool.name)) options.context.pendingSummary = undefined
+        if (options.context && tool.name !== 'update_chat_summary' && !contextReads.has(tool.name)) {
+          options.context.pendingSummary = undefined
+        }
         await options.context?.refresh()
         if (options.context?.rebuild && options.context.used && !contextReads.has(tool.name)) throw new Error('Retrieved context changed while waiting. This action did not run; inspect current evidence.')
         result = await tool.run(args)

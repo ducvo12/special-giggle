@@ -36,7 +36,7 @@ const { evaluate, click, fill, wait } = desktop
 try {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
   await desktop.launch()
-  const seeded = await evaluate(`(async () => {
+  await evaluate(`(async () => {
     const unwrap = result => { if (!result.ok) throw new Error(result.error); return result.value }
     const agent = unwrap(await window.granite.agents.create('Run smoke'))
     const connection = unwrap(await window.granite.connections.save({ name: 'Fixture', apiKey: '',

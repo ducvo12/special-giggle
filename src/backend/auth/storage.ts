@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 
@@ -8,11 +8,18 @@ export interface CredentialProtection {
   decrypt: (data: Buffer) => string
 }
 
-export async function atomicJson(directory: string, name: string, value: unknown) {
+export async function atomicJson(directory: string, name: string, value: unknown, signal?: AbortSignal) {
   await mkdir(directory, { recursive: true, mode: 0o700 })
   const temporary = join(directory, `${name}-${randomUUID()}.tmp`)
-  await writeFile(temporary, JSON.stringify(value, null, 2), { mode: 0o600 })
-  await rename(temporary, join(directory, name))
+  try {
+    signal?.throwIfAborted()
+    await writeFile(temporary, JSON.stringify(value, null, 2), { flag: 'wx', mode: 0o600 })
+    signal?.throwIfAborted()
+    await rename(temporary, join(directory, name))
+  } finally {
+    try { await unlink(temporary) }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
+  }
 }
 
 export async function readJson(directory: string, name: string) {

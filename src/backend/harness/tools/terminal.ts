@@ -15,9 +15,10 @@ export function terminalTool(workspace: AgentFilesystem, signal: AbortSignal, pr
     description:
       'Run a shell command in the agent workspace sandbox after user approval. Files outside this workspace and network access are unavailable. Runs until completion or Stop, with no elapsed-time limit. Output previews are bounded to protect application memory.',
     parameters: z.toJSONSchema(schema, { target: 'draft-7' }),
+    parse: args => schema.strict().parse(args),
     permission: 'terminal',
     async run(raw) {
-      const args = schema.parse(raw)
+      const args = schema.strict().parse(raw)
 
       if (process.platform !== 'darwin') {
         throw new Error(
@@ -93,7 +94,7 @@ ${workspace.excludeOrganization ? `(deny file-read* (subpath ${JSON.stringify(`$
           if (signal.aborted) {
             reject(signal.reason)
           } else {
-            resolve({ output, exitCode: code, signal: exitSignal, truncated, timedOut: false })
+            resolve({ output, exitCode: code, signal: exitSignal, truncated })
           }
         })
       })

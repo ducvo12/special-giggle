@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "react", "react-hooks"],
+  "categories": {
+    "correctness": "off"
+  },
+  "rules": {
+    "no-async-promise-executor": "error",
+    "no-constant-condition": "error",
+    "no-dupe-else-if": "error",
+    "no-dupe-keys": "error",
+    "no-duplicate-case": "error",
+    "no-fallthrough": "error",
+    "no-unreachable": "error",
+    "no-unused-vars": ["error", { "argsIgnorePattern": "^_", "ignoreRestSiblings": true }],
+    "typescript/no-non-null-asserted-optional-chain": "error",
+    "typescript/no-unnecessary-type-constraint": "error",
+    "react/jsx-key": "error",
+    "react-hooks/rules-of-hooks": "error"
+  }
+}

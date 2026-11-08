@@ -15,7 +15,7 @@ const server = createServer(async (request, response) => {
 
   let raw = ''
   for await (const chunk of request) raw += chunk
-  const body = JSON.parse(raw)
+  JSON.parse(raw)
   const expiring = raw.includes('Expire reading')
   if (!request.url.startsWith('/unsupported/')) {
     response.setHeader('x-ratelimit-limit-requests', '100')

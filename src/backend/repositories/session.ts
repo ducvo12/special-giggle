@@ -14,6 +14,18 @@ import { setTimeout as delay } from 'node:timers/promises'
 import type { RepositoryRecord, RepositoryStore } from './store.ts'
 
 type ProcessHandle = Awaited<ReturnType<typeof startRepositoryProcess>>
+type Publication = { signal: AbortSignal; session: CommandSession }
+interface CommandOptions {
+  executable: string
+  args: string[]
+  cwd: string
+  gitWrite: boolean
+  network: boolean
+  writable: boolean
+  interactive: boolean
+  columns?: number
+  rows?: number
+}
 interface CommandSession {
   snapshot: RepositoryCommandSnapshot
   handle?: ProcessHandle
@@ -22,6 +34,7 @@ interface CommandSession {
   ready: Promise<void>
   readyResolve: () => void
   lastPublish: number
+  publicationTimer?: ReturnType<typeof setTimeout>
   columns: number
   rows: number
 }
@@ -32,9 +45,6 @@ export class RepositorySession {
   readonly paths: RepositoryPaths
   private sessions = new Map<string, CommandSession>()
   private busy = false
-  private publishing = false
-  private publicationSignal?: AbortSignal
-  private publicationSession?: CommandSession
   private closed = false
   private environment?: Promise<string>
   private revisions = new Map<string, string | null>()
@@ -71,10 +81,10 @@ export class RepositorySession {
     if (expected !== null && this.revisions.get(path) !== expected) throw new Error('Read this file before changing it; use its returned revision.')
     if (await this.existsRevision(path) !== expected) throw new StaleRepositoryEdit(`Stale edit rejected for ${path}. Read the current file and make one corrected attempt. No change was applied.`)
   }
-  private async mutate(paths: string[], operation: () => Promise<void>) {
+  private async mutate(paths: string[], operation: () => Promise<void>, publication?: Publication) {
     this.signal.throwIfAborted()
-    if (this.busy && !this.publishing) throw new Error('Finish or stop the active command before native repository edits.')
-    if (this.publishing) { this.publicationSignal?.throwIfAborted(); await operation(); return }
+    if (this.busy && !publication) throw new Error('Finish or stop the active command before native repository edits.')
+    if (publication) { publication.signal.throwIfAborted(); await operation(); return }
     this.store.assertAvailable(this.record.projectId)
     const parentOperation = this.record.pending
     const uncaptured = paths.filter(path => !this.record.touched.includes(path) && !Object.hasOwn(this.record.baseline, path))
@@ -113,7 +123,7 @@ export class RepositorySession {
     this.revisions.set(path, fingerprint(content))
     return { path, revision: fingerprint(content) }
   }
-  private async importCommandFile(path: string, sourcePaths: RepositoryPaths, hash: string, revision: string | null, mode: number) {
+  private async importCommandFile(path: string, sourcePaths: RepositoryPaths, hash: string, revision: string | null, mode: number, publication: Publication) {
     const absolute = await this.paths.check(path)
     await this.guard(path, revision)
     await this.mutate([path], async () => {
@@ -122,17 +132,19 @@ export class RepositorySession {
       const temporary = join(dirname(absolute), `.granite-${randomUUID()}.tmp`)
       try {
         const source = await sourcePaths.check(path, { hardlinks: true })
-        await copyVerifiedFile(source, temporary, hash, mode, this.publicationSignal ?? this.signal)
-        await this.paths.check(path); await this.guard(path, revision); this.signal.throwIfAborted()
+        await copyVerifiedFile(source, temporary, hash, mode, publication.signal)
+        await this.paths.check(path)
+        await this.guard(path, revision)
+        publication.signal.throwIfAborted()
         // Exclusive creation for new paths; atomic replacement for known files.
         if (revision === null) await link(temporary, absolute)
         else await rename(temporary, absolute)
-        this.markPublished()
+        publication.session.snapshot.publication = 'partial'
       } finally { await rm(temporary, { force: true }) }
-    })
+    }, publication)
     this.revisions.set(path, hash)
   }
-  private async importCommandLink(path: string, stage: string, stagedPaths: RepositoryPaths, before?: FileState, after?: FileState) {
+  private async importCommandLink(path: string, stage: string, stagedPaths: RepositoryPaths, before: FileState | undefined, after: FileState | undefined, publication: Publication) {
     const destination = await this.paths.check(path, { leafLink: true })
     const revision = before?.hash ?? null
     await this.guard(path, revision)
@@ -148,18 +160,20 @@ export class RepositorySession {
           await symlink(after.linkTarget, temporary)
         } else if (after) {
           await stagedPaths.check(path, { hardlinks: true })
-          await copyVerifiedFile(join(stage, path), temporary, after.hash, after.mode ?? 0o644, this.publicationSignal ?? this.signal)
+          await copyVerifiedFile(join(stage, path), temporary, after.hash, after.mode ?? 0o644, publication.signal)
         }
-        await this.paths.check(path, { leafLink: true }); await this.guard(path, revision); this.signal.throwIfAborted()
+        await this.paths.check(path, { leafLink: true })
+        await this.guard(path, revision)
+        publication.signal.throwIfAborted()
         if (!after) await unlink(destination)
         // macOS link(2) can follow a symlink source. Create new symlinks with
         // symlink(2)'s exclusive destination semantics instead of hard-linking.
         else if (!before && after.linkTarget !== undefined) await symlink(after.linkTarget, destination)
         else if (!before) await link(temporary, destination)
         else await rename(temporary, destination)
-        this.markPublished()
+        publication.session.snapshot.publication = 'partial'
       } finally { await rm(temporary, { force: true }) }
-    })
+    }, publication)
     if (after) this.revisions.set(path, after.hash)
     else this.revisions.delete(path)
   }
@@ -171,8 +185,17 @@ export class RepositorySession {
     return this.write(path, Buffer.from(all ? current.content.replaceAll(old, next) : current.content.replace(old, next)), revision)
   }
   async remove(path: string, revision: string) {
+    return this.removeFile(path, revision)
+  }
+  private async removeFile(path: string, revision: string, publication?: Publication) {
     const absolute = await this.paths.check(path); await this.guard(path, revision)
-    await this.mutate([path], async () => { await this.guard(path, revision); await this.paths.check(path); await unlink(absolute); this.markPublished() })
+    await this.mutate([path], async () => {
+      await this.guard(path, revision)
+      await this.paths.check(path)
+      publication?.signal.throwIfAborted()
+      await unlink(absolute)
+      if (publication) publication.session.snapshot.publication = 'partial'
+    }, publication)
     this.revisions.delete(path)
     return { deleted: path }
   }
@@ -219,14 +242,19 @@ export class RepositorySession {
     } finally { await rm(directory, { recursive: true, force: true }) }
   }
   private publishCommand(session: CommandSession, force = false) {
-    if (!force && Date.now() - session.lastPublish < 100) return
+    const remaining = 100 - (Date.now() - session.lastPublish)
+    if (!force && remaining > 0) {
+      session.publicationTimer ??= setTimeout(() => this.publishCommand(session, true), remaining)
+      return
+    }
+    clearTimeout(session.publicationTimer)
+    session.publicationTimer = undefined
     session.lastPublish = Date.now()
     session.snapshot.output = session.handle?.output.tail() ?? ''
     this.record.report.commands = [...this.sessions.values()].map(value => ({ ...value.snapshot }))
     this.record.report.commandVersion = (this.record.report.commandVersion ?? 0) + 1
     this.store.save(this.record); this.changed()
   }
-  private markPublished() { if (this.publicationSession) this.publicationSession.snapshot.publication = 'partial' }
   private async commandHome() {
     return this.environment ??= (async () => {
       const home = await realpath(await mkdtemp(join(tmpdir(), 'granite-repository-environment-')))
@@ -235,7 +263,8 @@ export class RepositorySession {
     })()
   }
   hasActiveCommands() { return this.busy }
-  private start(executable: string, args: string[], cwd: string, gitWrite: boolean, network: boolean, writable: boolean, interactive: boolean, columns = 100, rows = 30) {
+  private start(options: CommandOptions) {
+    const { executable, args, cwd, interactive, columns = 100, rows = 30 } = options
     this.signal.throwIfAborted()
     if (this.closed) throw new Error('This repository command owner has closed.')
     if (this.busy) throw new Error('Finish or stop the active command before starting another repository command.')
@@ -245,7 +274,7 @@ export class RepositorySession {
     const session: CommandSession = { snapshot: { id: randomUUID(), command: executable === '/bin/sh' && args[0] === '-c' ? args[1] : [executable, ...args].join(' '), cwd, interactive,
       status: 'starting', publication: 'staged', inputRevision: 0, output: '' }, controller: new AbortController(), ready, readyResolve, lastPublish: 0, columns, rows }
     this.sessions.set(session.snapshot.id, session); this.publishCommand(session, true)
-    session.task = this.executeCommand(executable, args, cwd, gitWrite, network, writable, session).then(result => {
+    session.task = this.executeCommand(options, session).then(result => {
       session.snapshot.exitCode = result.exitCode
       session.snapshot.status = result.stopped ? 'stopped' : result.exitCode === 0 ? 'complete' : 'failed'
       if (session.snapshot.publication === 'staged') session.snapshot.publication = 'discarded'
@@ -259,11 +288,13 @@ export class RepositorySession {
     void session.task.catch(() => {})
     return session
   }
-  async command(executable: string, args: string[], cwd = '', gitWrite = false, network = false, writable = true) {
-    return this.start(executable, args, cwd, gitWrite, network, writable, false).task!
+  async command(executable: string, args: string[], options: Partial<Pick<CommandOptions, 'cwd' | 'gitWrite' | 'network' | 'writable'>> = {}) {
+    const { cwd = '', gitWrite = false, network = false, writable = true } = options
+    return this.start({ executable, args, cwd, gitWrite, network, writable, interactive: false }).task!
   }
-  async startCommand(command: string, cwd = '', network = false, interactive = true, columns = 100, rows = 30) {
-    const session = this.start('/bin/sh', ['-c', command], cwd, false, network, true, interactive, columns, rows)
+  async startCommand(command: string, options: Partial<Pick<CommandOptions, 'cwd' | 'network' | 'interactive' | 'columns' | 'rows'>> = {}) {
+    const { cwd = '', network = false, interactive = true, columns = 100, rows = 30 } = options
+    const session = this.start({ executable: '/bin/sh', args: ['-c', command], cwd, gitWrite: false, network, writable: true, interactive, columns, rows })
     await session.ready
     return this.readCommand(session.snapshot.id, 0, 100)
   }
@@ -314,7 +345,102 @@ export class RepositorySession {
     delete this.record.environment
     this.closed = true; this.store.save(this.record)
   }
-  private async executeCommand(executable: string, args: string[], cwd: string, gitWrite: boolean, network: boolean, writable: boolean, session: CommandSession) {
+  private async prepareWorkspace(stage: string, options: CommandOptions, signal: AbortSignal) {
+    const initial = await gitManifest(this.paths.root, signal).catch(error => {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {} as TreeState
+      throw error
+    })
+    await copyCommandWorkspace(this.paths.root, stage, signal)
+    if (!options.gitWrite) return undefined
+    const copied = await gitManifest(stage, signal).catch(error => {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {} as TreeState
+      throw error
+    })
+    if (Object.keys(copied).length !== Object.keys(initial).length || Object.keys(initial).some(path => copied[path]?.hash !== initial[path].hash)) {
+      throw new Error('Git state changed while preparing the command copy. Try again after reviewing current state.')
+    }
+    return initial
+  }
+
+  private async publishGit(stage: string, metadata: TreeState, signal: AbortSignal) {
+    const after = await gitManifest(stage, signal)
+    const changed = [...new Set([...Object.keys(metadata), ...Object.keys(after)])]
+      .filter(path => metadata[path]?.hash !== after[path]?.hash)
+      .sort((a, b) => Number(!a.startsWith('.git/objects/')) - Number(!b.startsWith('.git/objects/')) || a.localeCompare(b))
+    for (const path of changed) {
+      await mergeGitFile(this.paths.root, stage, path, metadata[path]?.hash, after[path]?.hash, signal)
+    }
+    signal.throwIfAborted()
+    await mkdir(join(this.paths.root, '.git', 'objects'), { recursive: true })
+    await mkdir(join(this.paths.root, '.git', 'refs'), { recursive: true })
+    this.record.report.gitChanged ||= changed.length > 0
+  }
+
+  private async publishWorkingTree(before: TreeState, staging: string, options: CommandOptions, publication: Publication) {
+    const stage = join(staging, 'repository')
+    const { signal, session } = publication
+    const stagedPaths = new RepositoryPaths(stage, this.paths.privateRoot)
+    const after = await scanTree(stagedPaths, signal, false, true)
+    const rank = (path: string) => {
+      if (after[path]?.directory) return 0
+      if (before[path]?.directory && !after[path]) return 2
+      return 1
+    }
+    const changed = [...new Set([...Object.keys(before), ...Object.keys(after)])]
+      .filter(path => before[path]?.hash !== after[path]?.hash || before[path]?.mode !== after[path]?.mode)
+      .sort((a, b) => rank(a) - rank(b) || (rank(a) === 2 ? b.length - a.length : a.length - b.length) || a.localeCompare(b))
+
+    // Validate all live targets before importing the first change.
+    for (const path of changed) {
+      if (before[path] && after[path] && Boolean(before[path].directory) !== Boolean(after[path].directory)) throw new Error('Command file/directory replacement requires separate native operations.')
+      if (after[path]?.linkTarget !== undefined) await validateRepositoryLink(stagedPaths, path, after[path].linkTarget!)
+      await this.paths.check(path, { leafLink: true })
+      if (await this.existsRevision(path) !== (before[path]?.hash ?? null) || before[path] && ((await lstat(await this.paths.check(path, { leafLink: true }))).mode & 0o777) !== before[path].mode) {
+        throw new StaleRepositoryEdit(`Command changes conflict with a newer live file: ${path}. No command changes were imported.`)
+      }
+    }
+    const uncaptured = changed.filter(path => !this.record.touched.includes(path) && !Object.hasOwn(this.record.baseline, path))
+    const originals = await scanPaths(this.paths, uncaptured, signal)
+    for (const path of uncaptured) {
+      if (originals[path]?.hash !== before[path]?.hash || originals[path]?.mode !== before[path]?.mode) throw new StaleRepositoryEdit(`Command changes conflict with a newer live file: ${path}. No command changes were imported.`)
+    }
+    Object.assign(this.record.baseline, originals)
+    this.record.touched = [...new Set([...this.record.touched, ...changed])]
+    this.record.pending = { kind: 'file', external: options.network, workspace: staging }
+    this.store.assertAvailable(this.record.projectId)
+    this.store.save(this.record)
+
+    for (const path of changed) {
+      signal.throwIfAborted()
+      if (before[path]) this.revisions.set(path, before[path].hash)
+      if (after[path]?.directory || before[path]?.directory) {
+        const absolute = await this.paths.check(path)
+        await this.mutate([path], async () => {
+          await this.guard(path, before[path]?.hash ?? null)
+          signal.throwIfAborted()
+          if (after[path]?.directory) {
+            if (!before[path]) {
+              await mkdir(absolute, { mode: after[path].mode })
+              session.snapshot.publication = 'partial'
+            }
+            if (after[path].mode !== undefined) await chmod(await this.paths.check(path), after[path].mode!)
+          } else await rmdir(absolute)
+          session.snapshot.publication = 'partial'
+        }, publication)
+      } else if (before[path]?.linkTarget !== undefined || after[path]?.linkTarget !== undefined) {
+        await this.importCommandLink(path, stage, stagedPaths, before[path], after[path], publication)
+      } else if (after[path]) {
+        await this.importCommandFile(path, stagedPaths, after[path].hash, before[path]?.hash ?? null, after[path].mode ?? 0o644, publication)
+        if (after[path].mode !== undefined) await chmod(await this.paths.check(path), after[path].mode!)
+      } else {
+        await this.removeFile(path, before[path].hash, publication)
+      }
+      session.snapshot.publication = 'partial'
+    }
+  }
+
+  private async executeCommand(options: CommandOptions, session: CommandSession) {
+    const { executable, args, cwd, gitWrite, network, writable } = options
     const commandSignal = AbortSignal.any([this.signal, session.controller.signal])
     commandSignal.throwIfAborted()
     await this.paths.check(cwd)
@@ -327,19 +453,7 @@ export class RepositorySession {
     this.record.pending = { kind: 'command', external: network, workspace: staging }
     this.store.save(this.record)
     try {
-      const initialGit = await gitManifest(this.paths.root, commandSignal).catch(error => {
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {} as TreeState
-        throw error
-      })
-      const metadata = gitWrite ? initialGit : undefined
-      await copyCommandWorkspace(this.paths.root, stage, true, commandSignal)
-      if (metadata) {
-        const copied = await gitManifest(stage, this.signal).catch(error => {
-          if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {} as TreeState
-          throw error
-        })
-        if (Object.keys(copied).length !== Object.keys(metadata).length || Object.keys(metadata).some(path => copied[path]?.hash !== metadata[path].hash)) throw new Error('Git state changed while preparing the command copy. Try again after reviewing current state.')
-      }
+      const metadata = await this.prepareWorkspace(stage, options, commandSignal)
       session.controller.signal.throwIfAborted()
       const handle = await startRepositoryProcess({ root: stage, container: staging, privateRoot: this.paths.privateRoot, cwd: join(stage, cwd),
         executable, args, gitWrite, network, writable, home: await this.commandHome(), interactive: session.snapshot.interactive, columns: session.columns, rows: session.rows,
@@ -350,104 +464,29 @@ export class RepositorySession {
       await handle.ready
       session.snapshot.status = 'running'; session.readyResolve(); this.publishCommand(session, true)
       outcome = await handle.done
-      if (outcome.exitCode === null || outcome.timedOut || outcome.stopped) return { ...outcome, notice: 'Command copy was not applied because execution did not finish.' }
+      if (outcome.exitCode === null || outcome.stopped) return { ...outcome, notice: 'Command copy was not applied because execution did not finish.' }
       this.signal.throwIfAborted(); session.controller.signal.throwIfAborted()
       session.snapshot.status = 'publishing'; this.publishCommand(session, true)
       if (writable) {
-        const stagedPaths = new RepositoryPaths(stage, this.paths.privateRoot)
-        const after = await scanTree(stagedPaths, commandSignal, false, true)
-        const changed = [...new Set([...Object.keys(before), ...Object.keys(after)])]
-          .filter(path => before[path]?.hash !== after[path]?.hash || before[path]?.mode !== after[path]?.mode)
-          .sort((a, b) => {
-            const rank = (path: string) => after[path]?.directory ? 0 : before[path]?.directory && !after[path] ? 2 : 1
-            return rank(a) - rank(b) || (rank(a) === 2 ? b.length - a.length : a.length - b.length) || a.localeCompare(b)
-          })
-        // Validate the entire live-file set before importing the first change.
-        // Later per-file guards also catch edits arriving during reconciliation.
-        for (const path of changed) {
-          if (before[path] && after[path] && Boolean(before[path].directory) !== Boolean(after[path].directory)) throw new Error('Command file/directory replacement requires separate native operations.')
-          if (after[path]?.linkTarget !== undefined) await validateRepositoryLink(stagedPaths, path, after[path].linkTarget!)
-          await this.paths.check(path, { leafLink: true })
-          if (await this.existsRevision(path) !== (before[path]?.hash ?? null) || before[path] && ((await lstat(await this.paths.check(path, { leafLink: true }))).mode & 0o777) !== before[path].mode) throw new StaleRepositoryEdit(`Command changes conflict with a newer live file: ${path}. No command changes were imported.`)
-        }
-        // Persist all original targets before publication so recovery only needs
-        // these paths, even when command import stops between two files.
-        const uncaptured = changed.filter(path => !this.record.touched.includes(path) && !Object.hasOwn(this.record.baseline, path))
-        const originals = await scanPaths(this.paths, uncaptured, commandSignal)
-        for (const path of uncaptured) {
-          if (originals[path]?.hash !== before[path]?.hash || originals[path]?.mode !== before[path]?.mode) throw new StaleRepositoryEdit(`Command changes conflict with a newer live file: ${path}. No command changes were imported.`)
-        }
-        Object.assign(this.record.baseline, originals)
-        this.record.touched = [...new Set([...this.record.touched, ...changed])]
-        this.record.pending = { kind: 'file', external: network, workspace: staging }
-        this.store.assertAvailable(this.record.projectId)
-        this.store.save(this.record)
-        this.publishing = true
-        this.publicationSignal = commandSignal
-        this.publicationSession = session
-        for (const path of changed) {
-          this.signal.throwIfAborted(); session.controller.signal.throwIfAborted()
-          if (after[path]?.directory || before[path]?.directory) {
-            const absolute = await this.paths.check(path)
-            if (before[path]) this.revisions.set(path, before[path].hash)
-            await this.mutate([path], async () => {
-              await this.guard(path, before[path]?.hash ?? null)
-              if (after[path]?.directory) {
-                if (!before[path]) await mkdir(absolute, { mode: after[path].mode })
-                if (!before[path]) this.markPublished()
-                if (after[path].mode !== undefined) await chmod(await this.paths.check(path), after[path].mode!)
-              } else await rmdir(absolute) // Never remove a concurrent writer’s nonempty directory.
-              this.markPublished()
-            })
-            session.snapshot.publication = 'partial'
-            continue
-          }
-          if (before[path]) this.revisions.set(path, before[path].hash)
-          if (before[path]?.linkTarget !== undefined || after[path]?.linkTarget !== undefined) {
-            await this.importCommandLink(path, stage, stagedPaths, before[path], after[path]); session.snapshot.publication = 'partial'; continue
-          }
-          if (after[path]) {
-            await this.importCommandFile(path, stagedPaths, after[path].hash, before[path]?.hash ?? null, after[path].mode ?? 0o644)
-            if (after[path].mode !== undefined) {
-              await chmod(await this.paths.check(path), after[path].mode!)
-            }
-          } else await this.remove(path, before[path].hash)
-          session.snapshot.publication = 'partial'
-        }
+        await this.publishWorkingTree(before, staging, options, { signal: commandSignal, session })
         if (metadata) {
-          const afterGit = await gitManifest(stage, this.signal)
           this.store.assertAvailable(this.record.projectId)
           importingGit = true
           this.record.pending = { kind: 'file', external: true, workspace: staging }; this.store.save(this.record)
-          // Copy objects before references/indexes which may point to them.
-          const changedGit = [...new Set([...Object.keys(metadata), ...Object.keys(afterGit)])]
-            .filter(path => metadata[path]?.hash !== afterGit[path]?.hash)
-            .sort((a, b) => Number(!a.startsWith('.git/objects/')) - Number(!b.startsWith('.git/objects/')) || a.localeCompare(b))
-          for (const path of changedGit) {
-            this.signal.throwIfAborted()
-            await mergeGitFile(this.paths.root, stage, path, metadata[path]?.hash, afterGit[path]?.hash)
-          }
-          // Empty object/ref directories are part of a newly initialized Git
-          // repository even though they have no manifest file entries yet.
-          await mkdir(join(this.paths.root, '.git', 'objects'), { recursive: true })
-          await mkdir(join(this.paths.root, '.git', 'refs'), { recursive: true })
-          this.record.report.gitChanged = changedGit.length > 0
+          await this.publishGit(stage, metadata, commandSignal)
           importingGit = false
         }
       }
       session.snapshot.publication = writable ? 'applied' : 'discarded'
       return outcome
     } finally {
-      this.publishing = false
-      this.publicationSignal = undefined
-      this.publicationSession = undefined
       let reconciliationError: unknown
       try {
         await this.store.refresh(this.record)
         if (session.handle?.settlementError()) {
           this.record.report.state = 'attention'; this.record.report.error = session.handle.settlementError()
           // Retain the durable process identity for a later verified recheck.
-        } else if (importingGit || network && (!outcome || outcome.timedOut || outcome.stopped || outcome.exitCode === null || this.signal.aborted || session.controller.signal.aborted)) {
+        } else if (importingGit || network && (!outcome || outcome.stopped || outcome.exitCode === null || this.signal.aborted || session.controller.signal.aborted)) {
           this.record.report.state = 'attention'; this.record.report.error = 'An authorized external/Git action was interrupted. Review its outcome before further writes.'
           this.record.pending = { ...this.record.pending ?? { kind: 'command' }, external: true }
         } else delete this.record.pending

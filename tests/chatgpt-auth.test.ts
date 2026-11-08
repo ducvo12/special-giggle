@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import { generateKeyPair, exportJWK, SignJWT } from 'jose'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { ChatGPTAccounts } from '../src/backend/auth/chatgpt.ts'
@@ -12,6 +12,24 @@ const protection = {
   encrypt: (text: string) => Buffer.from(text.split('').reverse().join('')),
   decrypt: (value: Buffer) => value.toString().split('').reverse().join('')
 }
+
+test('malformed discovery and saved credentials fail explicitly without replacing saved data; sign-out still clears locked credentials', async context => {
+  const directory = await mkdtemp(join(tmpdir(), 'granite-auth-boundary-'))
+  try {
+    const accounts = new ChatGPTAccounts(directory, protection)
+    context.mock.method(globalThis, 'fetch', async () => Response.json(null))
+    await assert.rejects(accounts.login(async () => assert.fail('Invalid discovery must not open a browser')), /invalid account response/)
+    const path = join(directory, 'chatgpt-accounts.json')
+    const record = { id: 'saved', clientId: 'client', subject: 'subject', email: 'test@example.com', encrypted: Buffer.from('unreadable').toString('base64') }
+    await writeFile(path, JSON.stringify({ hostId: 'host', accounts: [record] }))
+    const locked = new ChatGPTAccounts(directory, { ...protection, available: () => false })
+    assert.deepEqual(await locked.signOut('saved'), { revoked: false })
+    assert.equal(JSON.parse(await readFile(path, 'utf8')).accounts[0].encrypted, undefined)
+    await writeFile(path, 'null')
+    await assert.rejects(new ChatGPTAccounts(directory, protection).list(), /Invalid account storage/)
+    assert.equal(await readFile(path, 'utf8'), 'null')
+  } finally { await rm(directory, { recursive: true, force: true }) }
+})
 
 test(
   'Granite ChatGPT OAuth verifies identity, protects tokens, retains registration, serializes refresh, and revokes its own session',
@@ -156,12 +174,12 @@ test(
       assert.equal(refreshes, 1)
 
       const originalFetch = globalThis.fetch
-      const catalogFetch = context.mock.method(globalThis, 'fetch', async (input, init) => {
+      const catalogFetch = context.mock.method(globalThis, 'fetch', async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
         if (String(input) !== 'https://api.openai.com/v1/models') {
           return originalFetch(input, init)
         }
 
-        assert.equal(init.headers.Authorization, 'Bearer refreshed-access-test')
+        assert.equal(new Headers(init?.headers).get('Authorization'), 'Bearer refreshed-access-test')
 
         return Response.json({
           models: [

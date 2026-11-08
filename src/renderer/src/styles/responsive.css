@@ -16,15 +16,6 @@
   .composer-model {
     max-width: 180px;
   }
-
-  .connection-card {
-    flex-wrap: wrap;
-  }
-
-  .connection-actions {
-    margin-left: auto;
-  }
-
 }
 
 @media (prefers-reduced-motion: reduce) {

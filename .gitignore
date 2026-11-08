@@ -10,3 +10,7 @@ release/
 
 # Local Obsidian tabs, canvas viewport, and recent files.
 /docs/vault/.obsidian/workspace*.json
+
+# Chat logs and transcripts
+codebase-review-*.json
+

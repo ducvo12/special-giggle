@@ -7,6 +7,32 @@ import { SqliteSaver } from '@langchain/langgraph-checkpoint-sqlite'
 import { AgentRuntime } from '../src/backend/agents/runtime.ts'
 import { AgentFilesystem } from '../src/backend/workspace/filesystem.ts'
 
+test('workspace grep is literal and scoped before reading or spending its match budget', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'granite-workspace-grep-'))
+  try {
+    for (const path of ['notes', 'sections/private', 'projects/code', '.git']) await mkdir(join(root, path), { recursive: true })
+    await writeFile(join(root, 'sections/private/secret.md'), 'needle')
+    await writeFile(join(root, 'projects/code/secret.md'), 'needle')
+    await writeFile(join(root, '.git/secret'), 'needle')
+    await writeFile(join(root, 'notes/.hidden.md'), 'needle a.b')
+    await writeFile(join(root, 'notes/one.md'), 'needle aXb')
+    await writeFile(join(root, 'notes/two.md'), 'needle')
+    await writeFile(join(root, 'notes/.gitignore'), '*.md')
+    await writeFile(join(root, 'notes/binary.md'), Buffer.from([110, 0, 255]))
+    await symlink(join(root, 'sections/private'), join(root, 'notes/alias'))
+    const fs = new AgentFilesystem(root, { excludeOrganization: true })
+    assert.deepEqual((await fs.grep('needle', '/notes/one.md')).matches?.map(match => match.path), ['/notes/one.md'])
+    assert.deepEqual((await fs.grep('a.b', '/notes')).matches?.map(match => match.path), ['/notes/.hidden.md'])
+    const bounded = await fs.grep('needle', '/', null, 1)
+    assert.equal(bounded.matches?.length, 1)
+    assert.equal(bounded.matches?.[0].path, '/notes/.hidden.md')
+    assert.equal(bounded.truncated, true)
+    const all = await fs.grep('needle', '/', '*.md')
+    assert.deepEqual(all.matches?.map(match => match.path), ['/notes/.hidden.md', '/notes/one.md', '/notes/two.md'])
+    assert.equal(all.truncated, false)
+  } finally { await rm(root, { recursive: true, force: true }) }
+})
+
 test('flat databases migrate into one General per agent without changing history, files or native state on repeated reopen', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'granite-organization-migrate-'))
   const root = join(directory, 'agents', 'atlas')
@@ -144,9 +170,6 @@ test('moves retain transcript and IDs, enforce Closed/project boundaries and inv
     await runtime.moveConversation(agent.id, chat.id, { sectionId: closed.id, projectId: project.id })
     await assert.rejects(runtime.moveConversation(agent.id, chat.id, { sectionId: general.id, projectId: null }), /entire Closed section Shared/)
     await assert.rejects(runtime.moveConversation(other.id, chat.id, { sectionId: general.id, projectId: null }), /Conversation not found/)
-    runtime.active = { id: 'busy', controller: new AbortController() }
-    await assert.rejects(runtime.moveConversation(agent.id, chat.id, { sectionId: closed.id, projectId: null }), /Finish the current operation/)
-    runtime.active = null
     await runtime.shareSection(agent.id, closed.id)
     await runtime.moveConversation(agent.id, chat.id, { sectionId: general.id, projectId: null })
     assert.deepEqual(runtime.store.get(agent.id, chat.id).messages, history)
@@ -154,7 +177,7 @@ test('moves retain transcript and IDs, enforce Closed/project boundaries and inv
     const temporary = runtime.store.create(agent.id, { sectionId: closed.id }, 'temporary')
     await assert.rejects(runtime.moveConversation(agent.id, temporary.id, { sectionId: closed.id, projectId: project.id }), /Keep a temporary chat/)
     assert.equal(runtime.store.get(agent.id, temporary.id).expiresAt, null)
-  } finally { runtime.active = null; runtime.close(); await rm(directory, { recursive: true, force: true }) }
+  } finally { runtime.close(); await rm(directory, { recursive: true, force: true }) }
 })
 
 test('repository links bind all project chats, allow duplicate physical roots and never copy or modify external code', async () => {

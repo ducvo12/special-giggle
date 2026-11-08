@@ -19,6 +19,8 @@ const { launch, quit, rpc, evaluate, click, wait } = desktopSession(directory, 9
 const trigger = '[role="combobox"][aria-label="Active connection"]'
 
 async function openConnections() {
+  // Occluded Electron windows may suspend animation frames during other checks.
+  await rpc('Page.bringToFront')
   // Let navigation, resizing, and scrollIntoView effects finish before opening.
   await evaluate(`new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`)
   await click('Active connection')
@@ -61,9 +63,9 @@ try {
     await checkPosition(trigger, true)
     await click('Active connection')
 
-    await click('⚙ Settings')
+    await click('Settings')
     await wait(() => evaluate(`Boolean(document.querySelector('.settings-main'))`), 'settings')
-    await click('← Back to chat')
+    await click('Back to workspace')
     await openConnections()
     await checkPosition(trigger, true)
     // Select by label to exercise the actual portal and its selection handler.
@@ -73,12 +75,23 @@ try {
     assert.equal(await evaluate(`document.querySelector('${trigger}').textContent.trim()`), selectedName)
   }
 
-  await click('⚙ Settings')
-  await click('+ Add connection')
-  const typeSelector = '.connection-editor [role="combobox"]'
-  await evaluate(`document.querySelector('${typeSelector}').click()`)
-  await checkPosition(typeSelector, false)
-  console.log('PASS: first open, reopen, Settings round trip, connection selection, two viewport sizes, and downward menus stay anchored to their triggers.')
+  // The model field is lower than the old connection-type control. Give its
+  // dropdown enough space below to exercise downward anchoring deliberately.
+  await rpc('Emulation.setDeviceMetricsOverride', { width: 1280, height: 1000, deviceScaleFactor: 1, mobile: false })
+  await click('Settings')
+  assert.ok(await evaluate(`(() => {
+    const card = [...document.querySelectorAll('[aria-label="Popular providers"] .provider-card')].find(item => item.querySelector('.provider-name')?.textContent === 'OpenAI-compatible');
+    const button = card?.querySelector('button');
+    if (!button || button.disabled) return false;
+    button.click(); return true;
+  })()`))
+  // The current editor has an editable model combobox rather than a type select.
+  const modelSelector = '.connection-editor [role="combobox"][aria-label="Model ID"]'
+  await rpc('Page.bringToFront')
+  await evaluate(`new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`)
+  await evaluate(`document.querySelector('${modelSelector}').click()`)
+  await checkPosition(modelSelector, false)
+  console.log('PASS: first open, reopen, Settings round trip, connection selection, two composer viewport sizes, and downward editor menus stay anchored to their triggers.')
 } finally {
   await quit()
   server.closeAllConnections()

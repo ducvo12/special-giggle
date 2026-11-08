@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { ConnectionDraft, SavedConnection } from '../../../../shared/chat'
 import ConnectionEditor from './ConnectionEditor'
 import ConnectionList from './ConnectionList'
+import { PROVIDER_PRESETS } from './presets'
 
 const emptyConnection = (): ConnectionDraft => ({
   name: '',
@@ -205,26 +206,20 @@ export default function Settings({
     }
   }
 
-  function handleConnect(type: 'openai' | 'custom') {
-    if (type === 'openai') {
-      setEditing({
-        name: 'OpenAI',
-        baseUrl: '',
-        apiKey: '',
-        model: '',
-        provider: 'chatgpt',
-        protocol: 'responses'
-      })
-    } else {
-      setEditing({
-        name: 'OpenAI-compatible',
-        baseUrl: 'http://127.0.0.1:1234/v1',
-        apiKey: '',
-        model: '',
-        provider: 'openai',
-        protocol: 'chat-completions'
-      })
-    }
+  function handleConnect(presetId: string) {
+    const preset =
+      PROVIDER_PRESETS.find(p => p.id === presetId) ||
+      PROVIDER_PRESETS[PROVIDER_PRESETS.length - 1]
+
+    setEditing({
+      name: preset.name,
+      baseUrl: preset.baseUrl,
+      apiKey: '',
+      model: preset.defaultModel || '',
+      provider: preset.provider,
+      protocol: preset.protocol,
+      ...(preset.provider === 'chatgpt' ? { accountId: '', effort: '' } : {})
+    })
     setModels([])
     setError('')
     setNotice('')

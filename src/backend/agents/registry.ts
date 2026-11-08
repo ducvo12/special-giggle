@@ -1,11 +1,13 @@
 import { randomUUID } from 'node:crypto'
-import { link, lstat, mkdir, readdir, rename, rm, unlink, writeFile } from 'node:fs/promises'
+import { link, lstat, mkdir, readdir, rename, unlink, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { defaultIdentity, type Agent } from '../../shared/agent.ts'
 import { AgentFilesystem } from '../workspace/filesystem.ts'
 import { createWorkspace, workspaceText } from '../workspace/workspace.ts'
+import { locked, publishText } from '../context/files.ts'
+import { revision } from '../context/store.ts'
 
-const validId = /^[a-z][a-z0-9-]{0,63}$/
+export const validAgentId = /^[a-z][a-z0-9-]{0,63}$/
 
 function validateName(value: string) {
   if (
@@ -25,18 +27,21 @@ function validateName(value: string) {
 export class AgentRegistry {
   private directory: string
   private creating = false
+  private blocked: ReadonlySet<string>
 
-  private constructor(directory: string) {
+  private constructor(directory: string, blocked: ReadonlySet<string>) {
     this.directory = directory
+    this.blocked = blocked
   }
 
-  static async open(directory: string) {
-    const registry = new AgentRegistry(directory)
+  static async open(directory: string, blocked: ReadonlySet<string> = new Set()) {
+    const registry = new AgentRegistry(directory, blocked)
     await mkdir(join(directory, 'agents'), { recursive: true, mode: 0o700 })
     // Adopt legacy Atlas files only when that folder already exists. An empty
     // installation, or one whose last agent was deleted, must stay empty.
     const defaultAgent = { id: 'atlas', name: 'Atlas' }
     const root = join(directory, 'agents', defaultAgent.id)
+    if (blocked.has(defaultAgent.id)) return registry
 
     try {
       await lstat(root)
@@ -71,9 +76,10 @@ export class AgentRegistry {
   }
 
   async get(id: string): Promise<Agent> {
-    if (typeof id !== 'string' || !validId.test(id)) {
+    if (typeof id !== 'string' || !validAgentId.test(id)) {
       throw new Error('Invalid agent ID.')
     }
+    if (this.blocked.has(id)) throw new Error('This agent is unavailable until its deletion recovery conflict is resolved.')
 
     const root = join(this.directory, 'agents', id)
 
@@ -95,7 +101,7 @@ export class AgentRegistry {
     const agents: Agent[] = []
 
     for (const entry of entries) {
-      if (!entry.isDirectory() || !validId.test(entry.name)) {
+      if (!entry.isDirectory() || !validAgentId.test(entry.name)) {
         continue
       }
 
@@ -167,14 +173,7 @@ export class AgentRegistry {
       throw new Error('The identity file changed. Reload it before saving your edits.')
     }
 
-    const temporary = join(workspace.root, `.identity-${randomUUID()}.tmp`)
-
-    try {
-      await writeFile(temporary, identity, { flag: 'wx', mode: 0o600 })
-      await rename(temporary, join(workspace.root, 'identity.md'))
-    } finally {
-      await rm(temporary, { force: true })
-    }
+    await locked(`${id}:/identity.md`, () => publishText(workspace.root, '/identity.md', identity, revision(expected)))
 
     return identity
   }
@@ -193,16 +192,13 @@ export class AgentRegistry {
       if (!path.startsWith('/notes/')) throw new Error('New files belong in notes.')
       // Exclusive creation cannot replace an existing note, even if another
       // local process created it after the user opened the dialog.
-      await writeFile(destination, content, { flag: 'wx', mode: 0o600 })
+      await lstat(dirname(destination))
+      await locked(`${id}:${path}`, () => publishText(workspace.root, path, content, null))
     } else {
       if (await workspaceText(workspace, path) !== expected) {
         throw new Error('This file changed. Reload it before saving your edits.')
       }
-      const temporary = join(dirname(destination), `.edit-${randomUUID()}.tmp`)
-      try {
-        await writeFile(temporary, content, { flag: 'wx', mode: 0o600 })
-        await rename(temporary, destination)
-      } finally { await rm(temporary, { force: true }) }
+      await locked(`${id}:${path}`, () => publishText(workspace.root, path, content, revision(expected)))
     }
     return content
   }

@@ -1,3 +1,17 @@
+import type { Readable } from 'node:stream'
+import { StringDecoder } from 'node:string_decoder'
+
+// Each pipe owns its UTF-8 continuation state, even when output is interleaved.
+export function captureTerminalOutput(stream: Readable, output: TerminalOutput, onOutput?: (text: string) => void) {
+  const decoder = new StringDecoder('utf8')
+  const append = (text: string) => {
+    const clean = output.append(text)
+    if (clean) onOutput?.(clean)
+  }
+  stream.on('data', (chunk: Buffer) => append(decoder.write(chunk)))
+  stream.on('end', () => append(decoder.end()))
+}
+
 // Streaming escape filtering: sequences may be split across arbitrary chunks.
 // The result is plain text, never terminal commands, HTML or OSC hyperlinks.
 export class TerminalOutput {

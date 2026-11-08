@@ -74,7 +74,6 @@ for (const kind of ['repository', 'workspace'] as const) {
       await writeFile(join(root, 'release'), '')
       const result = await running
       assert.equal(result.exitCode, 0, JSON.stringify(result))
-      assert.equal(result.timedOut, false)
       assert.equal(result.output, 'done')
       assert.equal(await readFile(join(root, 'result'), 'utf8'), 'completed')
       t.mock.timers.reset()
@@ -120,7 +119,7 @@ test('manifests and verified publication support artifacts beyond the former 128
     const metadata = await gitManifest(root)
     assert.equal(metadata['.git/objects/large'].hash, before['large.bin'].hash)
     const target = join(root, 'target'); await mkdir(target)
-    await mergeGitFile(target, root, '.git/objects/large', undefined, before['large.bin'].hash)
+    await mergeGitFile(target, root, '.git/objects/large', undefined, before['large.bin'].hash, new AbortController().signal)
     assert.equal((await lstat(join(target, '.git/objects/large'))).size, 128_000_001)
     await assert.rejects(copyVerifiedFile(source, join(root, 'wrong.bin'), fingerprint(Buffer.from('wrong')), 0o644), /changed/)
     await assert.rejects(lstat(join(root, 'wrong.bin')), { code: 'ENOENT' })

@@ -44,10 +44,10 @@ export class AccountModelCatalog {
     const accountId = connection.accountId ?? ''
     const models = await this.get(accountId)
     connection.model ||= models[0]?.id ?? ''
-    if (!models.some(model => model.id === connection.model)) {
+    const selected = models.find(model => model.id === connection.model)
+    if (!selected) {
       throw new Error('This model is no longer available. Refresh the model list and choose another model.')
     }
-    const selected = models.find(model => model.id === connection.model)!
     connection.contextWindow = selected.contextWindow
     connection.maxOutputTokens = selected.maxOutputTokens
     connection.baseUrl = 'https://api.openai.com/v1'

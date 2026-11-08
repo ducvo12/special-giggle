@@ -8,6 +8,8 @@
     "dev": "node scripts/prepare-pty.mjs && electron-vite dev --watch",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit",
+    "typecheck:tests": "tsc --noEmit -p tsconfig.test.json",
+    "lint": "oxlint --deny-warnings src tests scripts electron.vite.config.ts",
     "build": "node scripts/prepare-pty.mjs && npm run typecheck && electron-vite build",
     "package": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder",
@@ -84,6 +86,7 @@
     "electron": "^44.9.0",
     "electron-builder": "^26.15.3",
     "electron-vite": "^6.0.0",
+    "oxlint": "^1.90.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.4"
   }

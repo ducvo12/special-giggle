@@ -106,6 +106,113 @@ test('staged continuity never becomes shared before a successful final answer', 
   } finally { await f.close() }
 })
 
+test('context reads preserve staged continuity while a note mutation invalidates it', async () => {
+  const f = await fixture((_body, res) => reply(res, 'Done'))
+  try {
+    const chat = await f.runtime.createConversation(f.agent.id)
+    f.runtime.store.saveMessage(chat.id, { id: 'summary-source', role: 'user', content: 'Use SQLite for storage.', delivery: 'processed' })
+    const session = new ContextSession(f.runtime.context, f.agent.id, chat.id, new AbortController().signal, () => {})
+    const registry = await createToolRegistry({
+      workspace: await f.runtime.registry.workspace(f.agent.id),
+      context: session,
+      signal: session.signal,
+      settings: defaultHarnessSettings,
+      approve: async () => true,
+      onTool() {}
+    })
+    const execute = (name: string, args: unknown) => registry.execute({ id: name, name, arguments: JSON.stringify(args) })
+    try {
+      const summary = await execute('update_chat_summary', {
+        summary: 'Storage uses SQLite.',
+        through_message_id: 'summary-source',
+        expected_revision: null,
+        source_ids: ['message:summary-source']
+      })
+      assert.equal(summary.success, true, summary.output)
+      for (const [name, args] of [
+        ['list_context', {}],
+        ['search_context', { query: 'SQLite' }],
+        ['read_context', { source_id: 'message:summary-source' }],
+        ['write_todos', { todos: [] }]
+      ] as const) {
+        const result = await execute(name, args)
+        assert.equal(result.success, true, result.output)
+        assert.equal(session.pendingSummary?.summary, 'Storage uses SQLite.', name)
+      }
+      const saved = await execute('write_file', { file_path: '/notes/storage.md', content: 'SQLite guidance' })
+      assert.equal(saved.success, true, saved.output)
+      assert.equal(session.pendingSummary, undefined)
+    } finally {
+      await registry.close()
+    }
+  } finally {
+    await f.close()
+  }
+})
+
+test('workspace note tools preserve exact replacements, validation order, revisions and supporting evidence', async () => {
+  const f = await fixture((_body, res) => reply(res, 'Done'))
+  try {
+    const chat = await f.runtime.createConversation(f.agent.id)
+    f.runtime.store.saveMessage(chat.id, { id: 'note-source', role: 'user', content: 'Remember tea and coffee.', delivery: 'processed' })
+    const workspace = await f.runtime.registry.workspace(f.agent.id)
+    const session = new ContextSession(f.runtime.context, f.agent.id, chat.id, new AbortController().signal, () => {})
+    const registry = await createToolRegistry({
+      workspace,
+      context: session,
+      signal: session.signal,
+      settings: defaultHarnessSettings,
+      approve: async () => true,
+      onTool() {}
+    })
+    const execute = (name: string, args: unknown) => registry.execute({ id: name, name, arguments: JSON.stringify(args) })
+    const file = '/notes/drinks.md'
+    try {
+      const created = await execute('write_file', { file_path: file, content: 'Tea\nTea\nCoffee' })
+      assert.equal(created.success, true, created.output)
+      const initial = JSON.parse(created.output)
+      assert.equal(initial.revision, revision('Tea\nTea\nCoffee'))
+
+      for (const [name, args, error] of [
+        ['write_file', { file_path: file, content: 'Overwrite' }, /File exists/],
+        ['edit_file', { file_path: '/notes/missing.md', old_string: 'Tea', new_string: 'Other' }, /Exact text was not found/],
+        ['edit_file', { file_path: file, old_string: 'Missing', new_string: 'Other' }, /Exact text was not found/],
+        ['edit_file', { file_path: file, old_string: 'Tea', new_string: 'Other' }, /ambiguous/],
+        ['write_file', { file_path: '/memory.md', content: 'Overwrite' }, /File exists/],
+        ['edit_file', { file_path: '/memory.md', old_string: 'not in memory', new_string: 'Other' }, /Exact text was not found/],
+        ['write_file', { file_path: '/identity.md', content: 'Overwrite' }, /Only memory and Markdown notes/]
+      ] as const) {
+        const result = await execute(name, args)
+        assert.equal(result.success, false)
+        assert.match(result.output, error)
+      }
+      assert.equal(await readFile(join(workspace.root, file), 'utf8'), 'Tea\nTea\nCoffee')
+
+      const memory = await readFile(join(workspace.root, 'memory.md'), 'utf8')
+      const rejectedMemory = await execute('edit_file', { file_path: '/memory.md', old_string: memory, new_string: 'Overwrite' })
+      assert.equal(rejectedMemory.success, false)
+      assert.match(rejectedMemory.output, /Use update_memory/)
+      assert.equal(await readFile(join(workspace.root, 'memory.md'), 'utf8'), memory)
+
+      const replaced = await execute('edit_file', { file_path: file, old_string: 'Tea', new_string: 'Green tea', replace_all: true })
+      assert.equal(replaced.success, true, replaced.output)
+      const edited = await execute('edit_file', { file_path: file, old_string: 'Coffee', new_string: 'Black coffee' })
+      assert.equal(edited.success, true, edited.output)
+      const content = 'Green tea\nGreen tea\nBlack coffee'
+      assert.equal(await readFile(join(workspace.root, file), 'utf8'), content)
+      const saved = JSON.parse(edited.output)
+      assert.equal(saved.revision, revision(content))
+      assert.equal(session.refs.get(saved.source_id), saved.revision)
+      const row = f.runtime.context.db.prepare('SELECT sources FROM context_items WHERE agentId=? AND path=?').get(f.agent.id, file) as { sources: string }
+      assert.deepEqual(JSON.parse(row.sources).map((source: { id: string }) => source.id), ['message:note-source'])
+    } finally {
+      await registry.close()
+    }
+  } finally {
+    await f.close()
+  }
+})
+
 const waitFor = async (ready: () => boolean) => {
   for (let i = 0; i < 500; i++) { if (ready()) return; await new Promise(resolve => setTimeout(resolve, 10)) }
   throw new Error('Fixture boundary did not arrive.')

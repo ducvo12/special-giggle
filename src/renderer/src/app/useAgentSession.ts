@@ -51,16 +51,12 @@ export function useAgentSession() {
   const viewRun = visibleRuns.filter(isLiveRun).at(-1) ?? visibleRuns.at(-1)
   const viewBusy = Boolean(viewRun && isLiveRun(viewRun))
   const busy = runs.some(run => run.agentId === agentId && isLiveRun(run))
-  const activeConversationId = runs.find(run => run.agentId === agentId && isLiveRun(run))?.conversationId ?? ''
   const locked = messages.find(message => message.model)
   const connection = connections.find(item => item.id === (locked?.connectionId ?? viewRun?.connectionId ??
     (locked ? connections.find(item => item.model === locked.model)?.id : undefined) ?? selectedId))
   const modelSelection = useConnectionModel(connection, locked?.model ?? viewRun?.model, conversationId,
     [...messages].reverse().find(message => message.model)?.effort)
   const agent = agents.find(item => item.id === agentId)
-  const section = organization.sections.find(item => item.id === location.sectionId)
-  const project = organization.projects.find(item => item.id === location.projectId)
-  const runUnavailable = ''
   const details = viewRun ? runDetails.current.get(viewRun.id) : undefined
   const approval = details?.approval ?? null
   const activity = details?.activity ?? emptyActivity()
@@ -72,6 +68,15 @@ export function useAgentSession() {
     setLocation(next)
   }
   function isViewing(owner: string, id: string) { return visible.current.owner === owner && visible.current.id === id }
+  function clearDraftFor(owner: string, id: string) {
+    const key = JSON.stringify({ owner, id })
+    drafts.current.delete(key)
+    attachmentDrafts.current.delete(key)
+    if (isViewing(owner, id)) {
+      setDraftState('')
+      setAttachmentsState([])
+    }
+  }
   function setDraft(value: string) {
     drafts.current.set(JSON.stringify(visible.current), value)
     setDraftState(value)
@@ -87,7 +92,9 @@ export function useAgentSession() {
     setRuns([...runRecords.current.values()])
   }
   function latestStream(owner: string, id: string) {
-    return [...streams.current.values()].filter(stream => stream.matches(owner, id)).at(-1)
+    const liveRun = runRecords.current ? [...runRecords.current.values()].find(run => run.agentId === owner && run.conversationId === id && isLiveRun(run)) : undefined
+    if (!liveRun) return undefined
+    return streams.current.get(liveRun.id)
   }
 
   async function refreshList(owner = currentAgent.current) {
@@ -114,9 +121,12 @@ export function useAgentSession() {
       if (token !== conversationSelection.current || currentAgent.current !== owner) return
       if (!result.ok) throw new Error(result.error)
       updateLocation({ sectionId: result.value.sectionId, projectId: result.value.projectId })
-      const stream = latestStream(owner, id)
-      if (stream && !stream.messages.length) stream.messages = result.value.messages
-      setMessages(stream?.messages ?? result.value.messages)
+      const activeStream = latestStream(owner, id)
+      if (activeStream && activeStream.messages.length) {
+        setMessages(activeStream.messages)
+      } else {
+        setMessages(result.value.messages)
+      }
     } catch (error) {
       if (token === conversationSelection.current) setError(error instanceof Error ? error.message : bridgeError)
     } finally {
@@ -171,7 +181,7 @@ export function useAgentSession() {
       }
       setRuns(saved.value)
     }
-    if (notice.ok && (notice.value.active || notice.value.pending || notice.value.repositories || notice.value.previews)) setRecovery(notice.value)
+    if (notice.ok && (notice.value.active || notice.value.pending || notice.value.repositories || notice.value.previews || notice.value.agentDeletions?.length)) setRecovery(notice.value)
   }
 
   useEffect(() => {
@@ -190,8 +200,16 @@ export function useAgentSession() {
         stream = new ConversationStream(run.id, run.agentId, run.conversationId, [])
         streams.current.set(run.id, stream)
       }
-      if (delta.messages) stream.messages = delta.messages
-      else stream.apply(delta)
+      if (delta.messages) {
+        stream.messages = delta.messages
+        if (delta.messages.some(m => m.role === 'user' && (m.runId === delta.requestId || m.id === delta.requestId))) {
+          clearDraftFor(run.agentId, run.conversationId)
+          submissions.current.delete(JSON.stringify({ owner: run.agentId, id: run.conversationId }))
+          setSubmitting(submissions.current.size > 0)
+        }
+      } else {
+        stream.apply(delta)
+      }
       if (isViewing(run.agentId, run.conversationId)) {
         setMessages([...stream.messages])
         // Approval-only deltas also need a render.
@@ -238,20 +256,19 @@ export function useAgentSession() {
     }
     const stream = streams.current.get(requestId)
     if (stream) stream.messages = result.value.messages
+    streams.current.delete(requestId)
     if (isViewing(owner, id)) setMessages(result.value.messages)
     await refreshList(owner)
     return result.value
   }
 
   async function submit(intent: RunIntent = 'message') {
-    if (agentOperation.current || !connection || !modelSelection.ready || !agent || runUnavailable || !loaded ||
+    if (agentOperation.current || !connection || !modelSelection.ready || !agent || !loaded ||
       intent === 'message' && !draft.trim() && !attachments.length) return
     const owner = agent.id
     let text = ''
     try { text = intent === 'message' ? messageWithAttachments(draft, attachments) : '' }
     catch (error) { setError(error instanceof Error ? error.message : 'Could not prepare attachments.'); return }
-    const originalDraft = draft
-    const originalAttachments = attachments
     const submitKey = JSON.stringify(visible.current)
     if (submissions.current.has(submitKey)) return
     submissions.current.add(submitKey)
@@ -261,7 +278,6 @@ export function useAgentSession() {
     const token = conversationSelection.current
     let id = conversationId
     setError('')
-    if (intent === 'message') { setDraft(''); setAttachments([]) }
     follow.current = true
     try {
       if (!id) {
@@ -280,8 +296,6 @@ export function useAgentSession() {
       // returns immediately and names the existing run. Neither blocks navigation.
       const pending = window.granite.stream(requestId, owner, id, connection.id, text,
         connection.provider === 'chatgpt' ? modelSelection.model : undefined, modelSelection.effort, intent)
-      submissions.current.delete(submitKey)
-      setSubmitting(submissions.current.size > 0)
       const result = await pending
       finishTiming(requestId)
       if (!result.ok) {
@@ -293,6 +307,8 @@ export function useAgentSession() {
         }
         if (isViewing(owner, id)) setError(result.error)
         await refreshRecovery()
+      } else {
+        clearDraftFor(owner, id)
       }
       if (result.ok && result.value.steered) {
         // The live run already emitted its accepted message snapshot. Reading a
@@ -300,12 +316,10 @@ export function useAgentSession() {
         await refreshList(owner)
         return
       }
-      const detail = await finishConversation(owner, id, requestId)
-      if (!result.ok && text && isViewing(owner, id) && !detail?.messages.some(message => message.role === 'user' && message.runId === requestId)) { setDraft(originalDraft); setAttachments(originalAttachments) }
+      await finishConversation(owner, id, requestId)
     } catch (error) {
       if (isViewing(owner, id)) {
         setError(error instanceof Error ? error.message : bridgeError)
-        if (text) { setDraft(originalDraft); setAttachments(originalAttachments) }
       }
     } finally {
       submissions.current.delete(submitKey)
@@ -372,6 +386,7 @@ export function useAgentSession() {
       setRuns([...runRecords.current.values()])
       localStorage.removeItem(`granite.conversation.${id}`)
       if (id === currentAgent.current) await selectAgent(remaining[0]?.id ?? '')
+      if (result.value.cleanupPending) await refreshRecovery()
       return true
     } catch (error) { setError(error instanceof Error ? error.message : bridgeError); return false }
     finally { agentOperation.current = false; setManagingAgents(false) }
@@ -422,9 +437,9 @@ export function useAgentSession() {
 
   return {
     agents, managingAgents, agentId, agent, connections, setConnections, selectedId, setSelectedId, connection,
-    modelSelection, conversations, organization, location, runUnavailable, selectLocation, changeOrganization,
+    modelSelection, conversations, organization, location, selectLocation, changeOrganization,
     moveConversation, conversationId, loaded, messages, draft, setDraft, attachments, setAttachments, busy, viewBusy, viewRun, runs, submitting,
-    activeConversationId, stopping, approval, activity, elapsed, error, setError, end, follow,
+    stopping, approval, activity, elapsed, error, setError, end, follow,
     loadConversation, selectAgent, stop, deleteAgent, deleteConversation, renameConversation, newChat,
     send: () => submit(), continueRun: () => submit('continue'), runPending: () => submit('pending'), recovery,
     async cancelPending() {

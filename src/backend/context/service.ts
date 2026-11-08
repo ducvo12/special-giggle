@@ -2,7 +2,7 @@ import { readdir, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import type { AgentStore } from '../agents/store.ts'
-import type { ContextDocument, ContextFilters, ContextReference } from '../../shared/context.ts'
+import type { ContextDocument } from '../../shared/context.ts'
 import { ContextStore, revision } from './store.ts'
 import { textFile, publishText, locked } from './files.ts'
 
@@ -23,13 +23,15 @@ export class ContextService extends ContextStore {
     const row = this.db.prepare('SELECT * FROM context_documents WHERE id=? AND agentId=?').get(id, agentId) as ContextDocument | undefined
     if (!row) return false
     const sectionId = path.startsWith('/sections/') ? path.split('/')[2] : null
-    let targetMode: 'shared' | 'closed'
-    try { targetMode = sectionId ? this.agents.organization.section(agentId, sectionId).mode : 'shared' } catch { return false }
+    const sections = this.agents.organization.snapshot(agentId).sections
+    const target = sectionId ? sections.find(section => section.id === sectionId) : undefined
+    if (sectionId && !target) return false
+    const targetMode = target?.mode ?? 'shared'
     if (row.conversationId) {
       const chat = this.agents.get(agentId, row.conversationId)
       if (chat.retention !== 'permanent') return false
     }
-    return targetMode === 'closed' ? row.sectionId === sectionId : !row.sectionId || this.agents.organization.section(agentId, row.sectionId).mode === 'shared'
+    return targetMode === 'closed' ? row.sectionId === sectionId : !row.sectionId || sections.some(section => section.id === row.sectionId && section.mode === 'shared')
   }
 
   async cleanManaged(agentId: string) {
@@ -113,11 +115,9 @@ export class ContextService extends ContextStore {
       .all(agentId) as { conversationId: string; content: string; revision: string; sources: string; boundary: string }[]
     for (const row of rows) {
       let valid = row.boundary === this.boundary(row.conversationId)
-      try {
-        for (const source of JSON.parse(row.sources) as Support[]) {
-          if (this.get(agentId, row.conversationId, source.id).revision !== source.revision) valid = false
-        }
-      } catch { valid = false }
+      for (const source of JSON.parse(row.sources) as Support[]) {
+        if (this.find(agentId, row.conversationId, source.id)?.revision !== source.revision) valid = false
+      }
       if (!valid) this.db.prepare("DELETE FROM context_documents WHERE id=?").run(`summary:${row.conversationId}`)
     }
   }

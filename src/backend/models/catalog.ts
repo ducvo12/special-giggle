@@ -17,7 +17,9 @@ export function reasoningMetadata(model: any): Pick<ModelOption, 'reasoningLevel
 }
 
 export function contextMetadata(model: any): Pick<ModelOption, 'contextWindow' | 'maxOutputTokens'> {
-  const positive = (values: unknown[]) => values.find(value => typeof value === 'number' && Number.isSafeInteger(value) && value > 0) as number | undefined
+  const positive = (values: unknown[]) => values.find((value): value is number =>
+    typeof value === 'number' && Number.isSafeInteger(value) && value > 0
+  )
   const contextWindow = positive([model.effective_context_window, model.context_window, model.context_length, model.max_context_length, model.top_provider?.context_length])
   const maxOutputTokens = positive([model.max_output_tokens, model.max_output_length, model.top_provider?.max_completion_tokens])
   return { ...(contextWindow ? { contextWindow } : {}), ...(maxOutputTokens ? { maxOutputTokens } : {}) }

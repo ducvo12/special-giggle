@@ -30,7 +30,7 @@ test('empty completion envelopes retain completed streamed repository calls and 
     const call = { type: 'function_call', id: 'item-call', call_id: 'stream-call', name: 'repo_list', namespace: 'granite',
       status: 'completed', arguments: JSON.stringify({ project_id: project.id, path: '' }) }
     const reasoning = { type: 'reasoning', id: 'reasoning', summary: [], encrypted_content: 'opaque-test-state' }
-    context.mock.method(globalThis, 'fetch', async (_url, init) => {
+    context.mock.method(globalThis, 'fetch', async (_url: Parameters<typeof fetch>[0], init?: RequestInit) => {
       const body = JSON.parse(String(init?.body))
       requests++
       if (requests === 1) return streamedEvents([

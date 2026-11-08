@@ -2,7 +2,7 @@ import { ContextService } from '../context/service.ts'
 import { ContextSession, safeHistory } from '../context/session.ts'
 import { revision } from '../context/store.ts'
 import { isAbsolute, join } from 'node:path'
-import { mkdirSync, rmdirSync, rmSync } from 'node:fs'
+import { mkdirSync, rmdirSync } from 'node:fs'
 import { mkdir, realpath, stat } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { isLiveRun, locksChat, type RunIntent, type RunPhase, type RunSnapshot } from '../../shared/run.ts'
@@ -22,6 +22,7 @@ import { AgentFilesystem } from '../workspace/filesystem.ts'
 import type { ConversationLocation, SectionMode } from '../../shared/organization.ts'
 import { AgentStore } from './store.ts'
 import { AgentRegistry } from './registry.ts'
+import { AgentDeletions } from './deletion.ts'
 import { QuestionQueue } from '../harness/questions.ts'
 import { ApprovalQueue } from '../harness/approvals.ts'
 import { runHarness } from '../harness/loop.ts'
@@ -49,12 +50,12 @@ type Job = {
   generation?: AbortController
   emit: (delta: StreamDelta) => void
   done: Promise<{ stopped: boolean }>
+  accepting: boolean
 }
 
 export class AgentRuntime {
   store: AgentStore
   registry: AgentRegistry
-  active: { id: string; controller: AbortController } | null = null
   approvals = new ApprovalQueue()
   questions = new QuestionQueue()
   private scheduler = new ModelScheduler()
@@ -65,13 +66,14 @@ export class AgentRuntime {
   previews: PreviewManager
   private jobs = new Map<string, Job>()
   private chats = new Map<string, Job>()
+  deletions: AgentDeletions
 
   isChatActive(id: string) {
     return [...this.jobs.values()].some(job => job.run.conversationId === id && locksChat(job.run))
   }
 
   private agentWorking(agentId: string) {
-    return Boolean(this.active) || [...this.jobs.values()].some(job => job.run.agentId === agentId && locksChat(job.run))
+    return [...this.jobs.values()].some(job => job.run.agentId === agentId && locksChat(job.run))
   }
 
   listRuns() {
@@ -97,7 +99,8 @@ export class AgentRuntime {
   private changingAgents = false
 
   private directory: string
-  private constructor(store: AgentStore, registry: AgentRegistry, directory: string) {
+  private constructor(store: AgentStore, registry: AgentRegistry, directory: string, deletions: AgentDeletions) {
+    this.deletions = deletions
     this.directory = directory
     this.store = store
     this.registry = registry
@@ -110,11 +113,14 @@ export class AgentRuntime {
   static async open(directory: string) {
     await mkdir(directory, { recursive: true })
     directory = await realpath(directory)
-    const registry = await AgentRegistry.open(directory)
-
     // Retain the original database filename, including existing WAL/checkpoints.
-    const runtime = new AgentRuntime(new AgentStore(join(directory, 'atlas.sqlite')), registry, directory)
+    const store = new AgentStore(join(directory, 'atlas.sqlite'))
+    let runtime: AgentRuntime | undefined
     try {
+      const deletions = new AgentDeletions(directory, store)
+      deletions.recover()
+      const registry = await AgentRegistry.open(directory, deletions.blocked)
+      runtime = new AgentRuntime(store, registry, directory, deletions)
       for (const agent of await registry.list()) {
         runtime.store.organization.ensureGeneral(agent.id)
         const workspace = await registry.workspace(agent.id)
@@ -125,13 +131,14 @@ export class AgentRuntime {
       await runtime.repositories.recoverAll()
       return runtime
     } catch (error) {
-      runtime.close()
+      if (runtime) runtime.close()
+      else store.close()
       throw error
     }
   }
 
   recovery() {
-    return { ...this.store.runs.recovery(), previews: this.previews.interruptedCount(), repositories: this.repositories.records().filter(record => record.report.state === 'attention').length }
+    return { ...this.store.runs.recovery(), agentDeletions: this.deletions.issues.length ? [...this.deletions.issues] : undefined, previews: this.previews.interruptedCount(), repositories: this.repositories.records().filter(record => record.report.state === 'attention').length }
   }
 
   async createRepository(agentId: string, projectId: string) {
@@ -212,20 +219,17 @@ export class AgentRuntime {
     this.changingAgents = true
 
     try {
-      const workspace = await this.registry.workspace(agentId)
+      await this.registry.workspace(agentId)
       await this.previews.stopAgent(agentId)
 
-      // Run in the worker, synchronously inside the transaction: a filesystem
-      // failure rolls back database deletion, and no other request interleaves.
-      this.store.saver.db.transaction(() => {
+      return this.deletions.delete(agentId, () => {
         this.previews.remove(agentId)
         this.authorization.remove(agentId)
         this.repositories.removeRecords(agentId)
         this.context.db.prepare('DELETE FROM context_items WHERE agentId=?').run(agentId)
         this.context.db.prepare('DELETE FROM context_documents WHERE agentId=?').run(agentId)
         this.store.deleteAgent(agentId)
-        rmSync(workspace.root, { recursive: true })
-      })()
+      })
     } finally {
       this.changingAgents = false
     }
@@ -330,7 +334,7 @@ export class AgentRuntime {
   }
 
   async moveConversation(agentId: string, id: string, location: ConversationLocation) {
-    if (this.active || this.isChatActive(id)) throw new Error('Finish the current operation before moving this chat.')
+    if (this.isChatActive(id)) throw new Error('Finish the current operation before moving this chat.')
     return this.changeOrganization(agentId, () => {
       if (this.isChatActive(id)) throw new Error('Finish the current operation before moving this chat.')
       this.store.organization.move(agentId, id, location)
@@ -339,7 +343,7 @@ export class AgentRuntime {
   }
 
   async renameConversation(agentId: string, id: string, title: string) {
-    if (this.active || this.editingIdentity || this.changingAgents) {
+    if (this.isChatActive(id) || this.editingIdentity || this.changingAgents) {
       throw new Error('Finish the current operation before renaming a conversation.')
     }
     this.changingAgents = true
@@ -352,7 +356,7 @@ export class AgentRuntime {
   }
 
   async deleteConversation(agentId: string, id: string) {
-    if (this.active || [...this.jobs.values()].some(job => job.run.conversationId === id) || this.editingIdentity || this.changingAgents) {
+    if ([...this.jobs.values()].some(job => job.run.conversationId === id) || this.editingIdentity || this.changingAgents) {
       throw new Error('Finish the current operation before deleting a conversation.')
     }
 
@@ -374,7 +378,6 @@ export class AgentRuntime {
   }
 
   stop(id: string) {
-    if (this.active?.id === id) this.active.controller.abort()
     const job = this.jobs.get(id)
     if (!job || job.controller.signal.aborted) { void this.previews.stopRun(id).catch(() => {}); return }
     this.publish(job, 'stopping')
@@ -452,6 +455,7 @@ export class AgentRuntime {
   }
 
   private validateLocation(agentId: string, conversationId: string) {
+    this.deletions.assertAvailable(agentId)
     const conversation = this.store.get(agentId, conversationId)
     if (conversation.retention === 'temporary') throw new Error('Temporary-chat runs are not available until expiry and memory isolation are implemented.')
     if (conversation.projectId && this.store.organization.project(agentId, conversation.projectId).repositoryPath) this.repositories.assertAvailable(conversation.projectId)
@@ -474,7 +478,7 @@ export class AgentRuntime {
     this.validateLocation(agentId, conversationId)
     this.store.runs.bind(agentId, conversationId, connection)
     const current = this.chats.get(conversationId)
-    if (current && current.run.phase !== 'stopping') {
+    if (current?.accepting && current.run.phase !== 'stopping') {
       if (intent !== 'message') throw new Error('This chat already has pending or active work.')
       const message = this.store.runs.append(current.run, text.trim())
       const projectId = this.store.get(agentId, conversationId).projectId
@@ -496,10 +500,10 @@ export class AgentRuntime {
       id: requestId, agentId, conversationId, phase: 'queued', model: connection.model,
       connectionId: connection.connectionId, effort: connection.effort,
       createdAt: Date.now(), startedAt: null, endedAt: null, messageIds: [],
-      queue: { reason: current ? 'Waiting for the stopped run to finish cleanup' : 'Waiting for model capacity', position: 1 }
+      queue: { reason: current ? 'Waiting for the previous run to finish cleanup' : 'Waiting for model capacity', position: 1 }
     }
     this.store.runs.accept(run, intent === 'continue' ? 'Continue the interrupted task using the original request, corrections and actual completed outcomes. Do not repeat completed actions.' : text.trim(), existing)
-    const job: Job = { run, controller: new AbortController(), emit, done: Promise.resolve({ stopped: false }) }
+    const job: Job = { run, controller: new AbortController(), emit, done: Promise.resolve({ stopped: false }), accepting: true }
     this.jobs.set(requestId, job)
     this.chats.set(conversationId, job)
     this.publish(job)
@@ -769,7 +773,9 @@ export class AgentRuntime {
         // Closing optional transports is asynchronous. Messages accepted during
         // that boundary still belong to this run and must precede finalization.
       } while (this.store.runs.pending(run).length)
+      job.accepting = false
       await settleRepository()
+      signal.throwIfAborted()
       this.store.saver.db.transaction(() => {
         this.store.saveModelState(conversationId, sessionKey(connection), state!)
         this.store.finish(conversationId, turn!.message, 'complete')
@@ -780,6 +786,7 @@ export class AgentRuntime {
       this.publishMessages(job)
       return { stopped: false }
     } catch (error) {
+      job.accepting = false
       await this.previews.stopRun(run.id).catch(() => {}) // durable preview record retains cleanup failures for review
       await settleRepository()
       const stopped = signal.aborted
@@ -799,11 +806,14 @@ export class AgentRuntime {
       if (stopped) return { stopped: true }
       if (error instanceof ModelAccessError) throw error
       throw new Error(safe)
-    } finally { this.authorization.end(run.id); releaseProject?.() }
+    } finally {
+      try { this.authorization.end(run.id) }
+      finally { releaseProject?.() }
+    }
   }
 
   close() {
-    if (this.active || this.jobs.size || this.previews.hasActive()) throw new Error('Stop the agent before closing the runtime.')
+    if (this.jobs.size || this.previews.hasActive()) throw new Error('Stop the agent before closing the runtime.')
     this.store.close()
   }
 }

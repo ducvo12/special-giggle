@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { lstat, readdir, readFile } from 'node:fs/promises'
 import { searchRepository } from '../../repositories/search.ts'
 import type { ToolDefinition } from '../types.ts'
+import { defineTool } from './define.ts'
 import type { RepositoryTarget } from '../../repositories/access.ts'
 import { setupCommand } from '../../repositories/authorization.ts'
 import { userAuthorized } from '../../repositories/access.ts'
@@ -22,9 +23,8 @@ export interface RepositoryTools {
 export function repositoryTools(context: RepositoryTools): ToolDefinition[] {
   const project = z.string().min(1).max(100), path = z.string().max(1024)
   const revision = z.string().regex(/^[a-f0-9]{64}$/)
-  const define = (name: string, description: string, schema: z.ZodType, run: (args: any) => Promise<unknown>): ToolDefinition => ({
-    name, description, parameters: z.toJSONSchema(schema, { target: 'draft-7' }), permission: 'repository', run
-  })
+  const define = <Schema extends z.ZodObject>(name: string, description: string, schema: Schema, run: (args: z.output<Schema>) => Promise<unknown>) =>
+    defineTool(name, description, schema, 'repository', run)
   const target = (id: string) => {
     const found = context.access().find(target => target.projectId === id)
     if (!found) throw new Error('Repository is unavailable in this chat.')
@@ -62,10 +62,15 @@ export function repositoryTools(context: RepositoryTools): ToolDefinition[] {
   // No mutation schemas are exposed to outside chats, even if they know names.
   if (context.owner) {
     const commandApproval = async (args: any) => {
-      own()
-      if (args.network && context.authorization?.denied(own().record.runId, args.command)) throw new Error('Network permission was denied or revoked for this task. Wait for a new explicit user request; do not ask repeatedly or use another tool to bypass it.')
-      return args.network && !(context.authorization?.allowed(own().record.runId, args.command) ?? userAuthorized(context.userMessages(), 'command', args.command))
-        ? { kind: 'terminal' as const, title: 'Allow network access for this command?', detail: `${args.command}\n\nRepository: ${own().record.report.name}\nWorking directory: ${args.cwd || '/'}\n${setupCommand(args.command) ? 'Covers this package setup and necessary dependency installation steps in this task. ' : 'This command only. '}Network access and dependency/remote effects are not undone by Stop.` } : null
+      const record = own().record
+      if (!args.network) return null
+      if (context.authorization?.denied(record.runId, args.command)) throw new Error('Network permission was denied or revoked for this task. Wait for a new explicit user request; do not ask repeatedly or use another tool to bypass it.')
+      if (context.authorization?.allowed(record.runId, args.command) ?? userAuthorized(context.userMessages(), 'command', args.command)) return null
+      return {
+        kind: 'terminal' as const,
+        title: 'Allow network access for this command?',
+        detail: `${args.command}\n\nRepository: ${record.report.name}\nWorking directory: ${args.cwd || '/'}\n${setupCommand(args.command) ? 'Covers this package setup and necessary dependency installation steps in this task. ' : 'This command only. '}Network access and dependency/remote effects are not undone by Stop.`
+      }
     }
     const commandApproved = (args: any, allowed: boolean) => {
       const record = own().record
@@ -81,8 +86,8 @@ export function repositoryTools(context: RepositoryTools): ToolDefinition[] {
       define('repo_patch', 'Apply unified diff hunks beginning with @@ to one freshly read text file. Git applies the patch in scratch storage before a guarded repository write.', z.object({ path, patch: z.string().max(100_000), revision }), async args => own().patch(args.path, args.patch, args.revision)),
       define('repo_rename', 'Rename one freshly read file to a new relative path. Existing destinations are never overwritten.', z.object({ path, destination: path, revision }), async args => own().move(args.path, args.destination, args.revision)),
       define('repo_delete', 'Delete one freshly read file, only if its revision is unchanged.', z.object({ path, revision }), async args => own().remove(args.path, args.revision)),
-      { ...define('repo_command', 'Run a noninteractive command until completion or Stop. Use repo_command_start for commands that may prompt or need incremental output. Commands share this run’s isolated HOME/cache. Finished changes are imported with revision guards; unfinished changes are discarded. Network needs authorization. Requires terminal enabled.', z.object({ command: z.string().min(1), cwd: z.string().default(''), network: z.boolean().default(false) }), async args => own().command('/bin/sh', ['-c', args.command], args.cwd, false, args.network)), approval: commandApproval, approved: commandApproved },
-      { ...define('repo_command_start', 'Start a supervised command session in an isolated repository copy. Returns a session ID, incremental output, status and inputRevision. Interactive sessions have a real terminal. Use repo_command_read/input/stop until finished; do not finalize while a session is running. Changes remain staged until completion, then are imported with revision guards. One active command per repository run; HOME/cache persist across its commands. Network needs authorization.', z.object({ command: z.string().min(1), cwd: z.string().default(''), network: z.boolean().default(false), interactive: z.boolean().default(true), columns: z.number().int().min(20).max(500).default(100), rows: z.number().int().min(2).max(200).default(30) }), async args => own().startCommand(args.command, args.cwd, args.network, args.interactive, args.columns, args.rows)), permission: 'terminal', approval: commandApproval, approved: commandApproved },
+      { ...define('repo_command', 'Run a noninteractive command until completion or Stop. Use repo_command_start for commands that may prompt or need incremental output. Commands share this run’s isolated HOME/cache. Finished changes are imported with revision guards; unfinished changes are discarded. Network needs authorization. Requires terminal enabled.', z.object({ command: z.string().min(1), cwd: z.string().default(''), network: z.boolean().default(false) }), async args => own().command('/bin/sh', ['-c', args.command], { cwd: args.cwd, network: args.network })), approval: commandApproval, approved: commandApproved },
+      { ...define('repo_command_start', 'Start a supervised command session in an isolated repository copy. Returns a session ID, incremental output, status and inputRevision. Interactive sessions have a real terminal. Use repo_command_read/input/stop until finished; do not finalize while a session is running. Changes remain staged until completion, then are imported with revision guards. One active command per repository run; HOME/cache persist across its commands. Network needs authorization.', z.object({ command: z.string().min(1), cwd: z.string().default(''), network: z.boolean().default(false), interactive: z.boolean().default(true), columns: z.number().int().min(20).max(500).default(100), rows: z.number().int().min(2).max(200).default(30) }), async args => own().startCommand(args.command, { cwd: args.cwd, network: args.network, interactive: args.interactive, columns: args.columns, rows: args.rows })), permission: 'terminal', approval: commandApproval, approved: commandApproved },
       { ...define('repo_command_read', 'Read this run’s command status and a bounded plain-text output page. offset/nextOffset are output positions. wait_ms waits for progress, not an execution timeout. Observe publication/status before reporting success. No sessions are exposed across runs.', z.object({ session_id: sessionId, offset: z.number().int().min(0).default(0), wait_ms: z.number().int().min(0).max(10_000).default(1000) }), async args => own().readCommand(args.session_id, args.offset, args.wait_ms)), permission: 'terminal', approval: async () => null },
       { ...define('repo_command_input', 'Send input to a running session using its current inputRevision. Include newline/return to submit an answer; control characters such as Ctrl-C are supported. Stale input is rejected. Optional columns/rows resize the terminal. Answer only choices already known from the task; use ask_user when a consequential choice is missing; keep the session open while waiting.', z.object({ session_id: sessionId, input_revision: z.number().int().min(0), data: z.string().max(16_000).default(''), columns: z.number().int().min(20).max(500).optional(), rows: z.number().int().min(2).max(200).optional() }).refine(args => (args.columns === undefined) === (args.rows === undefined), 'Supply columns and rows together.'), async args => own().inputCommand(args.session_id, args.input_revision, args.data, args.columns, args.rows)), permission: 'terminal', approval: async () => null },
       { ...define('repo_command_stop', 'Stop this run’s command session and discard unfinished staged changes. Completed prior edits remain. Review interrupted external outcomes; do not silently replay them.', z.object({ session_id: sessionId }), async args => own().stopCommand(args.session_id)), permission: 'terminal', approval: async () => null })
@@ -119,7 +124,7 @@ export function repositoryTools(context: RepositoryTools): ToolDefinition[] {
       for (const path of args.paths) await repository.paths.check(path)
       const git = gitArguments(args)
       if (session && session.record.projectId === repository.projectId) {
-        return session.command('/usr/bin/git', git, '', mutation, args.operation === 'push', mutation)
+        return session.command('/usr/bin/git', git, { gitWrite: mutation, network: args.operation === 'push', writable: mutation })
       }
       const { runRepositoryProcess } = await import('../../repositories/process.ts')
       return runRepositoryProcess({ root: repository.paths.root, privateRoot: repository.paths.privateRoot,

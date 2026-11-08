@@ -52,6 +52,9 @@ test(
         const tool = registry.definitions.find(tool => tool.name.startsWith('mcp_'))!
         assert.ok(tool)
         assert.equal(approvals.length, 1, 'connection approved before discovery')
+        const invalid = await registry.execute({ id: 'invalid', name: tool.name, arguments: '{"message":42}' })
+        assert.equal(invalid.validationError, true)
+        assert.equal(approvals.length, 1, 'Invalid input never prompts invocation approval')
         const denied = await registry.execute({
           id: 'denied',
           name: tool.name,
@@ -96,6 +99,30 @@ test(
     }
   }
 )
+
+test('MCP defaults are normalized before approval and discovery failures retain their category', { timeout: 15000 }, async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'granite-mcp-schema-'))
+  const runtime = await AgentRuntime.open(directory)
+  try {
+    const agent = await runtime.createAgent('Schemas')
+    const workspace = await runtime.registry.workspace(agent.id)
+    for (const [mode, error] of [['invalid-schema', /Invalid tool schema/], ['too-many', /Too many MCP tools/], ['pagination', /pagination/]] as const) {
+      await assert.rejects(createToolRegistry({ workspace, signal: new AbortController().signal, onTool() {}, approve: async () => true,
+        settings: { ...defaultHarnessSettings, mcpServers: [{ id: mode, name: mode, transport: 'stdio', command: 'node', args: [resolve('tests/fixtures/mcp-server.mjs'), join(directory, 'calls'), mode], url: '', enabled: true }] } }), error)
+    }
+    const previews: string[] = []
+    const registry = await createToolRegistry({ workspace, signal: new AbortController().signal, onTool() {},
+      approve: async (_kind, title, detail) => { if (!title.startsWith('Connect')) previews.push(detail); return true },
+      settings: { ...defaultHarnessSettings, mcpServers: [{ id: 'defaults', name: 'Defaults', transport: 'stdio', command: 'node', args: [resolve('tests/fixtures/mcp-server.mjs'), join(directory, 'calls'), 'defaults'], url: '', enabled: true }] } })
+    try {
+      const tool = registry.definitions.find(tool => tool.name.startsWith('mcp_'))!
+      const result = await registry.execute({ id: 'default', name: tool.name, arguments: '{}' })
+      assert.equal(result.success, true, result.output)
+      assert.match(result.output, /Fallback/)
+      assert.match(previews[0], /Fallback/)
+    } finally { await registry.close() }
+  } finally { runtime.close(); await rm(directory, { recursive: true, force: true }) }
+})
 
 test(
   'terminal executes in a real workspace sandbox, denies protected/outside files and networking, and stops process groups',

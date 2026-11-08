@@ -19,7 +19,6 @@ type Props = {
 export default function ChatGPTConnectionEditor({
   connections,
   editing,
-  original,
   busy,
   models,
   nameInput,
@@ -32,12 +31,7 @@ export default function ChatGPTConnectionEditor({
   const [signingIn, setSigningIn] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
-  const [authMethod, setAuthMethod] = useState<'oauth' | 'apiKey'>(() => {
-    if (editing.apiKey || (original?.hasKey && !editing.accountId)) {
-      return 'apiKey'
-    }
-    return 'oauth'
-  })
+
   const account = accounts.find(item => item.id === editing.accountId)
 
   useEffect(() => {
@@ -81,9 +75,11 @@ export default function ChatGPTConnectionEditor({
       }
 
       setAccounts(current => [...current.filter(item => item.id !== result.value.id), result.value])
-      const duplicate = connections.find(item =>
-        item.id !== editing.id && item.accountId === result.value.id &&
-        (item.provider === 'chatgpt' || item.provider === 'codex')
+      const duplicate = connections.find(
+        item =>
+          item.id !== editing.id &&
+          item.accountId === result.value.id &&
+          (item.provider === 'chatgpt' || item.provider === 'codex')
       )
       if (duplicate) {
         setError(`This account is already connected as “${duplicate.name}”. Sign in with a different account.`)
@@ -141,16 +137,9 @@ export default function ChatGPTConnectionEditor({
     <form
       className="connection-editor"
       onSubmit={event => {
-        if (authMethod === 'oauth') {
-          if (signingIn || !account?.signedIn || !account.planEnabled || !editing.name.trim()) {
-            event.preventDefault()
-            return
-          }
-        } else {
-          if (!editing.name.trim() || (!editing.apiKey.trim() && !original?.hasKey)) {
-            event.preventDefault()
-            return
-          }
+        if (signingIn || !account?.signedIn || !account.planEnabled || !editing.name.trim()) {
+          event.preventDefault()
+          return
         }
         void onSave(event)
       }}
@@ -165,7 +154,7 @@ export default function ChatGPTConnectionEditor({
         </span>
       </div>
 
-      <fieldset disabled={busy || (authMethod === 'oauth' && signingIn)}>
+      <fieldset disabled={busy || signingIn}>
         <label>
           Connection name
 
@@ -175,67 +164,27 @@ export default function ChatGPTConnectionEditor({
             maxLength={100}
             value={editing.name}
             onChange={event => field('name', event.target.value)}
+            placeholder="ChatGPT Personal"
           />
         </label>
 
-        <div className="auth-method-field">
-          <span className="field-label">Authentication method</span>
-          <div className="auth-choice-group" role="radiogroup" aria-label="Authentication method">
-            <label className={`auth-choice-option ${authMethod === 'oauth' ? 'active' : ''}`}>
-              <input
-                type="radio"
-                name="authMethod"
-                value="oauth"
-                checked={authMethod === 'oauth'}
-                onChange={() => setAuthMethod('oauth')}
-              />
-              <span className="auth-choice-label">ChatGPT account (OAuth)</span>
-            </label>
+        <div className="chatgpt-account">
+          <span className="field-hint">ChatGPT account</span>
+          <span>{account?.email ?? 'No account connected'}</span>
+          <div className="connect-actions">
+            {(!account?.signedIn || !account.planEnabled) && (
+              <button type="button" onClick={() => void login()}>
+                {account ? 'Sign in again' : 'Connect ChatGPT account'}
+              </button>
+            )}
 
-            <label className={`auth-choice-option ${authMethod === 'apiKey' ? 'active' : ''}`}>
-              <input
-                type="radio"
-                name="authMethod"
-                value="apiKey"
-                checked={authMethod === 'apiKey'}
-                onChange={() => setAuthMethod('apiKey')}
-              />
-              <span className="auth-choice-label">API key</span>
-            </label>
+            {account?.signedIn && (
+              <button type="button" className="quiet-button" onClick={() => void signOut()}>
+                Sign out of Granite
+              </button>
+            )}
           </div>
         </div>
-
-        {authMethod === 'oauth' ? (
-          <div className="chatgpt-account">
-            <span className="field-hint">ChatGPT account</span>
-            <span>{account?.email ?? 'No account connected'}</span>
-            <div className="connect-actions">
-              {(!account?.signedIn || !account.planEnabled) && (
-                <button type="button" onClick={() => void login()}>
-                  {account ? 'Sign in again' : 'Connect ChatGPT account'}
-                </button>
-              )}
-
-              {account?.signedIn && (
-                <button type="button" className="quiet-button" onClick={() => void signOut()}>
-                  Sign out of Granite
-                </button>
-              )}
-            </div>
-          </div>
-        ) : (
-          <label>
-            API key
-            <input
-              type="password"
-              autoComplete="new-password"
-              required={!original?.hasKey}
-              placeholder={original?.hasKey ? 'Saved key (enter new key to replace)' : 'sk-...'}
-              value={editing.apiKey}
-              onChange={event => field('apiKey', event.target.value)}
-            />
-          </label>
-        )}
 
         <div className="model-field">
           <label>
@@ -245,7 +194,7 @@ export default function ChatGPTConnectionEditor({
               editable
               value={editing.model}
               onChange={event => field('model', event.target.value)}
-              disabled={authMethod === 'oauth' && !account?.planEnabled}
+              disabled={!account?.planEnabled}
               placeholder="Automatic · first available model"
             >
               <SelectOption value="">
@@ -269,7 +218,7 @@ export default function ChatGPTConnectionEditor({
           <button
             type="button"
             className="quiet-button"
-            disabled={authMethod === 'oauth' ? !account?.planEnabled : !editing.apiKey.trim() && !original?.hasKey}
+            disabled={!account?.planEnabled}
             onClick={() => void onLoadModels()}
           >
             Load models
@@ -278,10 +227,19 @@ export default function ChatGPTConnectionEditor({
 
         <label>
           Concurrent model requests
-          <input type="number" min={1} max={32} value={editing.maxConcurrentRequests ?? ''} placeholder="Automatic: 2"
-            onChange={event => field('maxConcurrentRequests', event.target.value ? Number(event.target.value) : undefined)} />
+          <input
+            type="number"
+            min={1}
+            max={32}
+            value={editing.maxConcurrentRequests ?? ''}
+            placeholder="Automatic: 2"
+            onChange={event =>
+              field('maxConcurrentRequests', event.target.value ? Number(event.target.value) : undefined)
+            }
+          />
           <small>Other chats wait in line when this account is at capacity.</small>
         </label>
+
         <label>
           Default reasoning effort
 
@@ -299,11 +257,10 @@ export default function ChatGPTConnectionEditor({
               </SelectOption>
             ))}
           </Select>
-
         </label>
       </fieldset>
 
-      {authMethod === 'oauth' && signingIn && (
+      {signingIn && (
         <div className="connect-actions" role="status">
           <span>
             Complete the account action in your browser.
@@ -339,12 +296,7 @@ export default function ChatGPTConnectionEditor({
 
           <button
             type="submit"
-            disabled={
-              busy ||
-              (authMethod === 'oauth'
-                ? signingIn || !account?.signedIn || !account.planEnabled || !editing.name.trim()
-                : !editing.name.trim() || (!editing.apiKey.trim() && !original?.hasKey))
-            }
+            disabled={busy || signingIn || !account?.signedIn || !account.planEnabled || !editing.name.trim()}
           >
             Save connection
           </button>

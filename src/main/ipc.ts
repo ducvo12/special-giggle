@@ -1,4 +1,6 @@
-import { app, BrowserWindow, dialog, ipcMain, safeStorage, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain as main, safeStorage, shell, utilityProcess } from 'electron'
+import { join } from 'node:path'
+import type { IpcCalls, WorkerAction, WorkerArgs } from '../shared/ipc.ts'
 import { listModels, listModelCatalog, safely } from '../backend/models/api'
 import { ConnectionStore } from '../backend/connections/store'
 import { AgentClient } from './agent-client'
@@ -8,12 +10,16 @@ import { ChatGPTAccounts } from '../backend/auth/chatgpt'
 import { AccountModelCatalog } from '../backend/models/account-catalog'
 import type { HarnessSettings } from '../shared/harness'
 import type { ConversationLocation } from '../shared/organization'
-import type { AgentOrganization } from '../shared/organization'
 import { realpath, stat } from 'node:fs/promises'
 import { RepositoryEditors } from './repository-editors'
 import { ConnectionUsageStore, type UsageBinding } from '../backend/connections/usage'
 
 export function registerIpc(directory: string) {
+  const ipcMain = {
+    handle<Key extends keyof IpcCalls>(channel: Key, listener: (event: Electron.IpcMainInvokeEvent, ...args: Parameters<IpcCalls[Key]>) => Promise<Awaited<ReturnType<IpcCalls[Key]>>> | Awaited<ReturnType<IpcCalls[Key]>>) {
+      main.handle(channel, listener)
+    }
+  }
   const protection = {
     available: () =>
       safeStorage.isEncryptionAvailable() &&
@@ -36,18 +42,18 @@ export function registerIpc(directory: string) {
   const publishUsage = () => {
     for (const window of BrowserWindow.getAllWindows()) window.webContents.send('connections:usage', usage.list())
   }
-  const active = new Map<string, { senderId: number; stopped: boolean; usageBinding?: UsageBinding }>()
+  const active = new Map<string, { stopped: boolean; usageBinding?: UsageBinding }>()
   const agents = new AgentClient(directory, delta => {
     const binding = active.get(delta.requestId)?.usageBinding
     if (binding && delta.rateLimits && usage.observe(binding, delta.rateLimits)) publishUsage()
     for (const window of BrowserWindow.getAllWindows()) window.webContents.send('model:delta', delta)
-  })
+  }, () => utilityProcess.fork(join(__dirname, 'agent-worker.js'), [], { serviceName: 'Granite Agents' }))
   let quitting = false
   app.on('before-quit', event => {
     if (quitting) return
     event.preventDefault()
     quitting = true
-    void agents.call('shutdown').finally(() => app.quit())
+    void agents.shutdown().then(result => { if (!result.ok) console.error(result.error) }).finally(() => app.quit())
   })
 
   function trusted(event: Electron.IpcMainInvokeEvent) {
@@ -60,10 +66,10 @@ export function registerIpc(directory: string) {
   }
 
   async function repositoryFolder(agentId: unknown, projectId: unknown) {
-    if ([agentId, projectId].some(value => typeof value !== 'string' || !value || value.length > 100)) throw new Error('Choose a repository project.')
+    if (typeof agentId !== 'string' || !agentId || agentId.length > 100 || typeof projectId !== 'string' || !projectId || projectId.length > 100) throw new Error('Choose a repository project.')
     const result = await agents.call('organization:get', agentId)
     if (!result.ok) throw new Error(result.error)
-    const project = (result.value as AgentOrganization).projects.find(project => project.id === projectId)
+    const project = result.value.projects.find(project => project.id === projectId)
     if (!project?.repositoryPath) throw new Error('This project has no repository folder.')
     try {
       const folder = await realpath(project.repositoryPath)
@@ -275,7 +281,7 @@ export function registerIpc(directory: string) {
       if ([agentId, chatId, id].some(value => typeof value !== 'string' || !value || value.length > 100)) throw new Error('Invalid preview.')
       const result = await agents.call('previews:list', agentId, chatId)
       if (!result.ok) throw new Error(result.error)
-      const preview = (result.value as import('../shared/setup').PreviewSnapshot[]).find(preview => preview.id === id && preview.status === 'ready')
+      const preview = result.value.find(preview => preview.id === id && preview.status === 'ready')
       if (!preview || preview.url !== `http://127.0.0.1:${preview.port}` || !Number.isInteger(preview.port) || preview.port < 1024 || preview.port > 65535) throw new Error('This preview is not ready.')
       await shell.openExternal(preview.url)
     })
@@ -287,7 +293,7 @@ export function registerIpc(directory: string) {
     return agents.call('repositories:review', agentId, id, runId, acknowledge)
   })
 
-  const routes: Record<string, { action: string; limits: number[] }> = {
+  const routes = {
     'setup:grants': { action: 'setup:grants', limits: [64, 100] },
     'setup:revoke': { action: 'setup:revoke', limits: [64, 100, 100] },
     'previews:list': { action: 'previews:list', limits: [64, 100] },
@@ -319,7 +325,7 @@ export function registerIpc(directory: string) {
     'workspace:entries': { action: 'entries', limits: [64, 1024] },
     'workspace:renameNote': { action: 'workspace:renameNote', limits: [64, 1024, 120] },
     'workspace:read': { action: 'read', limits: [64, 1024] }
-  }
+  } satisfies Partial<Record<keyof IpcCalls, { action: WorkerAction; limits: number[] }>>
 
   function validLocation(value: unknown, optional = false): value is Partial<ConversationLocation> {
     if (value === undefined) return optional
@@ -373,7 +379,7 @@ export function registerIpc(directory: string) {
   })
 
   for (const [channel, { action, limits }] of Object.entries(routes)) {
-    ipcMain.handle(channel, (event, ...args: unknown[]) => {
+    ipcMain.handle(channel as keyof IpcCalls, (event, ...args: unknown[]) => {
       trusted(event)
 
       if (
@@ -383,7 +389,8 @@ export function registerIpc(directory: string) {
         return { ok: false, error: 'Invalid request.' }
       }
 
-      return agents.call(action, ...args)
+      // The table erases the per-channel tuple; string arguments were checked above.
+      return agents.call(action, ...args as WorkerArgs<typeof action>) as Promise<Awaited<ReturnType<IpcCalls[keyof IpcCalls]>>>
     })
   }
 
@@ -418,7 +425,7 @@ export function registerIpc(directory: string) {
           return { ok: false, error: 'This request is invalid or has already been accepted.' }
         }
 
-        const request: { senderId: number; stopped: boolean; usageBinding?: UsageBinding } = { senderId: event.sender.id, stopped: false }
+        const request: { stopped: boolean; usageBinding?: UsageBinding } = { stopped: false }
         active.set(requestId, request)
 
         try {
