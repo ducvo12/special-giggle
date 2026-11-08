@@ -72,6 +72,7 @@ export default function App() {
     stop,
     deleteAgent,
     deleteConversation,
+    keepConversation,
     renameConversation,
     newChat,
     addAgent
@@ -232,6 +233,9 @@ export default function App() {
           <ChatView
             conversationId={conversationId}
             conversationTitle={conversations.find(chat => chat.id === conversationId)?.title}
+            retention={conversations.find(chat => chat.id === conversationId)?.retention}
+            expiresAt={conversations.find(chat => chat.id === conversationId)?.expiresAt}
+            onKeep={async () => { await keepConversation(conversationId) }}
             section={organization.sections.find(section => section.id === location.sectionId)}
             project={organization.projects.find(project => project.id === location.projectId)}
             messageInput={messageInput}

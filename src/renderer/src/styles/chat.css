@@ -21,6 +21,9 @@
 .chat-breadcrumb li + li::before { content: '/'; margin-right: 8px; color: var(--text-muted); }
 .chat-breadcrumb li[aria-current] { color: var(--text-strong); }
 .chat-heading-status { flex-shrink: 0; font-size: 11px; color: var(--text-muted); }
+.temporary-status-group { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.temporary-badge { font-size: 11px; color: var(--accent); background: var(--accent-subtle); padding: 2px 6px; border-radius: 4px; }
+.keep-chat-button { font-size: 11px; padding: 2px 8px; border: 1px solid var(--border-subtle); border-radius: 4px; cursor: pointer; }
 
 .messages {
   flex: 1;

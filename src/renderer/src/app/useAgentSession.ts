@@ -372,6 +372,25 @@ export function useAgentSession() {
     finally { agentOperation.current = false; setManagingAgents(false) }
   }
 
+  async function keepConversation(id: string) {
+    if (agentOperation.current || !loaded) return false
+    agentOperation.current = true
+    setManagingAgents(true)
+    setError('')
+    try {
+      const result = await window.granite.conversations.keep(agentId, id)
+      if (!result.ok) throw new Error(result.error)
+      await refreshList()
+      return true
+    } catch (error) {
+      setError(error instanceof Error ? error.message : bridgeError)
+      return false
+    } finally {
+      agentOperation.current = false
+      setManagingAgents(false)
+    }
+  }
+
   async function deleteAgent(id: string) {
     if (agentOperation.current) return false
     agentOperation.current = true
@@ -440,7 +459,7 @@ export function useAgentSession() {
     modelSelection, conversations, organization, location, selectLocation, changeOrganization,
     moveConversation, conversationId, loaded, messages, draft, setDraft, attachments, setAttachments, busy, viewBusy, viewRun, runs, submitting,
     stopping, approval, activity, elapsed, error, setError, end, follow,
-    loadConversation, selectAgent, stop, deleteAgent, deleteConversation, renameConversation, newChat,
+    loadConversation, selectAgent, stop, deleteAgent, deleteConversation, keepConversation, renameConversation, newChat,
     send: () => submit(), continueRun: () => submit('continue'), runPending: () => submit('pending'), recovery,
     async cancelPending() {
       const result = await window.granite.runs.cancelPending(agentId, conversationId)

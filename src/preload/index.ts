@@ -46,6 +46,8 @@ contextBridge.exposeInMainWorld('granite', {
     skills: agentId => ipcRenderer.invoke('harness:skills', agentId),
     saveSkill: (agentId, name, content) =>
       ipcRenderer.invoke('harness:saveSkill', agentId, name, content),
+    importSkill: (agentId, sourceDir) =>
+      ipcRenderer.invoke('harness:importSkill', agentId, sourceDir),
     answer: (requestId, questionId, answers) => ipcRenderer.invoke('harness:answer', requestId, questionId, answers),
     rejectQuestion: (requestId, questionId) => ipcRenderer.invoke('harness:rejectQuestion', requestId, questionId),
     approve: (requestId, approvalId, allow) =>
@@ -54,7 +56,8 @@ contextBridge.exposeInMainWorld('granite', {
   conversations: {
     saveResponseDuration: (agentId, id, messageId, durationMs) => ipcRenderer.invoke('conversations:responseDuration', agentId, id, messageId, durationMs),
     list: agentId => ipcRenderer.invoke('conversations:list', agentId),
-    create: (agentId, location) => ipcRenderer.invoke('conversations:create', agentId, location),
+    create: (agentId, location, retention) => ipcRenderer.invoke('conversations:create', agentId, location, retention),
+    keep: (agentId, id) => ipcRenderer.invoke('conversations:keep', agentId, id),
     move: (agentId, id, location) => ipcRenderer.invoke('conversations:move', agentId, id, location),
     rename: (agentId, id, title) => ipcRenderer.invoke('conversations:rename', agentId, id, title),
     delete: (agentId, id) => ipcRenderer.invoke('conversations:delete', agentId, id),
@@ -64,12 +67,15 @@ contextBridge.exposeInMainWorld('granite', {
     get: agentId => ipcRenderer.invoke('organization:get', agentId),
     createSection: (agentId, name, mode) => ipcRenderer.invoke('organization:createSection', agentId, name, mode),
     renameSection: (agentId, id, name) => ipcRenderer.invoke('organization:renameSection', agentId, id, name),
+    deleteSection: (agentId, id) => ipcRenderer.invoke('organization:deleteSection', agentId, id),
     shareSection: (agentId, id) => ipcRenderer.invoke('organization:shareSection', agentId, id),
     createProject: (agentId, sectionId, name, repositoryPath, createRepository) => ipcRenderer.invoke('organization:createProject', agentId, sectionId, name, repositoryPath, createRepository),
     pickRepositoryFolder: () => ipcRenderer.invoke('organization:pickRepositoryFolder'),
     renameProject: (agentId, id, name) => ipcRenderer.invoke('organization:renameProject', agentId, id, name),
+    deleteProject: (agentId, id) => ipcRenderer.invoke('organization:deleteProject', agentId, id),
     createRepository: (agentId, projectId) => ipcRenderer.invoke('organization:createRepository', agentId, projectId),
-    chooseRepository: (agentId, projectId) => ipcRenderer.invoke('organization:chooseRepository', agentId, projectId)
+    chooseRepository: (agentId, projectId) => ipcRenderer.invoke('organization:chooseRepository', agentId, projectId),
+    relinkProject: (agentId, id, repositoryPath) => ipcRenderer.invoke('organization:relinkProject', agentId, id, repositoryPath)
   },
   context: { read: (agentId, chatId, sourceId) => ipcRenderer.invoke('context:read', agentId, chatId, sourceId) },
   workspace: {

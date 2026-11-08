@@ -8,7 +8,7 @@ import type { SavedConnection, StreamActivity } from '../../../../shared/chat'
 import MessageList from './MessageList'
 import ChatModelPicker from './ChatModelPicker'
 import type { ModelSelection } from './useConnectionModel'
-import type { Project, Section } from '../../../../shared/organization'
+import type { Project, Section, ChatRetention } from '../../../../shared/organization'
 import type { RunSnapshot } from '../../../../shared/run'
 import RunControls, { runLabel } from './RunControls'
 import QuestionPrompt from './QuestionPrompt'
@@ -19,6 +19,9 @@ import type { ApprovalRequest } from '../../../../shared/harness'
 type Props = {
   conversationId: string
   conversationTitle?: string
+  retention?: ChatRetention
+  expiresAt?: number | null
+  onKeep?: () => Promise<void>
   section?: Section
   project?: Project
   messageInput: RefObject<HTMLTextAreaElement | null>
@@ -61,6 +64,9 @@ type Props = {
 export default function ChatView({
   conversationId,
   conversationTitle,
+  retention,
+  expiresAt,
+  onKeep,
   section,
   project,
   messageInput,
@@ -118,6 +124,18 @@ export default function ChatView({
             </ol>
           </nav>
           <span className="chat-heading-status">{conversationId ? section.mode === 'closed' ? 'Closed' : 'Shared' : 'Unsaved draft'}</span>
+          {retention === 'temporary' && (
+            <div className="temporary-status-group">
+              <span className="temporary-badge" title="Temporary chat will expire after 1 hour of inactivity">
+                {expiresAt ? (expiresAt <= Date.now() ? 'Expiring…' : `Expires in ${Math.ceil((expiresAt - Date.now()) / 60000)}m`) : 'Expires in 1h'}
+              </span>
+              {onKeep && (
+                <button type="button" className="quiet-button keep-chat-button" disabled={busy || submitting} onClick={() => void onKeep()}>
+                  Keep
+                </button>
+              )}
+            </div>
+          )}
           <button className="quiet-button activity-toggle" aria-label={panelOpen ? 'Hide chat details' : 'Show chat details'} title={panelOpen ? 'Hide chat details' : 'Show chat details'}
             aria-expanded={panelOpen} aria-controls="chat-activity-panel" onClick={() => setPanelOpen(open => !open)}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M15 4v16" /></svg>

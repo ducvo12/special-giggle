@@ -1,6 +1,6 @@
 import type { Agent, Conversation, ConversationDetail, ToolActivity, WorkspaceEntry } from './agent'
 import type { ApprovalRequest, ChatGPTAccount, HarnessSettings } from './harness'
-import type { AgentOrganization, ConversationLocation, Project, Section, SectionMode } from './organization'
+import type { AgentOrganization, ChatRetention, ConversationLocation, Project, Section, SectionMode } from './organization'
 import type { RecoveryNotice, RunIntent, RunSnapshot } from './run'
 import type { RepositoryEditorChoices } from './repository-editor'
 import type { ConnectionUsage, RateLimitWindow } from './connection-usage'
@@ -110,6 +110,7 @@ export interface GraniteBridge {
     save: (agentId: string, settings: HarnessSettings) => Promise<Result<HarnessSettings>>
     skills: (agentId: string) => Promise<Result<{ name: string; content: string }[]>>
     saveSkill: (agentId: string, name: string, content: string) => Promise<Result<void>>
+    importSkill: (agentId: string, sourceDir: string) => Promise<Result<{ name: string }>>
     answer: (requestId: string, questionId: string, answers: string[]) => Promise<Result<void>>
     rejectQuestion: (requestId: string, questionId: string) => Promise<Result<void>>
     approve: (requestId: string, approvalId: string, allow: boolean) => Promise<Result<void>>
@@ -117,7 +118,8 @@ export interface GraniteBridge {
   conversations: {
     saveResponseDuration: (agentId: string, id: string, messageId: string, durationMs: number) => Promise<Result<void>>
     list: (agentId: string) => Promise<Result<Conversation[]>>
-    create: (agentId: string, location?: Partial<ConversationLocation>) => Promise<Result<ConversationDetail>>
+    create: (agentId: string, location?: Partial<ConversationLocation>, retention?: ChatRetention) => Promise<Result<ConversationDetail>>
+    keep: (agentId: string, id: string) => Promise<Result<ConversationDetail>>
     move: (agentId: string, id: string, location: ConversationLocation) => Promise<Result<ConversationDetail>>
     rename: (agentId: string, id: string, title: string) => Promise<Result<void>>
     delete: (agentId: string, id: string) => Promise<Result<void>>
@@ -127,12 +129,15 @@ export interface GraniteBridge {
     get: (agentId: string) => Promise<Result<AgentOrganization>>
     createSection: (agentId: string, name: string, mode: SectionMode) => Promise<Result<Section>>
     renameSection: (agentId: string, id: string, name: string) => Promise<Result<Section>>
+    deleteSection: (agentId: string, id: string) => Promise<Result<void>>
     shareSection: (agentId: string, id: string) => Promise<Result<Section>>
     createProject: (agentId: string, sectionId: string, name: string, repositoryPath?: string | null, createRepository?: boolean) => Promise<Result<Project>>
     pickRepositoryFolder: () => Promise<Result<string | null>>
     renameProject: (agentId: string, id: string, name: string) => Promise<Result<Project>>
+    deleteProject: (agentId: string, id: string) => Promise<Result<void>>
     createRepository: (agentId: string, projectId: string) => Promise<Result<Project>>
     chooseRepository: (agentId: string, projectId: string) => Promise<Result<Project | null>>
+    relinkProject: (agentId: string, projectId: string, repositoryPath: string) => Promise<Result<{ project: Project; warning?: string }>>
   }
   context: {
     read: (agentId: string, chatId: string, sourceId: string) => Promise<Result<import('./context').ContextDocument & { items?: { id: string; text: string; source_ids: string[] }[] }>>

@@ -131,16 +131,48 @@ export default function TreeDialog({ action, agent, organization, disabled, onCh
         <p>Memory: {section.mode === 'closed' ? 'Closed' : 'Shared'}</p>
         {section.mode === 'closed' && <><p>Making this section Shared exposes its existing chats and project context to other Shared sections. This cannot be reversed.</p>
           <button disabled={locked} onClick={() => void change(() => api.shareSection(agent.id, section.id))}>Make section Shared</button></>}
-        {section.kind === 'general' && <button className="quiet-button" disabled={locked} onClick={onClose}>Close</button>}
+        {section.kind === 'general' ? <button className="quiet-button" disabled={locked} onClick={onClose}>Close</button> : (
+          <div className="tree-dialog-danger">
+            <button type="button" className="danger-button" disabled={locked} onClick={async () => {
+              if (window.confirm(`Delete section "${section.name}", all its projects, and all its chats? This cannot be undone.`)) {
+                await change(() => api.deleteSection(agent.id, section.id))
+              }
+            }}>Delete section</button>
+          </div>
+        )}
       </div>}
       {action.type === 'project-settings' && project && <div className="tree-dialog-extra">
-        {project.repositoryPath ? <><p>Repository</p><code>{project.repositoryPath}</code></> : <>
+        {project.repositoryPath ? <>
+          <p>Repository</p>
+          <code>{project.repositoryPath}</code>
+          <div className="tree-dialog-repository-actions">
+            <button type="button" disabled={locked} onClick={async () => {
+              const picked = await api.pickRepositoryFolder()
+              if (picked.ok && picked.value) {
+                await change(async () => {
+                  const res = await api.relinkProject(agent.id, project.id, picked.value!)
+                  if (res.ok && res.value.warning) {
+                    setError(res.value.warning)
+                  }
+                  return res
+                }, false)
+              }
+            }}>Relink folder</button>
+          </div>
+        </> : <>
           <p>Linking a folder permanently binds this project and its chats to that repository. Other projects may link the same folder; simultaneous edits can conflict.</p>
           <div className="tree-dialog-repository-actions">
             <button disabled={locked} onClick={() => void change(() => api.chooseRepository(agent.id, project.id))}>Link repository folder</button>
             <button disabled={locked} onClick={() => void change(() => api.createRepository(agent.id, project.id))}>Create repository folder here</button>
           </div>
         </>}
+        <div className="tree-dialog-danger">
+          <button type="button" className="danger-button" disabled={locked} onClick={async () => {
+            if (window.confirm(`Delete project "${project.name}" and all its chats? Your codebase on disk will not be deleted.`)) {
+              await change(() => api.deleteProject(agent.id, project.id))
+            }
+          }}>Delete project</button>
+        </div>
       </div>}
     </div>
   </div>

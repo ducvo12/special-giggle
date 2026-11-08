@@ -82,9 +82,10 @@ export class OrganizationStore {
           WHEN NEW.sectionId IS NOT OLD.sectionId OR NEW.agentId IS NOT OLD.agentId BEGIN
           SELECT RAISE(ABORT, 'Projects cannot move to another section or agent.');
         END;
-        CREATE TRIGGER IF NOT EXISTS project_repository_update BEFORE UPDATE OF repositoryPath ON projects
-          WHEN OLD.repositoryPath IS NOT NULL AND NEW.repositoryPath IS NOT OLD.repositoryPath BEGIN
-          SELECT RAISE(ABORT, 'This project already has a repository. Relinking is not available yet.');
+        DROP TRIGGER IF EXISTS project_repository_update;
+        CREATE TRIGGER IF NOT EXISTS project_repository_detach BEFORE UPDATE OF repositoryPath ON projects
+          WHEN OLD.repositoryPath IS NOT NULL AND NEW.repositoryPath IS NULL BEGIN
+          SELECT RAISE(ABORT, 'Projects with a repository cannot detach back to chat-only.');
         END;
         CREATE TRIGGER IF NOT EXISTS section_mode_update BEFORE UPDATE OF mode ON sections
           WHEN OLD.mode = 'shared' AND NEW.mode != 'shared' BEGIN
@@ -180,6 +181,17 @@ export class OrganizationStore {
     if (typeof path !== 'string' || !path || path.includes('\0')) throw new Error('Choose an existing repository folder.')
     this.db.prepare('UPDATE projects SET repositoryPath = ? WHERE id = ?').run(path, projectId)
     return this.project(agentId, projectId)
+  }
+
+  relinkRepository(agentId: string, projectId: string, path: string): Project {
+    this.project(agentId, projectId)
+    if (typeof path !== 'string' || !path || path.includes('\0')) throw new Error('Choose an existing repository folder.')
+    this.db.prepare('UPDATE projects SET repositoryPath = ? WHERE id = ?').run(path, projectId)
+    return this.project(agentId, projectId)
+  }
+
+  findDuplicateLink(agentId: string, projectId: string, path: string): Project | undefined {
+    return this.db.prepare('SELECT * FROM projects WHERE repositoryPath = ? AND id != ?').get(path, projectId) as Project | undefined
   }
 
   location(agentId: string, input?: Partial<ConversationLocation>, retention: ChatRetention = 'permanent'): ConversationLocation {

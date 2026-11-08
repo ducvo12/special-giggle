@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { access, mkdir, mkdtemp, readdir, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises'
+import { access, mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { AgentRuntime } from '../src/backend/agents/runtime.ts'
@@ -334,6 +334,139 @@ test('chat renaming persists, validates names, and respects ownership and active
     runtime.close()
     runtime = await AgentRuntime.open(directory)
     assert.deepEqual(runtime.store.get(agent.id, chat.id), { ...original, title: 'Renamed chat' })
+  } finally {
+    runtime.close()
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
+test('deleteProject purges project chats and internal folder, but strictly preserves external repository', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'granite-project-delete-'))
+  const externalRepo = await mkdtemp(join(tmpdir(), 'granite-external-repo-'))
+  await writeFile(join(externalRepo, 'main.ts'), 'console.log("preserve me")')
+  const runtime = await AgentRuntime.open(directory)
+
+  try {
+    const agent = await runtime.createAgent('Project Test')
+    const section = await runtime.createSection(agent.id, 'Coding', 'shared')
+    const project = await runtime.createProject(agent.id, section.id, 'My Project', externalRepo)
+
+    const chat = await runtime.createConversation(agent.id, { sectionId: section.id, projectId: project.id })
+    const turn = runtime.store.begin(agent.id, chat.id, 'Hello in project', 'offline')
+    runtime.store.finish(chat.id, turn.message, 'complete')
+
+    assert.equal(runtime.store.list(agent.id).length, 1)
+    const orgBefore = await runtime.organization(agent.id)
+    assert.equal(orgBefore.projects.length, 1)
+
+    // Delete the project
+    await runtime.deleteProject(agent.id, project.id)
+
+    // Project and its chat are removed from Granite
+    const orgAfter = await runtime.organization(agent.id)
+    assert.equal(orgAfter.projects.length, 0)
+    assert.equal(runtime.store.list(agent.id).length, 0)
+
+    // CRITICAL: External repo still exists on disk with all files untouched!
+    await access(join(externalRepo, 'main.ts'))
+    const content = await readFile(join(externalRepo, 'main.ts'), 'utf8')
+    assert.equal(content, 'console.log("preserve me")')
+  } finally {
+    runtime.close()
+    await rm(directory, { recursive: true, force: true })
+    await rm(externalRepo, { recursive: true, force: true })
+  }
+})
+
+test('deleteSection purges custom section, descendant projects and chats, and rejects deleting General', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'granite-section-delete-'))
+  const runtime = await AgentRuntime.open(directory)
+
+  try {
+    const agent = await runtime.createAgent('Section Test')
+    const org = await runtime.organization(agent.id)
+    const general = org.sections.find(s => s.kind === 'general')!
+    await assert.rejects(runtime.deleteSection(agent.id, general.id), /General is the built-in section/)
+
+    const custom = await runtime.createSection(agent.id, 'Research', 'closed')
+    const project = await runtime.createProject(agent.id, custom.id, 'Research Notes')
+    await runtime.createConversation(agent.id, { sectionId: custom.id, projectId: project.id })
+    await runtime.createConversation(agent.id, { sectionId: custom.id })
+
+    assert.equal(runtime.store.list(agent.id).length, 2)
+    assert.equal((await runtime.organization(agent.id)).sections.length, 2)
+
+    await runtime.deleteSection(agent.id, custom.id)
+
+    const orgAfter = await runtime.organization(agent.id)
+    assert.equal(orgAfter.sections.length, 1)
+    assert.equal(orgAfter.projects.length, 0)
+    assert.equal(runtime.store.list(agent.id).length, 0)
+  } finally {
+    runtime.close()
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
+test('relinkProject updates repositoryPath, warns on duplicate link, and prevents detaching to chat-only', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'granite-relink-test-'))
+  const repo1 = await mkdtemp(join(tmpdir(), 'granite-repo1-'))
+  const repo2 = await mkdtemp(join(tmpdir(), 'granite-repo2-'))
+  const runtime = await AgentRuntime.open(directory)
+
+  try {
+    const agent = await runtime.createAgent('Relink Agent')
+    const section = await runtime.createSection(agent.id, 'Projects', 'shared')
+    const p1 = await runtime.createProject(agent.id, section.id, 'P1', repo1)
+    const p2 = await runtime.createProject(agent.id, section.id, 'P2')
+
+    // Relink p1 to repo2
+    const canonicalRepo2 = await realpath(repo2)
+    const result = await runtime.relinkProject(agent.id, p1.id, repo2)
+    assert.equal(result.project.repositoryPath, canonicalRepo2)
+    assert.equal(result.warning, undefined)
+
+    // Linking p2 to repo2 warns about duplicate
+    const p2Relink = await runtime.relinkProject(agent.id, p2.id, repo2)
+    assert.equal(p2Relink.project.repositoryPath, canonicalRepo2)
+    assert.ok(p2Relink.warning?.includes('already linked to Project "P1"'))
+  } finally {
+    runtime.close()
+    await rm(directory, { recursive: true, force: true })
+    await rm(repo1, { recursive: true, force: true })
+    await rm(repo2, { recursive: true, force: true })
+  }
+})
+
+test('temporary chat expiry, keep, and sweep', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'granite-temp-chat-'))
+  const runtime = await AgentRuntime.open(directory)
+
+  try {
+    const agent = await runtime.createAgent('Temporary Chat Agent')
+    // Create temporary chat
+    const tempChat = await runtime.createConversation(agent.id, undefined, 'temporary')
+    assert.equal(tempChat.retention, 'temporary')
+    assert.ok(tempChat.expiresAt !== null)
+    assert.ok(tempChat.expiresAt > Date.now())
+
+    // Keep converts it to permanent
+    const kept = await runtime.keepConversation(agent.id, tempChat.id)
+    assert.equal(kept.retention, 'permanent')
+    assert.equal(kept.expiresAt, null)
+
+    // Cannot keep an already permanent chat
+    await assert.rejects(runtime.keepConversation(agent.id, tempChat.id), /already permanent/)
+
+    // Create another temporary chat and simulate expiry
+    const expiringChat = await runtime.createConversation(agent.id, undefined, 'temporary')
+    runtime.store.touchConversation(agent.id, expiringChat.id, Date.now() - 1000)
+
+    // Sweep deletes expired chat
+    await runtime.sweepExpiredChats()
+    assert.equal(runtime.store.list(agent.id).filter(c => c.id === expiringChat.id).length, 0)
+    // Kept chat survived
+    assert.equal(runtime.store.list(agent.id).filter(c => c.id === tempChat.id).length, 1)
   } finally {
     runtime.close()
     await rm(directory, { recursive: true, force: true })

@@ -85,4 +85,9 @@
 .tree-dialog-extra { margin-top: 20px; }
 .tree-dialog-repository-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
 .tree-dialog-repository-actions [aria-pressed="true"] { background: var(--surface-selected); border-color: var(--focus); }
+.tree-dialog-danger { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end; }
+.danger-button { color: var(--danger, #e5484d); border-color: var(--border-subtle); }
+.danger-button:hover { background: rgba(229, 72, 77, 0.1); border-color: var(--danger, #e5484d); }
+.repository-missing-warning { display: flex; flex-direction: column; gap: 4px; padding: 4px 8px; }
+.relink-button { align-self: flex-start; font-size: 11px; padding: 2px 6px; border: 1px solid var(--border-subtle); border-radius: 4px; }
 @media (max-width: 900px) { .file-sidebar { --sidebar-inset: 10px; width: 240px; padding: 18px var(--sidebar-inset) 14px; } }

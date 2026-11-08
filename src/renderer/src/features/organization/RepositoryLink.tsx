@@ -51,6 +51,18 @@ export default function RepositoryLink({ agentId, project, disabled, choices, on
         { label: 'Choose another application…', action: () => void open(undefined, true) }
       ]} />
     </div>
-    {error && <p className="repository-open-error" role="alert">{error}</p>}
+    {error && (
+      <div className="repository-missing-warning">
+        <p className="repository-open-error" role="alert">{error}</p>
+        <button type="button" className="quiet-button relink-button" disabled={disabled || working} onClick={async () => {
+          const picked = await window.granite.organization.pickRepositoryFolder()
+          if (picked.ok && picked.value) {
+            const relink = await window.granite.organization.relinkProject(agentId, project.id, picked.value)
+            if (relink.ok) setError(relink.value.warning ?? '')
+            else setError(relink.error)
+          }
+        }}>Relink folder</button>
+      </div>
+    )}
   </div>
 }

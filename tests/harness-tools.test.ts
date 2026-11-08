@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, rm, writeFile, symlink } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile, symlink, mkdir } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { AgentRuntime } from '../src/backend/agents/runtime.ts'
@@ -177,3 +177,34 @@ test(
     }
   }
 )
+
+test('skill package import copies SKILL.md and resources into tools/skills without script execution', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'granite-skills-'))
+  const packageDir = await mkdtemp(join(tmpdir(), 'test-skill-'))
+  await writeFile(join(packageDir, 'SKILL.md'), '# Test Skill Instructions')
+  await mkdir(join(packageDir, 'references'))
+  await writeFile(join(packageDir, 'references', 'guide.md'), 'Guide content')
+
+  const runtime = await AgentRuntime.open(directory)
+
+  try {
+    const agent = await runtime.createAgent('Skill Agent')
+    const imported = await runtime.importSkill(agent.id, packageDir)
+    assert.ok(imported.name.startsWith('test-skill-'))
+
+    const skills = await runtime.skills(agent.id)
+    assert.ok(skills.some(s => s.name === imported.name && s.content.includes('# Test Skill Instructions')))
+
+    // Verify resources were copied too
+    const workspace = await runtime.registry.workspace(agent.id)
+    const resourceContent = await readFile(join(workspace.root, 'tools', 'skills', imported.name, 'references', 'guide.md'), 'utf8')
+    assert.equal(resourceContent, 'Guide content')
+
+    // Cannot overwrite an existing skill silently
+    await assert.rejects(runtime.importSkill(agent.id, packageDir), /already exists/)
+  } finally {
+    runtime.close()
+    await rm(directory, { recursive: true, force: true })
+    await rm(packageDir, { recursive: true, force: true })
+  }
+})

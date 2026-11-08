@@ -1,5 +1,5 @@
-import { readFile, writeFile, rename, mkdir, readdir, lstat } from 'node:fs/promises'
-import { join } from 'node:path'
+import { readFile, writeFile, rename, mkdir, readdir, lstat, cp, realpath } from 'node:fs/promises'
+import { basename, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { defaultHarnessSettings, type HarnessSettings } from '../../shared/harness.ts'
@@ -93,34 +93,34 @@ export async function saveHarnessSettings(workspace: AgentFilesystem, value: unk
 }
 
 export async function listSkills(workspace: AgentFilesystem) {
-  await workspace.check('/skills')
-  let entries
-
-  try {
-    entries = await readdir(join(workspace.root, 'skills'), { withFileTypes: true })
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return []
-    }
-
-    throw error
-  }
-
+  const dirs = [join(workspace.root, 'tools', 'skills'), join(workspace.root, 'skills')]
+  const seen = new Set<string>()
   const skills: { name: string; content: string }[] = []
 
-  for (const entry of entries.slice(0, 30)) {
-    if (!entry.isDirectory() || !/^[a-zA-Z0-9_-]{1,64}$/.test(entry.name)) {
-      continue
+  for (const dir of dirs) {
+    let entries
+    try {
+      entries = await readdir(dir, { withFileTypes: true })
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue
+      throw error
     }
 
-    const path = `/skills/${entry.name}/SKILL.md`
-    await workspace.check(path)
+    for (const entry of entries.slice(0, 30)) {
+      if (!entry.isDirectory() || !/^[a-zA-Z0-9_-]{1,64}$/.test(entry.name) || seen.has(entry.name)) {
+        continue
+      }
+      seen.add(entry.name)
+      const relativePath = dir.endsWith('tools/skills') ? `/tools/skills/${entry.name}/SKILL.md` : `/skills/${entry.name}/SKILL.md`
+      await workspace.check(relativePath)
 
-    if ((await lstat(join(workspace.root, path))).size > 32_000) {
-      throw new Error('A skill is too large. Limit each skill to 32,000 bytes.')
+      const fullPath = join(workspace.root, relativePath)
+      if ((await lstat(fullPath)).size > 32_000) {
+        throw new Error('A skill is too large. Limit each skill to 32,000 bytes.')
+      }
+
+      skills.push({ name: entry.name, content: await readFile(fullPath, 'utf8') })
     }
-
-    skills.push({ name: entry.name, content: await readFile(join(workspace.root, path), 'utf8') })
   }
 
   return skills
@@ -137,9 +137,33 @@ export async function saveSkill(workspace: AgentFilesystem, name: string, conten
     )
   }
 
-  await workspace.check(`/skills/${name}/SKILL.md`)
-  await mkdir(join(workspace.root, 'skills', name), { recursive: true })
-  const temporary = join(workspace.root, 'skills', name, `${randomUUID()}.tmp`)
+  await workspace.check(`/tools/skills/${name}/SKILL.md`)
+  await mkdir(join(workspace.root, 'tools', 'skills', name), { recursive: true })
+  const temporary = join(workspace.root, 'tools', 'skills', name, `${randomUUID()}.tmp`)
   await writeFile(temporary, content, { mode: 0o600 })
-  await rename(temporary, join(workspace.root, 'skills', name, 'SKILL.md'))
+  await rename(temporary, join(workspace.root, 'tools', 'skills', name, 'SKILL.md'))
+}
+
+export async function importSkill(workspace: AgentFilesystem, sourceDir: string): Promise<{ name: string }> {
+  const canonicalSource = await realpath(sourceDir)
+  const skillMdPath = join(canonicalSource, 'SKILL.md')
+  const skillStat = await lstat(skillMdPath).catch(() => { throw new Error('A skill package must contain a SKILL.md file.') })
+  if (!skillStat.isFile() || skillStat.size > 32_000) {
+    throw new Error('A skill is too large. Limit SKILL.md to 32,000 bytes.')
+  }
+  const name = basename(canonicalSource)
+  if (!/^[a-zA-Z0-9_-]{1,64}$/.test(name)) {
+    throw new Error('Use a short skill name with letters, numbers, dashes, or underscores.')
+  }
+  const targetDir = join(workspace.root, 'tools', 'skills', name)
+  try {
+    const existing = await lstat(targetDir)
+    if (existing.isDirectory()) throw new Error(`A skill named "${name}" already exists. Do not overwrite existing skills.`)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+  }
+
+  await mkdir(targetDir, { recursive: true, mode: 0o700 })
+  await cp(canonicalSource, targetDir, { recursive: true })
+  return { name }
 }

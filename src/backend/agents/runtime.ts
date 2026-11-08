@@ -3,7 +3,7 @@ import { ContextSession, safeHistory } from '../context/session.ts'
 import { revision } from '../context/store.ts'
 import { isAbsolute, join } from 'node:path'
 import { mkdirSync, rmdirSync } from 'node:fs'
-import { mkdir, realpath, stat } from 'node:fs/promises'
+import { mkdir, realpath, rm, stat } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { isLiveRun, locksChat, type RunIntent, type RunPhase, type RunSnapshot } from '../../shared/run.ts'
 import type { AgentMessage } from '../../shared/agent.ts'
@@ -19,7 +19,7 @@ import type { Connection, StreamDelta } from '../../shared/chat.ts'
 import type { HarnessSettings } from '../../shared/harness.ts'
 import { ensureOrganizationStorage, workspaceEntries, workspaceText } from '../workspace/workspace.ts'
 import { AgentFilesystem } from '../workspace/filesystem.ts'
-import type { ConversationLocation, SectionMode } from '../../shared/organization.ts'
+import type { ChatRetention, ConversationLocation, Project, SectionMode } from '../../shared/organization.ts'
 import { AgentStore } from './store.ts'
 import { AgentRegistry } from './registry.ts'
 import { AgentDeletions } from './deletion.ts'
@@ -31,7 +31,8 @@ import {
   readHarnessSettings,
   saveHarnessSettings,
   listSkills,
-  saveSkill
+  saveSkill,
+  importSkill
 } from '../harness/settings.ts'
 
 const instructions = `You are a personal agent running in Granite. Your name and personality come from the agent profile and identity below.
@@ -129,11 +130,54 @@ export class AgentRuntime {
       await runtime.previews.recover()
       for (const grant of runtime.authorization.all()) if (grant.state === 'active') runtime.authorization.end(grant.runId)
       await runtime.repositories.recoverAll()
+      runtime.recoverTemporaryChats()
+      runtime.startExpirySweep()
       return runtime
     } catch (error) {
       if (runtime) runtime.close()
       else store.close()
       throw error
+    }
+  }
+
+  private expiryInterval?: NodeJS.Timeout
+
+  startExpirySweep() {
+    if (!this.expiryInterval) {
+      this.expiryInterval = setInterval(() => { void this.sweepExpiredChats() }, 30_000)
+    }
+  }
+
+  async sweepExpiredChats() {
+    if (this.changingAgents) return
+    const now = Date.now()
+    const rows = this.store.saver.db.prepare(
+      "SELECT id, agentId FROM conversations WHERE retention = 'temporary' AND expiresAt IS NOT NULL AND expiresAt <= ?"
+    ).all(now) as { id: string; agentId: string }[]
+
+    for (const { id, agentId } of rows) {
+      if (!this.isChatActive(id)) {
+        try {
+          await this.deleteConversation(agentId, id)
+        } catch {}
+      }
+    }
+  }
+
+  recoverTemporaryChats() {
+    const now = Date.now()
+    const rows = this.store.saver.db.prepare(
+      "SELECT id, agentId, expiresAt FROM conversations WHERE retention = 'temporary'"
+    ).all() as { id: string; agentId: string; expiresAt: number | null }[]
+
+    for (const { id, agentId, expiresAt } of rows) {
+      if (expiresAt !== null && expiresAt <= now) {
+        try {
+          this.store.deleteConversation(agentId, id)
+        } catch {}
+      } else if (expiresAt === null) {
+        this.store.touchConversation(agentId, id, now + 60 * 60 * 1000)
+      }
     }
   }
 
@@ -235,7 +279,7 @@ export class AgentRuntime {
     }
   }
 
-  async createConversation(agentId: string, location?: Partial<ConversationLocation>) {
+  async createConversation(agentId: string, location?: Partial<ConversationLocation>, retention: ChatRetention = 'permanent') {
     if (this.editingIdentity || this.changingAgents) {
       throw new Error('Finish the current operation before creating a conversation.')
     }
@@ -247,7 +291,7 @@ export class AgentRuntime {
     try {
       await this.registry.get(agentId)
 
-      return this.store.create(agentId, location)
+      return this.store.create(agentId, location, retention)
     } finally {
       this.changingAgents = false
     }
@@ -283,6 +327,40 @@ export class AgentRuntime {
     return this.changeOrganization(agentId, () => this.store.organization.renameSection(agentId, id, name))
   }
 
+  async deleteSection(agentId: string, sectionId: string) {
+    if (this.editingIdentity || this.changingAgents) {
+      throw new Error('Finish the current operation before deleting a section.')
+    }
+    const section = this.store.organization.section(agentId, sectionId)
+    if (section.kind === 'general') throw new Error('General is the built-in section and cannot be deleted.')
+
+    const directChats = this.store.list(agentId).filter(chat => chat.sectionId === sectionId)
+    if (directChats.some(chat => this.isChatActive(chat.id))) {
+      throw new Error('Finish active runs in this section before deleting it.')
+    }
+
+    this.changingAgents = true
+    try {
+      const workspace = await this.registry.workspace(agentId)
+      for (const chat of directChats) {
+        await this.previews.stopChat(agentId, chat.id)
+        this.previews.remove(agentId, chat.id)
+        this.authorization.remove(agentId, chat.id)
+        this.repositories.removeRecords(agentId, chat.id)
+      }
+
+      const internalFolder = join(workspace.root, 'sections', section.id)
+      try {
+        await rm(internalFolder, { recursive: true, force: true })
+      } catch {}
+
+      this.store.deleteSection(agentId, sectionId)
+      await this.context.sync(agentId)
+    } finally {
+      this.changingAgents = false
+    }
+  }
+
   shareSection(agentId: string, id: string) {
     return this.changeOrganization(agentId, () => this.store.organization.shareSection(agentId, id))
   }
@@ -309,6 +387,60 @@ export class AgentRuntime {
 
   renameProject(agentId: string, id: string, name: string) {
     return this.changeOrganization(agentId, () => this.store.organization.renameProject(agentId, id, name))
+  }
+
+  async deleteProject(agentId: string, projectId: string) {
+    if (this.editingIdentity || this.changingAgents) {
+      throw new Error('Finish the current operation before deleting a project.')
+    }
+    const project = this.store.organization.project(agentId, projectId)
+    const chats = this.store.list(agentId).filter(chat => chat.projectId === projectId)
+    if (chats.some(chat => this.isChatActive(chat.id))) {
+      throw new Error('Finish active runs in this project before deleting it.')
+    }
+
+    this.changingAgents = true
+    try {
+      const workspace = await this.registry.workspace(agentId)
+      for (const chat of chats) {
+        await this.previews.stopChat(agentId, chat.id)
+        this.previews.remove(agentId, chat.id)
+        this.authorization.remove(agentId, chat.id)
+        this.repositories.removeRecords(agentId, chat.id)
+      }
+
+      const internalFolder = join(workspace.root, 'sections', project.sectionId, 'projects', project.id)
+      try {
+        await rm(internalFolder, { recursive: true, force: true })
+      } catch {}
+
+      this.store.deleteProject(agentId, projectId)
+      await this.context.sync(agentId)
+    } finally {
+      this.changingAgents = false
+    }
+  }
+
+  async relinkProject(agentId: string, projectId: string, path: string): Promise<{ project: Project; warning?: string }> {
+    const project = this.store.organization.project(agentId, projectId)
+    if (this.store.list(agentId).some(chat => chat.projectId === projectId && this.isChatActive(chat.id))) {
+      throw new Error('Finish this project’s active runs before relinking its repository.')
+    }
+    const canonical = await this.resolveRepositoryFolder(path, internalRepository(this.directory, agentId, project.sectionId, projectId))
+    const duplicate = this.store.organization.findDuplicateLink(agentId, projectId, canonical)
+    let warning: string | undefined
+    if (duplicate) {
+      warning = `This folder is already linked to Project "${duplicate.name}". Concurrent edits across projects may conflict.`
+    }
+
+    const updated = await this.changeOrganization(agentId, () => {
+      return this.store.organization.relinkRepository(agentId, projectId, canonical)
+    })
+
+    this.repositories.removeRecords(agentId)
+    await this.context.sync(agentId)
+
+    return { project: updated, warning }
   }
 
   private async resolveRepositoryFolder(path: string, internal?: string) {
@@ -375,6 +507,13 @@ export class AgentRuntime {
     } finally {
       this.changingAgents = false
     }
+  }
+
+  async keepConversation(agentId: string, id: string) {
+    if (this.isChatActive(id) || this.editingIdentity || this.changingAgents) {
+      throw new Error('Finish the current operation before keeping this chat.')
+    }
+    return this.store.keepConversation(agentId, id)
   }
 
   stop(id: string) {
@@ -454,10 +593,23 @@ export class AgentRuntime {
     }
   }
 
+  async importSkill(agentId: string, sourceDir: string) {
+    if (this.agentWorking(agentId) || this.editingIdentity || this.changingAgents) {
+      throw new Error('Finish the current operation before importing a skill.')
+    }
+
+    this.editingIdentity = true
+
+    try {
+      return await importSkill(await this.registry.workspace(agentId), sourceDir)
+    } finally {
+      this.editingIdentity = false
+    }
+  }
+
   private validateLocation(agentId: string, conversationId: string) {
     this.deletions.assertAvailable(agentId)
     const conversation = this.store.get(agentId, conversationId)
-    if (conversation.retention === 'temporary') throw new Error('Temporary-chat runs are not available until expiry and memory isolation are implemented.')
     if (conversation.projectId && this.store.organization.project(agentId, conversation.projectId).repositoryPath) this.repositories.assertAvailable(conversation.projectId)
     return conversation
   }
@@ -477,6 +629,11 @@ export class AgentRuntime {
     if (this.store.runs.list().some(run => run.id === requestId)) throw new Error('This request has already been accepted.')
     this.validateLocation(agentId, conversationId)
     this.store.runs.bind(agentId, conversationId, connection)
+    try {
+      if (this.store.get(agentId, conversationId).retention === 'temporary') {
+        this.store.touchConversation(agentId, conversationId, null)
+      }
+    } catch {}
     const current = this.chats.get(conversationId)
     if (current?.accepting && current.run.phase !== 'stopping') {
       if (intent !== 'message') throw new Error('This chat already has pending or active work.')
@@ -511,6 +668,11 @@ export class AgentRuntime {
     job.done = this.execute(job, connection, current?.done).finally(() => {
       this.jobs.delete(requestId)
       if (this.chats.get(conversationId) === job) this.chats.delete(conversationId)
+      try {
+        if (this.store.get(agentId, conversationId).retention === 'temporary') {
+          this.store.touchConversation(agentId, conversationId, Date.now() + 60 * 60 * 1000)
+        }
+      } catch {}
     })
     return job.done
   }
@@ -814,6 +976,7 @@ export class AgentRuntime {
 
   close() {
     if (this.jobs.size || this.previews.hasActive()) throw new Error('Stop the agent before closing the runtime.')
+    if (this.expiryInterval) clearInterval(this.expiryInterval)
     this.store.close()
   }
 }

@@ -30,6 +30,7 @@ export type WorkerActions = { [Key in WorkerChannels]: RequestFor<IpcCalls[Key]>
   shutdown: { args: []; value: true }
   list: RequestFor<GraniteBridge['conversations']['list']>
   create: RequestFor<GraniteBridge['conversations']['create']>
+  keep: RequestFor<GraniteBridge['conversations']['keep']>
   move: RequestFor<GraniteBridge['conversations']['move']>
   rename: RequestFor<GraniteBridge['conversations']['rename']>
   delete: RequestFor<GraniteBridge['conversations']['delete']>

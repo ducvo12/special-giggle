@@ -103,6 +103,9 @@ port.on('message', async ({ data }: { data: Request }) => {
       case 'harness:saveSkill':
         value = await agent.saveSkill(...args)
         break
+      case 'harness:importSkill':
+        value = await agent.importSkill(...args)
+        break
       case 'harness:answer':
         value = agent.answerQuestion(...args)
         break
@@ -119,6 +122,9 @@ port.on('message', async ({ data }: { data: Request }) => {
       case 'create':
         value = await agent.createConversation(...args)
         break
+      case 'keep':
+        value = await agent.keepConversation(...args)
+        break
       case 'move':
         value = await agent.moveConversation(...args)
         break
@@ -131,6 +137,9 @@ port.on('message', async ({ data }: { data: Request }) => {
       case 'organization:renameSection':
         value = await agent.renameSection(...args)
         break
+      case 'organization:deleteSection':
+        value = await agent.deleteSection(...args)
+        break
       case 'organization:shareSection':
         value = await agent.shareSection(...args)
         break
@@ -140,8 +149,14 @@ port.on('message', async ({ data }: { data: Request }) => {
       case 'organization:renameProject':
         value = await agent.renameProject(...args)
         break
+      case 'organization:deleteProject':
+        value = await agent.deleteProject(...args)
+        break
       case 'organization:attachRepository':
         value = await agent.attachRepository(...args)
+        break
+      case 'organization:relinkProject':
+        value = await agent.relinkProject(...args)
         break
       case 'rename':
         value = await agent.renameConversation(...args)

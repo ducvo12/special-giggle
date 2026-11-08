@@ -309,15 +309,20 @@ export function registerIpc(directory: string) {
     'organization:createSection': { action: 'organization:createSection', limits: [64, 80, 6] },
     'organization:renameSection': { action: 'organization:renameSection', limits: [64, 100, 80] },
     'organization:shareSection': { action: 'organization:shareSection', limits: [64, 100] },
+    'organization:deleteSection': { action: 'organization:deleteSection', limits: [64, 100] },
     'organization:renameProject': { action: 'organization:renameProject', limits: [64, 100, 80] },
+    'organization:deleteProject': { action: 'organization:deleteProject', limits: [64, 100] },
+    'organization:relinkProject': { action: 'organization:relinkProject', limits: [64, 100, 4096] },
     'harness:get': { action: 'harness:get', limits: [64] },
     'harness:skills': { action: 'harness:skills', limits: [64] },
     'harness:saveSkill': { action: 'harness:saveSkill', limits: [64, 64, 32_000] },
+    'harness:importSkill': { action: 'harness:importSkill', limits: [64, 4096] },
     'agents:list': { action: 'agents:list', limits: [] },
     'agents:create': { action: 'agents:create', limits: [80] },
     'agents:delete': { action: 'agents:delete', limits: [64] },
     'agents:saveIdentity': { action: 'agents:saveIdentity', limits: [64, 32_000, 100_000] },
     'conversations:list': { action: 'list', limits: [64] },
+    'conversations:keep': { action: 'keep', limits: [64, 100] },
     'conversations:rename': { action: 'rename', limits: [64, 100, 200] },
     'conversations:delete': { action: 'delete', limits: [64, 100] },
     'conversations:get': { action: 'get', limits: [64, 100] },
@@ -335,10 +340,10 @@ export function registerIpc(directory: string) {
       (location.sectionId === undefined ? optional : typeof location.sectionId === 'string' && location.sectionId.length <= 100) &&
       (location.projectId === undefined ? optional : location.projectId === null || typeof location.projectId === 'string' && location.projectId.length <= 100)
   }
-  ipcMain.handle('conversations:create', (event, agentId, location) => {
+  ipcMain.handle('conversations:create', (event, agentId, location, retention = 'permanent') => {
     trusted(event)
-    if (typeof agentId !== 'string' || agentId.length > 64 || !validLocation(location, true)) return { ok: false, error: 'Invalid chat location.' }
-    return agents.call('create', agentId, location)
+    if (typeof agentId !== 'string' || agentId.length > 64 || !validLocation(location, true) || (retention !== 'permanent' && retention !== 'temporary')) return { ok: false, error: 'Invalid chat location.' }
+    return agents.call('create', agentId, location, retention)
   })
   ipcMain.handle('conversations:move', (event, agentId, id, location) => {
     trusted(event)

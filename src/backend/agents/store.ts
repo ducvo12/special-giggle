@@ -126,6 +126,7 @@ export class AgentStore {
 
   create(agentId: string, location?: Partial<ConversationLocation>, retention: ChatRetention = 'permanent'): ConversationDetail {
     if (retention !== 'permanent' && retention !== 'temporary') throw new Error('Invalid chat retention.')
+    const expiresAt = retention === 'temporary' ? Date.now() + 60 * 60 * 1000 : null
     const conversation = {
       id: randomUUID(),
       agentId,
@@ -135,22 +136,33 @@ export class AgentStore {
       lastChattedAt: null,
       ...this.organization.location(agentId, location, retention),
       retention,
-      expiresAt: null
+      expiresAt
     }
     const graphId = randomUUID()
 
     this.saver.db.transaction(() => {
       this.saver.db
         .prepare(
-          'INSERT INTO conversations (id, title, updatedAt, createdAt, graphId, recover, agentId, sectionId, projectId, retention) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)'
+          'INSERT INTO conversations (id, title, updatedAt, createdAt, graphId, recover, agentId, sectionId, projectId, retention, expiresAt) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)'
         )
-        .run(conversation.id, conversation.title, conversation.updatedAt, conversation.createdAt, graphId, agentId, conversation.sectionId, conversation.projectId, retention)
+        .run(conversation.id, conversation.title, conversation.updatedAt, conversation.createdAt, graphId, agentId, conversation.sectionId, conversation.projectId, retention, expiresAt)
       this.saver.db
         .prepare('INSERT INTO conversation_threads (graphId, conversationId) VALUES (?, ?)')
         .run(graphId, conversation.id)
     })()
 
     return { ...conversation, messages: [] }
+  }
+
+  touchConversation(agentId: string, id: string, expiresAt: number | null) {
+    this.saver.db.prepare('UPDATE conversations SET expiresAt = ? WHERE id = ? AND agentId = ?').run(expiresAt, id, agentId)
+  }
+
+  keepConversation(agentId: string, id: string): ConversationDetail {
+    const chat = this.get(agentId, id)
+    if (chat.retention !== 'temporary') throw new Error('This chat is already permanent.')
+    this.saver.db.prepare("UPDATE conversations SET retention = 'permanent', expiresAt = NULL WHERE id = ? AND agentId = ?").run(id, agentId)
+    return this.get(agentId, id)
   }
 
   get(agentId: string, id: string): ConversationDetail {
@@ -307,6 +319,34 @@ export class AgentStore {
       this.saver.db.prepare('DELETE FROM messages WHERE conversationId = ?').run(id)
       this.saver.db.prepare('DELETE FROM conversation_threads WHERE conversationId = ?').run(id)
       this.saver.db.prepare('DELETE FROM conversations WHERE id = ? AND agentId = ?').run(id, agentId)
+    })()
+  }
+
+  deleteProject(agentId: string, projectId: string) {
+    this.saver.db.transaction(() => {
+      const chats = this.saver.db.prepare('SELECT id FROM conversations WHERE agentId = ? AND projectId = ?').all(agentId, projectId) as { id: string }[]
+      for (const { id } of chats) {
+        this.deleteConversation(agentId, id)
+      }
+      this.saver.db.prepare('DELETE FROM repository_runs WHERE projectId = ?').run(projectId)
+      this.saver.db.prepare('DELETE FROM projects WHERE id = ? AND agentId = ?').run(projectId, agentId)
+    })()
+  }
+
+  deleteSection(agentId: string, sectionId: string) {
+    this.saver.db.transaction(() => {
+      const section = this.saver.db.prepare('SELECT kind FROM sections WHERE id = ? AND agentId = ?').get(sectionId, agentId) as { kind: string } | undefined
+      if (!section) throw new Error('Section not found.')
+      if (section.kind === 'general') throw new Error('General is the built-in section and cannot be deleted.')
+      const projects = this.saver.db.prepare('SELECT id FROM projects WHERE sectionId = ? AND agentId = ?').all(sectionId, agentId) as { id: string }[]
+      for (const { id } of projects) {
+        this.deleteProject(agentId, id)
+      }
+      const directChats = this.saver.db.prepare('SELECT id FROM conversations WHERE sectionId = ? AND agentId = ? AND projectId IS NULL').all(sectionId, agentId) as { id: string }[]
+      for (const { id } of directChats) {
+        this.deleteConversation(agentId, id)
+      }
+      this.saver.db.prepare('DELETE FROM sections WHERE id = ? AND agentId = ?').run(sectionId, agentId)
     })()
   }
 
