@@ -41,10 +41,10 @@
   overscroll-behavior: contain;
   padding: 4px;
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--surface-raised);
   color: var(--text);
-  box-shadow: 0 8px 28px #0008;
+  box-shadow: var(--shadow-dropdown);
   font-size: 12px;
   scrollbar-width: thin;
   scrollbar-color: var(--border-strong) transparent;

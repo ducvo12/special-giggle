@@ -22,8 +22,23 @@
 .chat-breadcrumb li[aria-current] { color: var(--text-strong); }
 .chat-heading-status { flex-shrink: 0; font-size: 11px; color: var(--text-muted); }
 .temporary-status-group { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.temporary-badge { font-size: 11px; color: var(--accent); background: var(--accent-subtle); padding: 2px 6px; border-radius: 4px; }
-.keep-chat-button { font-size: 11px; padding: 2px 8px; border: 1px solid var(--border-subtle); border-radius: 4px; cursor: pointer; }
+.temporary-badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+  background: var(--accent-subtle);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  padding: 2px 6px;
+  border-radius: var(--radius-sharp);
+}
+.keep-chat-button {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sharp);
+  cursor: pointer;
+}
 
 .messages {
   flex: 1;
@@ -54,8 +69,13 @@
   width: 80px;
   height: 80px;
   margin: 0 auto;
-  font-size: 40px;
+  color: var(--accent);
+}
+
+.empty-brand-star {
   color: var(--text-secondary);
+  filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.15));
+  animation: pulse 3s infinite ease-in-out;
 }
 
 .empty-icon::before {
@@ -89,8 +109,10 @@
 
 .message-role {
   display: block;
-  color: var(--text);
+  font-family: var(--font-mono);
+  color: var(--text-muted);
   font-size: 11px;
+  letter-spacing: 0.5px;
   margin-bottom: 7px;
 }
 
@@ -110,9 +132,9 @@
 }
 
 .user > div {
-  background: var(--surface-hover);
+  background: var(--surface-raised);
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   padding: 13px 16px;
 }
 
@@ -140,15 +162,36 @@
 .composer {
   border: 1px solid var(--border);
   background: var(--surface);
-  border-radius: 12px;
-  padding: 10px 12px;
-  box-shadow: 0 8px 30px #00000040;
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  box-shadow: var(--shadow-pane);
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .composer:focus-within {
   border-color: var(--focus);
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.04), 0 8px 30px #00000040;
+  box-shadow: 0 0 0 1px var(--focus), var(--glow-accent), var(--shadow-pane);
+}
+
+.composer-prompt-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  user-select: none;
+}
+
+.composer-prompt-icon {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.composer-prompt-host {
+  color: var(--text-muted);
+  opacity: 0.9;
+  letter-spacing: 0.3px;
 }
 
 .composer textarea {
@@ -387,10 +430,10 @@
 }
 .formatted-response a { color: var(--text-strong); text-decoration: underline; }
 .formatted-response code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 0.9em;
   background: var(--surface-hover);
-  border-radius: 4px;
+  border-radius: var(--radius-sharp);
   padding: 2px 5px;
 }
 .formatted-response pre {
@@ -398,7 +441,7 @@
   overflow-x: auto;
   padding: 14px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--surface-inset);
   white-space: pre;
   line-height: 1.6;

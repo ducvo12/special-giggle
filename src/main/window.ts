@@ -8,7 +8,7 @@ export function createWindow(): void {
     height: 760,
     minWidth: 720,
     minHeight: 520,
-    title: app.isPackaged ? 'Granite' : 'Granite (Development)',
+    title: app.isPackaged ? 'Archon' : 'Archon (Development)',
     ...(process.platform === 'darwin' && {
       titleBarStyle: 'hiddenInset' as const,
       trafficLightPosition: { x: 16, y: 15 }

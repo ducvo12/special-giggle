@@ -78,6 +78,15 @@ Every changed line should trace directly to the user's request.
 - Catch errors only to recover, add context, clean up, fall back, or translate them meaningfully.
 - Comment on why, not what.
 
+## Frontend Design System & Tokens
+
+Maintain visual unity and prevent design drift across features and agent sessions:
+
+- **Tokens Only:** All styling must reference CSS variables defined in `src/renderer/src/styles/tokens.css` (e.g., `var(--surface)`, `var(--border)`, `var(--accent)`, `var(--radius-sm)`, `var(--font-mono)`).
+- **No Arbitrary Literals:** Never introduce raw hex/rgb colors, arbitrary border-radius values, or bespoke box shadows in component stylesheets. If a new semantic token is genuinely required, define it in `tokens.css` first.
+- **Structural Semantics:** Keep class names and layout roles descriptive and aligned with existing conventions (`.composer`, `.pane`, `.tree-entry`, `.custom-select-menu`).
+- **Typography Contract:** Use `var(--font-sans)` for body text and conversational flow; use `var(--font-mono)` for prompt lines, code snippets, status badges, and breadcrumb navigation.
+
 ## Git Commits
 
 - Follow the Conventional Commits specification (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`, `perf:`, `style:`).

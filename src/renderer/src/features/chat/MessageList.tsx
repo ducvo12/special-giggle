@@ -3,6 +3,7 @@ import { replyQuestions } from './context-sources'
 import ThoughtActivity from './ThoughtActivity'
 import ResponseTimings from './ResponseTimings'
 import StreamingText from './StreamingText'
+import ShootingStarIcon from '../../components/ShootingStarIcon'
 import { useLayoutEffect, useRef, type RefObject } from 'react'
 import type { Agent, AgentMessage } from '../../../../shared/agent'
 import type { StreamActivity } from '../../../../shared/chat'
@@ -62,7 +63,7 @@ export default function MessageList({
       {!messages.length && (
         <div className="empty-chat">
           <div className="empty-icon" aria-hidden="true">
-            ◈
+            <ShootingStarIcon size={48} className="empty-brand-star" />
           </div>
 
           {agent && (

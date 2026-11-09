@@ -10,6 +10,7 @@ import HarnessSettings from '../features/harness/HarnessSettings'
 import type { Page } from './navigation'
 import { useAgentSession } from './useAgentSession'
 import TreeDialog, { type TreeDialogAction } from '../features/organization/TreeDialog'
+import ShootingStarIcon from '../components/ShootingStarIcon'
 
 export default function App() {
   const devTimings = useDevTimings()
@@ -127,12 +128,13 @@ export default function App() {
         </button>
         <button
           className="home-button"
-          aria-label="Granite home"
+          aria-label="Archon home"
           title={identityDirty ? 'Save or discard your changes to return home' : 'Home'}
           disabled={identityDirty || Boolean(dialog) || !loaded || managingAgents}
           onClick={openNewChat}
         >
-          Granite
+          <ShootingStarIcon size={15} className="brand-star" />
+          <span>Archon</span>
         </button>
         <button type="button" role="switch" aria-checked={devTimings.enabled}
           className="quiet-button dev-timing-switch" onClick={toggleDevTimings}

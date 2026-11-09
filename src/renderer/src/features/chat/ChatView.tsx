@@ -188,6 +188,11 @@ export default function ChatView({
                 void onSend()
               }}
             >
+              <div className="composer-prompt-header" aria-hidden="true">
+                <span className="composer-prompt-icon">✦</span>
+                <span className="composer-prompt-host">archon:~$</span>
+              </div>
+
               <textarea
                 ref={messageInput}
                 aria-label="Message"

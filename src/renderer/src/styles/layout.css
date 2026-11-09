@@ -27,17 +27,31 @@
 }
 
 .home-button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   background: transparent;
   border-color: transparent;
   color: var(--text-strong);
-  padding: 5px 7px;
-  font-size: 14px;
+  padding: 5px 8px;
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.2px;
+}
+
+.home-button .brand-star {
+  color: var(--text-secondary);
+  transition: transform 0.2s ease, filter 0.2s ease, color 0.2s ease;
 }
 
 .home-button:hover:not(:disabled) {
   background: var(--surface-hover);
+}
+
+.home-button:hover:not(:disabled) .brand-star {
+  color: var(--text-strong);
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.4));
+  transform: scale(1.1);
 }
 
 .app-body {
@@ -58,9 +72,11 @@
 }
 
 .section-label {
+  font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 1.6px;
-  color: var(--focus);
+  text-transform: uppercase;
+  color: var(--text-muted);
   margin: 0 10px 15px;
 }
 
@@ -69,7 +85,7 @@
   padding: 12px;
   border: 1px solid transparent;
   width: 100%;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   font-size: 13px;
   color: var(--text-muted);
   display: flex;
@@ -110,6 +126,8 @@
 
 .live-dot {
   margin-left: auto;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
   animation: pulse 1.5s infinite;
 }
 
