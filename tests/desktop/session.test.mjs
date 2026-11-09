@@ -191,7 +191,7 @@ test('renderer readiness cannot hang launch', async () => {
     close() {}
   }
   const f = fixture({ WebSocket: Socket })
-  await assert.rejects(f.desktop.launch(), /Timed out: (agent registry loaded|CDP Runtime.evaluate)/)
+  await assert.rejects(f.desktop.launch(), /Timed out: (desktop shell loaded|CDP Runtime.evaluate)/)
   assert.deepEqual(f.child.signals, ['SIGTERM'])
 })
 

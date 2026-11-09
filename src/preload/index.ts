@@ -1,34 +1,20 @@
 import { contextBridge, ipcRenderer as renderer } from 'electron'
 import type { IpcCalls } from '../shared/ipc.ts'
-import type { GraniteBridge, StreamDelta } from '../shared/chat'
-import type { ConnectionUsage } from '../shared/connection-usage'
+import type { GraniteBridge } from '../shared/chat'
 
 const ipcRenderer = {
   invoke<Key extends keyof IpcCalls>(channel: Key, ...args: Parameters<IpcCalls[Key]>): ReturnType<IpcCalls[Key]> {
     return renderer.invoke(channel, ...args) as ReturnType<IpcCalls[Key]>
-  },
-  on: renderer.on.bind(renderer),
-  removeListener: renderer.removeListener.bind(renderer)
+  }
 }
 
 contextBridge.exposeInMainWorld('granite', {
   platform: process.platform,
-  agents: {
-    list: () => ipcRenderer.invoke('agents:list'),
-    create: name => ipcRenderer.invoke('agents:create', name),
-    delete: id => ipcRenderer.invoke('agents:delete', id),
-    saveIdentity: (id, identity, expected) =>
-      ipcRenderer.invoke('agents:saveIdentity', id, identity, expected)
+  window: {
+    setMinimumSize: (width, height) => ipcRenderer.invoke('window:setMinimumSize', width, height)
   },
   connections: {
     list: () => ipcRenderer.invoke('connections:list'),
-    usage: () => ipcRenderer.invoke('connections:usage'),
-    onUsage: callback => {
-      const listener = (_event: Electron.IpcRendererEvent, usage: ConnectionUsage[]) => callback(usage)
-      ipcRenderer.on('connections:usage', listener)
-
-      return () => ipcRenderer.removeListener('connections:usage', listener)
-    },
     save: draft => ipcRenderer.invoke('connections:save', draft),
     delete: id => ipcRenderer.invoke('connections:delete', id),
     models: (id, refresh) => ipcRenderer.invoke('connections:models', id, refresh)
@@ -39,81 +25,5 @@ contextBridge.exposeInMainWorld('granite', {
     login: accountId => ipcRenderer.invoke('chatgpt:login', accountId),
     cancelLogin: () => ipcRenderer.invoke('chatgpt:cancelLogin'),
     signOut: id => ipcRenderer.invoke('chatgpt:signOut', id)
-  },
-  harness: {
-    get: agentId => ipcRenderer.invoke('harness:get', agentId),
-    save: (agentId, settings) => ipcRenderer.invoke('harness:save', agentId, settings),
-    skills: agentId => ipcRenderer.invoke('harness:skills', agentId),
-    saveSkill: (agentId, name, content) =>
-      ipcRenderer.invoke('harness:saveSkill', agentId, name, content),
-    importSkill: (agentId, sourceDir) =>
-      ipcRenderer.invoke('harness:importSkill', agentId, sourceDir),
-    answer: (requestId, questionId, answers) => ipcRenderer.invoke('harness:answer', requestId, questionId, answers),
-    rejectQuestion: (requestId, questionId) => ipcRenderer.invoke('harness:rejectQuestion', requestId, questionId),
-    approve: (requestId, approvalId, allow) =>
-      ipcRenderer.invoke('harness:approve', requestId, approvalId, allow)
-  },
-  conversations: {
-    saveResponseDuration: (agentId, id, messageId, durationMs) => ipcRenderer.invoke('conversations:responseDuration', agentId, id, messageId, durationMs),
-    list: agentId => ipcRenderer.invoke('conversations:list', agentId),
-    create: (agentId, location, retention) => ipcRenderer.invoke('conversations:create', agentId, location, retention),
-    keep: (agentId, id) => ipcRenderer.invoke('conversations:keep', agentId, id),
-    move: (agentId, id, location) => ipcRenderer.invoke('conversations:move', agentId, id, location),
-    rename: (agentId, id, title) => ipcRenderer.invoke('conversations:rename', agentId, id, title),
-    delete: (agentId, id) => ipcRenderer.invoke('conversations:delete', agentId, id),
-    get: (agentId, id) => ipcRenderer.invoke('conversations:get', agentId, id)
-  },
-  organization: {
-    get: agentId => ipcRenderer.invoke('organization:get', agentId),
-    createSection: (agentId, name, mode) => ipcRenderer.invoke('organization:createSection', agentId, name, mode),
-    renameSection: (agentId, id, name) => ipcRenderer.invoke('organization:renameSection', agentId, id, name),
-    deleteSection: (agentId, id) => ipcRenderer.invoke('organization:deleteSection', agentId, id),
-    shareSection: (agentId, id) => ipcRenderer.invoke('organization:shareSection', agentId, id),
-    createProject: (agentId, sectionId, name, repositoryPath, createRepository) => ipcRenderer.invoke('organization:createProject', agentId, sectionId, name, repositoryPath, createRepository),
-    pickRepositoryFolder: () => ipcRenderer.invoke('organization:pickRepositoryFolder'),
-    renameProject: (agentId, id, name) => ipcRenderer.invoke('organization:renameProject', agentId, id, name),
-    deleteProject: (agentId, id) => ipcRenderer.invoke('organization:deleteProject', agentId, id),
-    createRepository: (agentId, projectId) => ipcRenderer.invoke('organization:createRepository', agentId, projectId),
-    chooseRepository: (agentId, projectId) => ipcRenderer.invoke('organization:chooseRepository', agentId, projectId),
-    relinkProject: (agentId, id, repositoryPath) => ipcRenderer.invoke('organization:relinkProject', agentId, id, repositoryPath)
-  },
-  context: { read: (agentId, chatId, sourceId) => ipcRenderer.invoke('context:read', agentId, chatId, sourceId) },
-  workspace: {
-    entries: (agentId, path) => ipcRenderer.invoke('workspace:entries', agentId, path),
-    read: (agentId, path) => ipcRenderer.invoke('workspace:read', agentId, path),
-    save: (agentId, path, content, expected) => ipcRenderer.invoke('workspace:save', agentId, path, content, expected),
-    renameNote: (agentId, path, name) => ipcRenderer.invoke('workspace:renameNote', agentId, path, name)
-  },
-  setup: {
-    grants: (agentId, chatId) => ipcRenderer.invoke('setup:grants', agentId, chatId),
-    revoke: (agentId, chatId, grantId) => ipcRenderer.invoke('setup:revoke', agentId, chatId, grantId)
-  },
-  previews: {
-    list: (agentId, chatId) => ipcRenderer.invoke('previews:list', agentId, chatId),
-    stop: (agentId, chatId, id) => ipcRenderer.invoke('previews:stop', agentId, chatId, id),
-    restart: (agentId, chatId, id) => ipcRenderer.invoke('previews:restart', agentId, chatId, id),
-    open: (agentId, chatId, id) => ipcRenderer.invoke('previews:open', agentId, chatId, id)
-  },
-  repositories: {
-    editors: () => ipcRenderer.invoke('repositories:editors'),
-    open: (agentId, projectId, editorId) => ipcRenderer.invoke('repositories:open', agentId, projectId, editorId),
-    chooseEditor: (agentId, projectId) => ipcRenderer.invoke('repositories:chooseEditor', agentId, projectId),
-    reports: (agentId, id) => ipcRenderer.invoke('repositories:reports', agentId, id),
-    review: (agentId, id, runId, acknowledge) => ipcRenderer.invoke('repositories:review', agentId, id, runId, acknowledge)
-  },
-  runs: {
-    list: () => ipcRenderer.invoke('runs:list'),
-    recovery: () => ipcRenderer.invoke('runs:recovery'),
-    dismissRecovery: () => ipcRenderer.invoke('runs:dismissRecovery'),
-    cancelPending: (agentId, id) => ipcRenderer.invoke('runs:cancelPending', agentId, id)
-  },
-  stream: (requestId, agentId, conversationId, connectionId, text, model, effort, intent) =>
-    ipcRenderer.invoke('model:stream', requestId, agentId, conversationId, connectionId, text, model, effort, intent),
-  stop: requestId => ipcRenderer.invoke('model:stop', requestId),
-  onDelta: callback => {
-    const listener = (_event: Electron.IpcRendererEvent, delta: StreamDelta) => callback(delta)
-    ipcRenderer.on('model:delta', listener)
-
-    return () => ipcRenderer.removeListener('model:delta', listener)
   }
 } satisfies GraniteBridge)

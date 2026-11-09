@@ -1,320 +1,54 @@
-import { toggleDevTimings, useDevTimings } from '../features/chat/devTimings'
-import { useEffect, useRef, useState } from 'react'
-import Settings from '../features/connections/Settings'
-import FileView from '../features/workspace/FileView'
-import CreateAgent from '../features/agents/CreateAgent'
-import ChatView from '../features/chat/ChatView'
-import Sidebar from './Sidebar'
-import SettingsSidebar from './SettingsSidebar'
-import HarnessSettings from '../features/harness/HarnessSettings'
-import type { Page } from './navigation'
-import { useAgentSession } from './useAgentSession'
-import TreeDialog, { type TreeDialogAction } from '../features/organization/TreeDialog'
-import ShootingStarIcon from '../components/ShootingStarIcon'
+import { useEffect, useState } from 'react'
+import type { PaneType } from '../components/panes/pane-types'
+import Header from '../components/Header'
+import Workspace from '../components/panes/Workspace'
+import { addPane, createPane, initialLayout, minimumSize, hasPaneType, type Layout, type Rect } from '../components/panes/layout'
 
+// Share layout ownership between header actions and workspace interactions.
 export default function App() {
-  const devTimings = useDevTimings()
-  const [page, setPage] = useState<Page>('chat')
-  const [newChatFocus, setNewChatFocus] = useState(0)
-  const messageInput = useRef<HTMLTextAreaElement>(null)
-  const [sidebarVisible, setSidebarVisible] = useState(true)
-  const [identityDirty, setIdentityDirty] = useState(false)
-  const [selectedFile, setSelectedFile] = useState('/identity.md')
-  const [fileRevision, setFileRevision] = useState(0)
-  const [dialog, setDialog] = useState<TreeDialogAction | null>(null)
-  const {
-    agents,
-    managingAgents,
-    agentId,
-    agent,
-    connections,
-    setConnections,
-    selectedId,
-    setSelectedId,
-    connection,
-    modelSelection,
-    conversations,
-    organization,
-    location,
-    selectLocation,
-    changeOrganization,
-    moveConversation,
-    conversationId,
-    loaded,
-    messages,
-    draft,
-    setDraft,
-    attachments,
-    setAttachments,
-    busy,
-    viewRun,
-    runs,
-    submitting,
-    recovery,
-    dismissRecovery,
-    continueRun,
-    runPending,
-    cancelPending,
-    viewBusy,
-    stopping,
-    approval,
-    answerQuestion,
-    rejectQuestion,
-    approve,
-    activity,
-    elapsed,
-    error,
-    setError,
-    end,
-    follow,
-    loadConversation,
-    selectAgent,
-    send,
-    stop,
-    deleteAgent,
-    deleteConversation,
-    keepConversation,
-    renameConversation,
-    newChat,
-    addAgent
-  } = useAgentSession()
+  const [layout, setLayout] = useState<Layout | null>(initialLayout)
+  const [bounds, setBounds] = useState<Rect>({ x: 0, y: 0, width: 0, height: 0 })
+  const [paneType, setPaneType] = useState<PaneType>('content')
+  const [nextPane, setNextPane] = useState(3)
+  const [windowError, setWindowError] = useState('')
+  const candidate = addPane(layout, createPane(`pane-${nextPane}`, `Pane ${nextPane}`, paneType), bounds)
+  const minimum = layout ? minimumSize(layout) : { width: 0, height: 0 }
+  const measured = bounds.width > 0 && bounds.height > 0
+  const minWidth = Math.ceil(minimum.width + window.innerWidth - bounds.width)
+  const minHeight = Math.ceil(minimum.height + window.innerHeight - bounds.height)
 
+  // Include the header and workspace padding when enforcing the native window minimum.
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (!identityDirty && !dialog && (event.metaKey || event.ctrlKey) && event.key === ',') {
-        event.preventDefault()
-        setPage(current => current === 'settings' ? 'chat' : 'settings')
-      } else if (page === 'settings' && event.key === 'Escape' && !dialog) {
-        event.preventDefault()
-        setPage('chat')
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
+    if (!measured) return
+    void window.granite.window.setMinimumSize(minWidth, minHeight).then(result => {
+      setWindowError(result.ok ? '' : result.error)
+    }).catch(() => setWindowError('Could not update the window minimum size.'))
+  }, [minWidth, minHeight, measured])
 
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [identityDirty, dialog, page])
-
-  useEffect(() => {
-    if (follow.current) {
-      end.current?.scrollIntoView()
-    }
-  }, [messages, busy, page])
-
-  function openNewChat() {
-    newChat()
-    setNewChatFocus(value => value + 1)
-    setPage('chat')
+  // Number new panes monotonically so closing one never reuses another pane's identity.
+  function addNewPane() {
+    if (candidate === layout) return
+    setLayout(candidate)
+    setNextPane(nextPane + 1)
   }
-
-  useEffect(() => {
-    if (newChatFocus) messageInput.current?.focus()
-  }, [newChatFocus])
 
   return (
     <div className="app">
-      <header className={`app-header ${window.granite.platform === 'darwin' ? 'app-header-mac' : ''}`}>
-        <button
-          className="sidebar-toggle quiet-button"
-          aria-label={sidebarVisible ? 'Hide sidebar' : 'Show sidebar'}
-          title={sidebarVisible ? 'Hide sidebar' : 'Show sidebar'}
-          aria-expanded={sidebarVisible}
-          aria-controls="app-sidebar"
-          onClick={() => setSidebarVisible(visible => !visible)}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-            <rect x="3" y="4" width="18" height="16" rx="2" />
-            <path d="M9 4v16" />
-          </svg>
-        </button>
-        <button
-          className="home-button"
-          aria-label="Archon home"
-          title={identityDirty ? 'Save or discard your changes to return home' : 'Home'}
-          disabled={identityDirty || Boolean(dialog) || !loaded || managingAgents}
-          onClick={openNewChat}
-        >
-          <ShootingStarIcon size={15} className="brand-star" />
-          <span>Archon</span>
-        </button>
-        <button type="button" role="switch" aria-checked={devTimings.enabled}
-          className="quiet-button dev-timing-switch" onClick={toggleDevTimings}
-          title="Temporary response timings, kept in memory until the app reloads">
-          Dev timings {devTimings.enabled ? 'on' : 'off'}
-        </button>
-      </header>
+      <Header
+        onAddPane={addNewPane}
+        canAddPane={candidate !== layout}
+        paneType={paneType}
+        onPaneTypeChange={setPaneType}
+        navigationOpen={hasPaneType(layout, 'navigation')}
+      />
 
-      <div className="app-body">
-        {sidebarVisible && (
-          page === 'settings' ? (
-            <SettingsSidebar
-              onBack={() => setPage('chat')}
-              connections={connections}
-            />
-          ) : (
-            <Sidebar
-              key={agentId}
-              page={page}
-              agents={agents}
-              agentId={agentId}
-              agent={agent}
-              connections={connections}
-              busy={busy}
-              runs={runs}
-              loaded={loaded && !managingAgents}
-              identityDirty={identityDirty || Boolean(dialog)}
-              selectedFile={selectedFile}
-              fileRevision={fileRevision}
-              onOpenFile={path => { setSelectedFile(path); setPage('file') }}
-              onDialog={setDialog}
-              conversations={conversations}
-              organization={organization}
-              location={location}
-              onSelectLocation={next => { selectLocation(next); setPage('chat') }}
-              onMoveConversation={moveConversation}
-              conversationId={conversationId}
-              onRenameConversation={renameConversation}
-              onDeleteConversation={deleteConversation}
-              onSelectAgent={id => { setPage('chat'); void selectAgent(id) }}
-              onNewChat={openNewChat}
-              onDeleteAgent={async id => {
-                const deleted = await deleteAgent(id)
+      {windowError && (
+        <p role="alert">
+          {windowError}
+        </p>
+      )}
 
-                if (!deleted || id === agentId) {
-                  setPage('chat')
-                }
-
-                return deleted
-              }}
-              onSelectConversation={id => {
-                setPage('chat')
-                setError('')
-                void loadConversation(id)
-              }}
-              onPageChange={setPage}
-            />
-          )
-        )}
-
-        {page === 'settings' ? (
-          <Settings
-            connections={connections}
-            onChange={next => {
-              setConnections(next)
-
-              if (!next.some(c => c.id === selectedId)) {
-                setSelectedId(next[0]?.id ?? '')
-              }
-            }}
-          />
-        ) : page === 'create-agent' ? (
-          <CreateAgent
-            busy={managingAgents}
-            onDirty={setIdentityDirty}
-            onBack={() => setPage('chat')}
-            onCreated={async created => {
-              await addAgent(created)
-              setSelectedFile('/identity.md')
-              setPage('file')
-            }}
-          />
-        ) : page === 'tools' && agent ? (
-          <HarnessSettings
-            key={agent.id}
-            agent={agent}
-            busy={false}
-            onDirty={setIdentityDirty}
-            onBack={() => {
-              setIdentityDirty(false)
-              setPage('chat')
-            }}
-          />
-        ) : page === 'file' && agent ? (
-          <FileView key={`${agent.id}:${selectedFile}:${fileRevision}`} agent={agent} path={selectedFile}
-            busy={busy || managingAgents} onDirty={setIdentityDirty} onSaved={() => setFileRevision(value => value + 1)} />
-        ) : (
-          <ChatView
-            conversationId={conversationId}
-            conversationTitle={conversations.find(chat => chat.id === conversationId)?.title}
-            retention={conversations.find(chat => chat.id === conversationId)?.retention}
-            expiresAt={conversations.find(chat => chat.id === conversationId)?.expiresAt}
-            onKeep={async () => { await keepConversation(conversationId) }}
-            section={organization.sections.find(section => section.id === location.sectionId)}
-            project={organization.projects.find(project => project.id === location.projectId)}
-            messageInput={messageInput}
-            agent={agent}
-            connections={connections}
-            connection={connection}
-            modelSelection={modelSelection}
-            busy={viewBusy}
-            run={viewRun}
-            submitting={submitting}
-            onEnterProject={async projectId => {
-              const target = organization.projects.find(project => project.id === projectId)
-              return target ? moveConversation(conversationId, { sectionId: target.sectionId, projectId: target.id }) : false
-            }}
-            onContinue={continueRun}
-            onRunPending={runPending}
-            onCancelPending={cancelPending}
-            approval={approval}
-            onApprove={approve}
-            onAnswerQuestion={answerQuestion}
-            onRejectQuestion={rejectQuestion}
-            loaded={loaded && !managingAgents}
-            identityDirty={identityDirty}
-            messages={messages}
-            activity={activity}
-            end={end}
-            follow={follow}
-            error={error}
-            draft={draft}
-            attachments={attachments}
-            onAttachmentsChange={setAttachments}
-            elapsed={elapsed}
-            stopping={stopping}
-            onSelectConnection={setSelectedId}
-            onOpenSettings={() => setPage('settings')}
-            onCreateAgent={() => setPage('create-agent')}
-            onDismissError={() => setError('')}
-            onDraftChange={setDraft}
-            onSend={send}
-            onStop={stop}
-          />
-        )}
-
-      </div>
-
-      {dialog && agent && <TreeDialog action={dialog} agent={agent} organization={organization}
-        disabled={managingAgents || !loaded} onChange={operation => changeOrganization(operation, 'dialog')} onClose={() => setDialog(null)}
-        onProjectCreated={project => {
-          selectLocation({ sectionId: project.sectionId, projectId: project.id })
-          setPage('chat')
-          setNewChatFocus(value => value + 1)
-        }}
-        onNoteCreated={path => { setFileRevision(value => value + 1); setSelectedFile(path); setPage('file') }}
-        onNoteRenamed={(previous, next) => {
-          setFileRevision(value => value + 1)
-          setSelectedFile(path => path === previous ? next : path)
-        }} />}
-
-      {recovery && <div className="modal-backdrop" onKeyDown={event => { if (event.key === 'Escape') void dismissRecovery() }}>
-        <section className="recovery-dialog" role="alertdialog" aria-modal="true" aria-labelledby="recovery-title">
-          <h2 id="recovery-title">
-            {recovery.agentDeletions?.length ? 'Recovery needs attention' : 'Granite closed before work finished'}
-          </h2>
-          {recovery.active > 0 && <p>{recovery.active} interrupted run{recovery.active === 1 ? '' : 's'} stopped. Completed changes are kept.</p>}
-          {Boolean(recovery.previews) && <p>{recovery.previews} local preview(s) were interrupted. Restart explicitly from the owning chat; previews are never resumed automatically.</p>}
-          {recovery.pending > 0 && <p>{recovery.pending} queued request{recovery.pending === 1 ? '' : 's'} did not start. Their messages are saved; use Run pending messages in each chat when ready.</p>}
-          {Boolean(recovery.repositories) && <p>{recovery.repositories} repository outcome{recovery.repositories === 1 ? '' : 's'} need review. Open the affected chat’s repository changes; dismissing this notice does not unlock its writes.</p>}
-          {recovery.agentDeletions?.map(issue => (
-            <p key={issue.stagedPath}>
-              Agent deletion recovery {issue.agentId}: {issue.message} Preserved storage: {issue.stagedPath}.
-              Cleanup is retried at startup. Conflicting folders are never merged or overwritten; affected agents remain unavailable.
-            </p>
-          ))}
-          <p>Dismissing this notice will not restart any work.</p>
-          <button autoFocus onClick={() => void dismissRecovery()}>OK</button>
-        </section>
-      </div>}
+      <Workspace layout={layout} onLayoutChange={setLayout} onBoundsChange={setBounds} />
     </div>
   )
 }

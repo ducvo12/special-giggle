@@ -1,0 +1,42 @@
+.app-header {
+  height: 44px;
+  justify-content: flex-start;
+  padding: 0 16px;
+  background: var(--surface-sidebar);
+  border-bottom: 1px solid var(--border-subtle);
+  -webkit-app-region: drag;
+}
+
+.app-header-mac {
+  /* Leave room for the native window controls. */
+  padding-left: 92px;
+}
+
+.app-brand {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 8px;
+  color: var(--text-strong);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+
+.app-brand svg {
+  color: var(--text-secondary);
+}
+
+.app-header button,
+.app-header select {
+  -webkit-app-region: no-drag;
+}
+
+.new-pane-type {
+  margin-left: auto;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: 12px;
+}

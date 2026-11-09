@@ -1,9 +1,4 @@
-import type { Agent, Conversation, ConversationDetail, ToolActivity, WorkspaceEntry } from './agent'
-import type { ApprovalRequest, ChatGPTAccount, HarnessSettings } from './harness'
-import type { AgentOrganization, ChatRetention, ConversationLocation, Project, Section, SectionMode } from './organization'
-import type { RecoveryNotice, RunIntent, RunSnapshot } from './run'
-import type { RepositoryEditorChoices } from './repository-editor'
-import type { ConnectionUsage, RateLimitWindow } from './connection-usage'
+import type { ChatGPTAccount } from './harness'
 
 export interface Connection {
   contextWindow?: number
@@ -38,14 +33,6 @@ export interface ConnectionDraft extends Connection {
   removeKey?: boolean
 }
 
-export interface ContextUsage {
-  inputTokens: number
-  outputTokens: number
-  totalTokens: number
-  cachedTokens?: number
-  reasoningTokens?: number
-}
-
 export interface ModelOption {
   contextWindow?: number
   maxOutputTokens?: number
@@ -55,45 +42,15 @@ export interface ModelOption {
   name: string
 }
 
-export interface Message {
-  role: 'user' | 'assistant'
-  content: string
-  model?: string
-  interrupted?: boolean
-}
-
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string; code?: 'model_access' }
-
-export interface StreamActivity {
-  reasoningCharacters: number
-  answerCharacters: number
-  finishReason?: string
-}
-
-export interface StreamDelta {
-  requestId: string
-  text: string
-  activity?: StreamActivity
-  tool?: ToolActivity
-  contextUsage?: ContextUsage
-  rateLimits?: RateLimitWindow[]
-  approval?: ApprovalRequest | null
-  run?: RunSnapshot
-  messages?: import('./agent').AgentMessage[]
-}
 
 export interface GraniteBridge {
   platform: string
-  agents: {
-    list: () => Promise<Result<Agent[]>>
-    create: (name: string) => Promise<Result<Agent>>
-    delete: (agentId: string) => Promise<Result<import('./agent').AgentDeletionResult>>
-    saveIdentity: (agentId: string, identity: string, expected: string) => Promise<Result<string>>
+  window: {
+    setMinimumSize: (width: number, height: number) => Promise<Result<void>>
   }
   connections: {
     list: () => Promise<Result<SavedConnection[]>>
-    usage: () => Promise<Result<ConnectionUsage[]>>
-    onUsage: (callback: (usage: ConnectionUsage[]) => void) => () => void
     save: (draft: ConnectionDraft) => Promise<Result<SavedConnection>>
     delete: (id: string) => Promise<Result<void>>
     models: (id: string, refresh?: boolean) => Promise<Result<ModelOption[]>>
@@ -105,82 +62,4 @@ export interface GraniteBridge {
     cancelLogin: () => Promise<Result<void>>
     signOut: (id: string) => Promise<Result<{ revoked: boolean }>>
   }
-  harness: {
-    get: (agentId: string) => Promise<Result<HarnessSettings>>
-    save: (agentId: string, settings: HarnessSettings) => Promise<Result<HarnessSettings>>
-    skills: (agentId: string) => Promise<Result<{ name: string; content: string }[]>>
-    saveSkill: (agentId: string, name: string, content: string) => Promise<Result<void>>
-    importSkill: (agentId: string, sourceDir: string) => Promise<Result<{ name: string }>>
-    answer: (requestId: string, questionId: string, answers: string[]) => Promise<Result<void>>
-    rejectQuestion: (requestId: string, questionId: string) => Promise<Result<void>>
-    approve: (requestId: string, approvalId: string, allow: boolean) => Promise<Result<void>>
-  }
-  conversations: {
-    saveResponseDuration: (agentId: string, id: string, messageId: string, durationMs: number) => Promise<Result<void>>
-    list: (agentId: string) => Promise<Result<Conversation[]>>
-    create: (agentId: string, location?: Partial<ConversationLocation>, retention?: ChatRetention) => Promise<Result<ConversationDetail>>
-    keep: (agentId: string, id: string) => Promise<Result<ConversationDetail>>
-    move: (agentId: string, id: string, location: ConversationLocation) => Promise<Result<ConversationDetail>>
-    rename: (agentId: string, id: string, title: string) => Promise<Result<void>>
-    delete: (agentId: string, id: string) => Promise<Result<void>>
-    get: (agentId: string, id: string) => Promise<Result<ConversationDetail>>
-  }
-  organization: {
-    get: (agentId: string) => Promise<Result<AgentOrganization>>
-    createSection: (agentId: string, name: string, mode: SectionMode) => Promise<Result<Section>>
-    renameSection: (agentId: string, id: string, name: string) => Promise<Result<Section>>
-    deleteSection: (agentId: string, id: string) => Promise<Result<void>>
-    shareSection: (agentId: string, id: string) => Promise<Result<Section>>
-    createProject: (agentId: string, sectionId: string, name: string, repositoryPath?: string | null, createRepository?: boolean) => Promise<Result<Project>>
-    pickRepositoryFolder: () => Promise<Result<string | null>>
-    renameProject: (agentId: string, id: string, name: string) => Promise<Result<Project>>
-    deleteProject: (agentId: string, id: string) => Promise<Result<void>>
-    createRepository: (agentId: string, projectId: string) => Promise<Result<Project>>
-    chooseRepository: (agentId: string, projectId: string) => Promise<Result<Project | null>>
-    relinkProject: (agentId: string, projectId: string, repositoryPath: string) => Promise<Result<{ project: Project; warning?: string }>>
-  }
-  context: {
-    read: (agentId: string, chatId: string, sourceId: string) => Promise<Result<import('./context').ContextDocument & { items?: { id: string; text: string; source_ids: string[] }[] }>>
-  }
-  workspace: {
-    entries: (agentId: string, path: string) => Promise<Result<WorkspaceEntry[]>>
-    read: (agentId: string, path: string) => Promise<Result<string>>
-    save: (agentId: string, path: string, content: string, expected: string | null) => Promise<Result<string>>
-    renameNote: (agentId: string, path: string, name: string) => Promise<Result<string>>
-  }
-  setup: {
-    grants: (agentId: string, chatId: string) => Promise<Result<import('./setup').SetupGrant[]>>
-    revoke: (agentId: string, chatId: string, grantId: string) => Promise<Result<void>>
-  }
-  previews: {
-    list: (agentId: string, chatId: string) => Promise<Result<import('./setup').PreviewSnapshot[]>>
-    stop: (agentId: string, chatId: string, previewId: string) => Promise<Result<import('./setup').PreviewSnapshot>>
-    restart: (agentId: string, chatId: string, previewId: string) => Promise<Result<import('./setup').PreviewSnapshot>>
-    open: (agentId: string, chatId: string, previewId: string) => Promise<Result<void>>
-  }
-  repositories: {
-    editors: () => Promise<Result<RepositoryEditorChoices>>
-    open: (agentId: string, projectId: string, editorId?: string) => Promise<Result<RepositoryEditorChoices | null>>
-    chooseEditor: (agentId: string, projectId: string) => Promise<Result<RepositoryEditorChoices | null>>
-    reports: (agentId: string, conversationId: string) => Promise<Result<import('./repository').RepositoryReport[]>>
-    review: (agentId: string, conversationId: string, runId: string, acknowledge: boolean) => Promise<Result<import('./repository').RepositoryReport>>
-  }
-  runs: {
-    list: () => Promise<Result<RunSnapshot[]>>
-    recovery: () => Promise<Result<RecoveryNotice>>
-    dismissRecovery: () => Promise<Result<void>>
-    cancelPending: (agentId: string, conversationId: string) => Promise<Result<void>>
-  }
-  stream: (
-    requestId: string,
-    agentId: string,
-    conversationId: string,
-    connectionId: string,
-    text: string,
-    model?: string,
-    effort?: string,
-    intent?: RunIntent
-  ) => Promise<Result<{ stopped: boolean; steered?: boolean; runId?: string }>>
-  stop: (requestId: string) => Promise<void>
-  onDelta: (callback: (delta: StreamDelta) => void) => () => void
 }

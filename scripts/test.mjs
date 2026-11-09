@@ -22,8 +22,7 @@ if (!files.length) {
   process.exit(1)
 }
 
-// SQLite is rebuilt for Electron. Use its Node runtime for backend tests too,
-// so packaging never leaves tests with an incompatible native module ABI.
+// Exercise retained backend code with the same Node runtime as the desktop app.
 const result = spawnSync(
   require('electron'),
   [

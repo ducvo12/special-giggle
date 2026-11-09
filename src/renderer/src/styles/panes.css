@@ -1,0 +1,265 @@
+.workspace {
+  display: flex;
+  min-height: 0;
+  padding: 12px;
+}
+
+.pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(
+    to bottom,
+    var(--surface-raised),
+    var(--surface) 40%,
+    var(--surface-inset)
+  );
+  box-shadow: var(--shadow-pane);
+}
+
+.pane-titlebar {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: 38px;
+  padding: 0 6px;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.pane-body {
+  flex: 1;
+  min-height: 0;
+}
+
+.pane-layout,
+.pane-split,
+.pane-slot {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.pane-layout {
+  position: relative;
+}
+
+.pane-split-vertical {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.pane-drag-handle {
+  flex: 1;
+  min-width: 24px;
+  align-self: stretch;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.workspace.is-dragging,
+.workspace.is-dragging .pane-drag-handle {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.pane-slot {
+  position: relative;
+}
+
+.pane-slot-dragging::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px dashed var(--focus);
+  border-radius: var(--radius-lg);
+  pointer-events: none;
+}
+
+.pane-floating {
+  position: fixed;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.pane-dock-preview {
+  position: absolute;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  border: 2px solid var(--focus);
+  border-radius: var(--radius-lg);
+  background: var(--accent-subtle);
+  color: var(--text-strong);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.pane-split {
+  display: grid;
+}
+
+.pane-split-horizontal {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.pane-divider {
+  display: grid;
+  place-items: center;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.pane-divider::after {
+  content: '';
+  width: 2px;
+  height: 28px;
+  border-radius: var(--radius-sharp);
+  background: var(--border-strong);
+}
+
+.pane-divider:hover::after,
+.pane-divider:focus-visible::after {
+  background: var(--focus);
+}
+
+.pane-divider:focus-visible {
+  outline: 1px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.pane-split-vertical > .pane-divider {
+  cursor: row-resize;
+}
+
+.pane-split-vertical > .pane-divider::after {
+  width: 28px;
+  height: 2px;
+}
+
+.workspace.is-resizing-horizontal,
+.workspace.is-resizing-horizontal * {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.workspace.is-resizing-vertical,
+.workspace.is-resizing-vertical * {
+  cursor: row-resize;
+  user-select: none;
+}
+
+.pane-close,
+.tab-add,
+.tab-close {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-color: transparent;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.pane-tabs {
+  display: flex;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.pane-tab {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+}
+
+.pane-tab + .pane-tab {
+  margin-left: 4px;
+}
+
+.pane-tab.is-active {
+  background: var(--surface-selected);
+  border-color: var(--border-strong);
+  color: var(--text-strong);
+}
+
+.pane-tab [role='tab'] {
+  padding: 5px 8px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+}
+
+.pane-tab [role='tab']:hover {
+  background: var(--surface-hover);
+}
+
+.pane-tab button:focus-visible {
+  outline-offset: -2px;
+}
+
+.tab-close {
+  width: 20px;
+  font-size: 15px;
+}
+
+.pane-body {
+  overflow: auto;
+}
+
+.pane-placeholder {
+  margin: 20px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+
+
+.pane-tab [role='tab'] {
+  touch-action: none;
+  user-select: none;
+}
+
+.pane-tab.is-dragging {
+  border-style: dashed;
+  border-color: var(--focus);
+  background: transparent;
+}
+
+.pane-tab.is-dragging > * {
+  visibility: hidden;
+}
+
+.tab-drag-preview {
+  position: fixed;
+  z-index: 4;
+  padding: 0 8px;
+  background: var(--surface-raised);
+  color: var(--text-strong);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  box-shadow: var(--shadow-pane);
+  pointer-events: none;
+}
+
+.tab-drop-marker {
+  position: absolute;
+  z-index: 5;
+  background: var(--accent);
+  pointer-events: none;
+}

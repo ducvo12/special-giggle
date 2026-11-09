@@ -1,14 +1,4 @@
 @import './tokens.css';
-@import './repositories.css';
 @import './base.css';
-@import './layout.css';
-@import './chat.css';
-@import './settings.css';
-@import './file-view.css';
-@import './agents.css';
-@import './responsive.css';
-@import './select.css';
-@import './explorer.css';
-@import './runs.css';
-@import './activity-panel.css';
-@import './prompts.css';
+@import './shell.css';
+@import './panes.css';
