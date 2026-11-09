@@ -1,14 +1,14 @@
 # Harness Design
 
-> Accepted v0.1 design, consolidated October 29, 2026. This specification includes delivered and still-planned behavior. [[Harness Implementation Plan]] records delivery; [[Start Here]] is the navigation/status index.
+> Core architectural design. The v0.1 baseline is complete and verified. [[Start Here]] is the vault navigation index; historical delivery records live in [[archive/v0.1/Harness Implementation Plan.md|Harness Implementation Plan]].
 
-Visuals: [[Harness Overview.canvas]] · [[Agent Structure.canvas]] · [[Repository Access.canvas]] · [[Memory & Context.canvas]].
+Visuals: [[Granite Architecture.canvas]] (historical drafts in `archive/legacy-canvases/`).
 
 ## Purpose and scope
 
 Granite is a personal-agent workspace with coding capabilities. It owns the model/tool loop, context assembly, permissions, persistence and recovery. Model providers propose text and actions; Granite performs permitted actions and returns actual outcomes.
 
-Finish the six v0.1 passes plus implemented pass 3A before treating the foundation as complete. No delegated subagents in v0.1. [[Granite Vision & Roadmap]] assigns same-section repository grants/worktrees to v0.2 and mixed-model orchestration to v0.3. Those later features do not change current v0.1 permissions.
+The six v0.1 passes plus Pass 3A establish the delivered foundation. No delegated subagents in v0.1. [[Granite Vision & Roadmap]] assigns same-section repository grants/worktrees to v0.2 and mixed-model orchestration to v0.3. Those later features do not change current v0.1 permissions.
 
 ## Organization
 
@@ -38,8 +38,8 @@ Chats and membership are database records. Editable content has stable-ID folder
 | General | Exactly one built-in Shared section per agent; permanent/temporary chats together; cannot be individually deleted or contain projects. No separate Temporary section. |
 | Custom section | Shared or Closed; holds direct chats and projects; cannot own a repository. Closed can become Shared, never the reverse. |
 | Project | Fixed parent section; inherits that context mode. A collection of chats with zero or one current repository attachment. |
-| Repository attachment | Existing external folder or first internally created codebase. Adding it binds every existing project chat. No detach/release to chat-only and no simultaneous second attachment. Missing-folder relinking is a separate pass-5 recovery flow. |
-| Temporary chat | Directly under a section, never any project. Normal permitted read context, no durable contributions or repository writes. Full lifecycle arrives in pass 5. |
+| Repository attachment | Existing external folder or first internally created codebase. Adding it binds every existing project chat. No detach/release to chat-only and no simultaneous second attachment. Missing-folder relinking is delivered as part of container recovery (v0.1 Pass 5). |
+| Temporary chat | Directly under a section, never any project. Normal permitted read context, no durable contributions or repository writes. Full lifecycle delivered in v0.1 Pass 5. |
 
 ## Moving and keeping chats
 
@@ -62,9 +62,9 @@ Chats and membership are database records. Editable content has stable-ID folder
 
 Shared chats can use permanent content from other Shared sections of the same agent, eligible user memory and notes. Closed chats use their own section's permanent content only, plus personality. Temporary chats read their parent section's permitted sources and their own expiring history, but other chats cannot retrieve them and they cannot make durable contributions.
 
-Pass 4 implements the full [[Memory & Context Policy]]: richer local context, brief eligible remote directories, native scoped text search/read, incremental meaningful-turn summaries, source references, fresh editable files and model-aware compaction. It does not attach every transcript on every request or require embeddings.
+Granite implements the full [[Memory & Context Policy]] (introduced in v0.1 Pass 4): richer local context, brief eligible remote directories, native scoped text search/read, incremental meaningful-turn summaries, source references, fresh editable files and model-aware compaction. It does not attach every transcript on every request or require embeddings.
 
-Deleting one source does not rewrite surviving chats or erase independently supported facts. Generated summaries/caches are not independent evidence. Pass 4 provides source cleanup; pass 5 connects it to complete container/expiry lifecycles.
+Deleting one source does not rewrite surviving chats or erase independently supported facts. Generated summaries/caches are not independent evidence. Source cleanup was introduced in v0.1 Pass 4 and integrated with container/expiry lifecycles in v0.1 Pass 5.
 
 ## Repository access in v0.1
 

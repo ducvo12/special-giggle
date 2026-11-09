@@ -1,8 +1,8 @@
 # Repository & Context Tools
 
-> Consolidated October 29, 2026. Repository tools are implemented in passes 3/3A; native conversation-context retrieval is implemented in pass 4. See [[Pass 4 Implementation & Testing]] for verification and limitations. This note describes the v0.1 boundary; v0.2 exceptions are separate.
+> Active technical tool specification. Repository tools, native context retrieval, and temporary execution/expiry are delivered and verified in the v0.1 baseline. Historical delivery records live in [[archive/v0.1/Harness Implementation Plan.md|Harness Implementation Plan]].
 
-Start visually: [[Available Agent Tools.canvas]] · [[Context Retrieval.canvas]] · [[Repository Access.canvas]]
+Start visually: [[Granite Architecture.canvas]] (Zone 3: Tools & Isolation Boundaries). Historical drafts in `archive/legacy-canvases/`.
 
 Related: [[Tools & Permissions#Core tools and optional discovery]] · [[Memory & Context Policy]] · [[Harness Design]] · [[Tools & Permissions#Skills]] · [[Decision Register]]
 
@@ -23,11 +23,11 @@ Repository enforcement, guarded file sessions, commands, authorization, previews
 
 Commands can download dependencies under bounded authorization, preserve safe contained relative package links and share isolated HOME/cache within a run. No fixed command time or repository count/size ceiling remains. Output previews and native text operations stay bounded. Commands cannot write directly into the live repository; completed changes publish after validation, while unfinished copies are discarded. Stop keeps published edits. Managed previews serve a labeled isolated snapshot and publish no writes.
 
-Current limitations include macOS-only command confinement, real local `.git` metadata rather than linked worktree pointers, no inherited host credentials and expensive full copies/manifests. Closed execution uses enforced section scope; temporary execution awaits pass 5. See [the current harness guide](../harness.md) and dated verification records for exact coverage.
+Current limitations include macOS-only command confinement, real local `.git` metadata rather than linked worktree pointers, no inherited host credentials and expensive full copies/manifests. Closed execution uses enforced section scope; temporary execution is delivered in v0.1 Pass 5. See [the current harness guide](../harness.md) and dated verification records for exact coverage.
 
 ## Repository tools depend on membership
 
-**Pass-4 search:** pinned packaged ripgrep 15.0.0 via `@vscode/ripgrep` 1.18.0, with literal/regex/case controls, filename globs, ignore rules, explicit hidden/ignored inclusion, excerpts and revision-sensitive cursors. It searches without copying the repository. Filename filtering uses minimatch after ignore-aware enumeration. Search currently requires the macOS read-only sandbox. Semantic search, embeddings and richer symbol/import maps remain v0.3 evaluation work.
+**Repository search (v0.1 Pass 4):** pinned packaged ripgrep 15.0.0 via `@vscode/ripgrep` 1.18.0, with literal/regex/case controls, filename globs, ignore rules, explicit hidden/ignored inclusion, excerpts and revision-sensitive cursors. It searches without copying the repository. Filename filtering uses minimatch after ignore-aware enumeration. Search currently requires the macOS read-only sandbox. Semantic search, embeddings and richer symbol/import maps remain v0.3 evaluation work.
 
 | Current chat location/retention | Repository reads | Repository edits |
 | --- | --- | --- |

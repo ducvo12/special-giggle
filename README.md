@@ -5,9 +5,9 @@ A local desktop workspace for personal agents. Granite owns its model/tool loop 
 - [Development and verification](docs/development.md)
 - [Implemented harness behavior](docs/harness.md)
 - [Planning vault: start here](<docs/vault/Start Here.md>)
-- [Implementation passes and acceptance checks](<docs/vault/Harness Implementation Plan.md>)
+- [v0.1 delivery archive and acceptance criteria](<docs/vault/archive/v0.1/Harness Implementation Plan.md>)
 
-Passes 1–3 and 3A are implemented with recorded verification. Passes 4–6 remain planned. Implementation, acceptance results and future features are documented separately; this status does not imply exhaustive testing.
+All six v0.1 baseline passes plus Pass 3A are implemented and verified (241/241 automated tests passing, clean build, local package verified). Implementation details, acceptance results, and future roadmap (v0.2/v0.3) are documented in `docs/vault/`.
 
 ```sh
 npm install

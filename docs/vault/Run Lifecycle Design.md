@@ -1,8 +1,8 @@
 # Run Lifecycle Design
 
-> Current v0.1 contract, consolidated October 29, 2026. Passes 2/3/3A implement the core loop, scheduling, repository execution, questions and previews. Full scoped context/identity changes are pass 4; temporary expiry and complete container lifecycle are pass 5. Verification notes record tested coverage, not exhaustive acceptance.
+> Current architectural contract. The v0.1 baseline (core loop, scheduling, repository execution, questions, previews, scoped context, and temporary expiry) is complete and verified. Historical delivery records live in [[archive/v0.1/Harness Implementation Plan.md|Harness Implementation Plan]].
 
-Visuals: [[Run Lifecycle.canvas]] · [[Run Lifecycle - Text Only.canvas]] · [[Run Lifecycle - Repository Edits.canvas]] · [[Run Lifecycle - Steering.canvas]] · [[Run Lifecycle - Queues & Concurrency.canvas]].
+Visuals: [[Granite Architecture.canvas]] (historical drafts in `archive/legacy-canvases/`).
 
 ## One run and its model requests
 
@@ -57,7 +57,7 @@ No fixed or optional whole-run time, model-step or total-tool-call budgets. Actu
 
 ## Approvals, questions and previews
 
-Exact approvals bind one pending action, run, target/revision and proposed change. Wait without consuming model capacity or running further tools. Approve revalidates and applies once; Deny returns a no-change result. Steering withdraws the request; Stop/deletion/closure invalidates it. A changed revision/proposal needs fresh review. Identity approval in pass 4 is restricted to permanent Shared scope and activates next run. [[Run Lifecycle - Approvals.canvas]] shows that planned branch.
+Exact approvals bind one pending action, run, target/revision and proposed change. Wait without consuming model capacity or running further tools. Approve revalidates and applies once; Deny returns a no-change result. Steering withdraws the request; Stop/deletion/closure invalidates it. A changed revision/proposal needs fresh review. Identity approval in pass 4 is restricted to permanent Shared scope and activates next run. [[Granite Architecture.canvas]] (Zone 2) illustrates this human approval loop.
 
 `ask_user` is a separate implemented question state for consequential missing choices. It preserves task/project ownership but releases model capacity. Group necessary questions; reuse known choices/defaults; do not ask for secrets. Answers are bound to the exact pending question and stored in the transcript. Stop/closure invalidates them; steering withdraws them.
 
@@ -81,7 +81,7 @@ Distinguish known success, known no effect, known partial effect and unknown eff
 
 ## Stop and unexpected closure
 
-[[Run Lifecycle - Stop & Retained Edits.canvas]] · [[Run Lifecycle - Unexpected Closure.canvas]] · [[Run Lifecycle - Tool Failures.canvas]].
+[[Granite Architecture.canvas]] (Zone 2: Safe Stop & Crash Settle).
 
 1. Persist stopping, invalidate pending approvals/questions and unstarted work, reject late callbacks.
 2. Cancel generation, settle owned processes/writers and retain required reservations while outcomes are checked.
@@ -93,9 +93,9 @@ On reopening after a crash, invalidate stale work, settle surviving verified own
 
 Preserve never-started queued messages as **Not started — Granite restarted**, without automatic dispatch. Explicit **Run pending messages** revalidates/requeues a new run with fresh positions. Persist recovery once so another launch cannot recreate jobs or repeatedly reset deadlines.
 
-## Temporary timers and deletion — pass 5
+## Temporary timers and deletion (delivered in v0.1 Pass 5)
 
-[[Run Lifecycle - Temporary Expiry.canvas]] · [[Run Lifecycle - Chat Deletion.canvas]] · [[Temporary Chat Flow.canvas]].
+[[Granite Architecture.canvas]] (Zone 1: Temporary Chat Lifecycle).
 
 Initialize one idle deadline at creation, using existing run/queue/retention state rather than an activity log or per-second writes.
 
@@ -106,7 +106,7 @@ Initialize one idle deadline at creation, using existing run/queue/retention sta
 | Last active/queued work ends/cancels; or work waits solely for user input/approval | Fresh one-hour countdown. Pending approval/question alone does not hold the timer. |
 | Idle or approval/input-only waiting | Count down. Keep is available only when live and between runs. |
 
-Passive opening, scrolling, focus and draft typing do not provide an additional durable activity log; exact qualifying UI events remain a pass-5 implementation default. Check the latest deadline/state atomically: an old timer cannot delete working, queued, refreshed or kept chats. A due chat becomes unavailable before cleanup; late input/answers/output cannot revive it. Expiry cancels residual work and removes its transcript, same-chat summary/provider state and temporary data without a model call. It has no durable contributions to regenerate. Manual Delete uses the same settlement path and may cancel active work; automatic idle expiry cannot interrupt protected active/queued work.
+Passive opening, scrolling, focus and draft typing do not provide an additional durable activity log. Check the latest deadline/state atomically: an old timer cannot delete working, queued, refreshed or kept chats. A due chat becomes unavailable before cleanup; late input/answers/output cannot revive it. Expiry cancels residual work and removes its transcript, same-chat summary/provider state and temporary data without a model call. It has no durable contributions to regenerate. Manual Delete uses the same settlement path and may cancel active work; automatic idle expiry cannot interrupt protected active/queued work.
 
 Offline idle deadlines still expire. Previously held active/queued timers receive a fresh idle hour after startup settlement, once. An already-expired idle/input/approval deadline is not revived. A live interrupted approval wait follows Stop reset; a wholly idle chat retains its real deadline. Requeue holds the timer again. Keep committed first removes expiry; completed expiry makes Keep unavailable.
 

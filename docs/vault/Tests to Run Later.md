@@ -80,7 +80,7 @@ These remain verification work, distinct from building new capabilities:
 - [ ] Hosted/local-model behavior beyond the specific live setup tasks recorded in [[Pass 3A.2 Implementation & Testing]]; an unavailable local endpoint is not a passed check.
 - [ ] Measure baseline task duration, resource usage and large-repository behavior before claiming performance parity or choosing optimizations.
 
-Passes 4–6 add their own acceptance cases in [[Harness Implementation Plan]]. A passed build, mock loop or earlier milestone is not evidence that every later integration works.
+v0.1 Passes 4–6 recorded their acceptance cases in [[archive/v0.1/Harness Implementation Plan.md|Harness Implementation Plan]]. A passed build, mock loop or earlier milestone is not evidence that every later integration works.
 
 
 ## Pass 4 follow-up acceptance

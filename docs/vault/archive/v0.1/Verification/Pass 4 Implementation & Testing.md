@@ -43,7 +43,7 @@ Repository search/commands currently require macOS confinement; other platform p
 
 Embeddings, semantic/hybrid retrieval, richer code maps, large-corpus ranking, more efficient context selection and compaction tuning remain [[Things to Optimize]] / v0.3 evaluation work. Temporary lifecycle, container cascade deletion, optional tool lookup, skill installation and scoped integrations remain Pass 5. No run budgets, subagents or automatic code rollback were added.
 
-Related: [[Pass 4 Implementation Plan]] · [[Harness Implementation Plan]] · [[Memory & Context Policy]] · [[Available Agent Tools.canvas]]. The earlier [[Pass 4 Implementation Checkpoint]] is historical pause evidence.
+Related: [[Pass 4 Implementation Plan]] · [[Harness Implementation Plan]] · [[Memory & Context Policy]] · [[Granite Architecture.canvas]]. The earlier [[Pass 4 Implementation Checkpoint]] is historical pause evidence.
 
 
 ## Source interface cleanup — October 31, 2026

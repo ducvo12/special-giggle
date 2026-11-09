@@ -1,6 +1,6 @@
 # Granite’s agent harness
 
-> Implemented behavior, reviewed October 29, 2026. For planned context/lifecycle features and version boundaries, use [the vault index](<vault/Start Here.md>) and [implementation plan](<vault/Harness Implementation Plan.md>).
+> Implemented behavior, reviewed October 29, 2026. For architecture specifications and roadmap, use [the vault index](<vault/Start Here.md>) and [v0.1 delivery archive](<vault/archive/v0.1/Harness Implementation Plan.md>).
 
 Granite owns the agent loop. Model providers receive instructions, conversation items, and tool definitions, then return text or proposed tool calls. Granite validates those calls, applies permissions, requests approval, executes tools, and returns their results to the model. Codex is not started or used for authentication.
 
@@ -22,7 +22,7 @@ The supported ChatGPT plan flow calls the public Responses endpoint directly wit
 
 Each run loads the selected agent’s profile/personality and user instructions; eligible `memory.md` is refreshed before subsequent model requests. Personality remains fixed during that run and changes take effect next run. Granite assembles these into the model’s instructions. New chats can use another provider while preserving the agent’s identity/memory; a used chat remains bound to its model/provider. Existing-session migration is not supported.
 
-Memory and notes remain editable files. Pass 4 adds scoped SQLite FTS5 retrieval over saved messages, titles, notes and chat-owned summaries through `list_context`, `search_context` and `read_context`. Shared chats can retrieve eligible same-agent Shared content; Closed chats can run with their section's context and notes, without global user memory. Repository reads retain their separate membership rules. Temporary execution/expiry remains Pass 5.
+Memory and notes remain editable files. Pass 4 added scoped SQLite FTS5 retrieval over saved messages, titles, notes and chat-owned summaries through `list_context`, `search_context` and `read_context`. Shared chats can retrieve eligible same-agent Shared content; Closed chats can run with their section's context and notes, without global user memory. Repository reads retain their separate membership rules. Pass 5 delivered temporary execution, countdown timers, and Keep promotion.
 
 Use `update_memory` for revision-guarded, source-backed user facts and `save_note` for knowledge notes. Generic `edit_file` no longer edits memory. Generated memory/notes retain original source support; deletion prunes support and invalidates unsupported derived content without rewriting surviving chats. Manual replacements remain authoritative. `update_chat_summary` stages continuity until successful completion, without a separate extraction call after every greeting. `propose_identity_change` shows the exact replacement for approval and activates it next run. A compact Sources disclosure groups saved context by chat/file and opens original text and memory support. Current user prompts are omitted from that list; Chat details → Context retrieval retains the unfiltered recorded references.
 
@@ -50,7 +50,7 @@ Create or edit skills in **Tools & skills**. Granite stores each skill at `skill
 
 Add a named MCP server using a local executable and separate arguments, or a Streamable HTTP address. Remote addresses require HTTPS; loopback HTTP is supported for local services. Enable only the servers this agent needs.
 
-Granite asks before starting a local server or connecting to an HTTP server, and again before every MCP tool invocation. It discovers tools through its own MCP client, gives each an unambiguous name, validates arguments against the supplied schema, and forwards approved results to the model. MCP connects independently of the model provider. Connections are currently paused when the agent has Closed sections or repository links, because the existing transport cannot enforce those scopes. Scoped integrations, connection reuse and optional discovery remain pass 5.
+Granite asks before starting a local server or connecting to an HTTP server, and again before every MCP tool invocation. It discovers tools through its own MCP client, gives each an unambiguous name, validates arguments against the supplied schema, and forwards approved results to the model. MCP connects independently of the model provider. Scoped integrations, schema normalization, and per-section scoping are implemented in Pass 5.
 
 Local MCP programs are trusted extensions: after approval, they run with the user’s computer permissions, outside the terminal sandbox. HTTP MCP authentication/OAuth and secret configuration are not implemented in this version. Do not put credentials in server arguments or URLs. Servers requiring account sign-in fail with an explanatory error. MCP clients are closed when the run completes, stops, or fails.
 
@@ -82,7 +82,7 @@ Compaction is internal, cancellable and preserves full saved transcripts plus cu
 
 Startup reports interrupted work without automatically replaying runs/commands/previews; queued prompts require explicit restart. Known completed edits are retained, while genuine unknown outcomes block affected writes until reviewed.
 
-Provider failures are redacted before display or persistence. Partial text and completed tool activity survive failure and restart. Native state is committed only with a completed turn. Existing agent/chat deletion requires work to finish, stops owned previews and removes associated settled state; unresolved recovery data cannot be erased. Full cancel-and-delete cascade for sections/projects and source cleanup remains pass 5. Agent folder deletion includes internal code; external linked folders survive.
+Provider failures are redacted before display or persistence. Partial text and completed tool activity survive failure and restart. Native state is committed only with a completed turn. Existing agent/chat deletion stops owned previews and removes associated settled state; unresolved recovery data cannot be erased. Full cancel-and-delete cascade for sections/projects, missing-folder relinking, and source cleanup are delivered in Pass 5. Agent folder deletion includes internal code; external linked folders survive.
 
 ChatGPT sign-in validates OAuth state, PKCE, the ID-token signature, issuer, audience, expiry, nonce, and granted plan scopes. Credentials use OS-protected encryption. Refreshes are serialized to protect rotating tokens. Signing out revokes Granite’s renewable session when possible, clears its local tokens, and preserves its registration mapping for later sign-in. This does not sign out Codex. If remote revocation cannot be confirmed, the UI says so.
 

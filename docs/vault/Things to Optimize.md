@@ -19,7 +19,7 @@ These are feature extensions, not a reason to postpone required isolation/recove
 
 ### Long and complicated coding tasks
 
-Serious coding evaluations start in **v0.1**: establish multi-file task baselines with passes 3/3A, stress long histories and compaction with pass 4, and include end-to-end coding tasks in pass 6 release verification. Continue evaluating practical completion as v0.2 adds capabilities. v0.3 owns deeper efficiency tuning; earlier reliability failures remain earlier work.
+Serious coding evaluations started in **v0.1**: established multi-file task baselines with v0.1 Passes 3/3A, long histories and compaction with v0.1 Pass 4, and end-to-end coding tasks in v0.1 Pass 6 release verification. Continue evaluating practical completion as v0.2 adds capabilities. v0.3 owns deeper efficiency tuning; earlier reliability failures remain earlier work.
 
 - [ ] Maintain a repeatable suite of realistic feature additions, bug fixes and refactors, including tasks that cross UI/backend/persistence boundaries, recover from failed builds and retain requirements through compaction. Keep some tasks outside the tuning set.
 - [ ] Measure verified completion, regressions, user interventions, elapsed time and total tokens/cost per successful task. Compare Granite versions and, where feasible, Codex using the same model, starting repository and task requirements; avoid assuming a universal performance percentage.
@@ -27,7 +27,7 @@ Serious coding evaluations start in **v0.1**: establish multi-file task baseline
 
 ### Large repositories
 
-Basic lexical-search improvements (established search implementation, ignore handling, case/regex options and bounded-result continuation) are now planned for **pass 4**. This backlog covers further scale/quality work after that baseline; it does not postpone those improvements.
+Basic lexical-search improvements (established search implementation, ignore handling, case/regex options and bounded-result continuation) were delivered in **v0.1 Pass 4**. This backlog covers further scale/quality work after that baseline; it does not postpone those improvements.
 
 - [ ] Measure and tune lexical search, bounded/batched reads, generated/dependency exclusions, response latency, context use and task success on representative large repositories.
 - [ ] Evaluate incremental file/symbol/import maps and stale-index detection. Add semantic retrieval only where it improves results relative to its cost and scoped indexing requirements.
@@ -37,7 +37,7 @@ Basic lexical-search improvements (established search implementation, ignore han
 
 ### Model context
 
-Basic scoped text retrieval, source tracking, full definition accounting and context-fit/compaction are **pass 4**, not this backlog.
+Basic scoped text retrieval, source tracking, full definition accounting and context-fit/compaction were delivered in **v0.1 Pass 4**, not this backlog.
 
 - [ ] Tune automatic local inclusion versus explicit retrieval, brief remote directories and relevant notes.
 - [ ] Measure summary quality, reply/tool reserves and compaction thresholds; preserve the original transcript, task/steering, permissions and source scope.
@@ -47,7 +47,7 @@ Basic scoped text retrieval, source tracking, full definition accounting and con
 
 ### Optional-tool discovery
 
-Basic permission-filtered core plus portable lookup ships in **pass 5**.
+Basic permission-filtered core plus portable lookup were delivered in **v0.1 Pass 5**.
 
 - [ ] Tune ranking, schema caching/eviction and provider-native discovery for large catalogs. Measure schema tokens, remaining headroom, malformed arguments, wrong choices, latency and task success; no fixed advertised-context cutoff.
 

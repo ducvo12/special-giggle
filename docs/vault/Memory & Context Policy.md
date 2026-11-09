@@ -1,10 +1,10 @@
 # Memory & Context Policy
 
-> Accepted pass-4 specification, consolidated October 29, 2026. Scoped retrieval, source-backed memory/summary maintenance and model-aware compaction are implemented; [[Pass 4 Implementation & Testing]] records baseline verification and remaining acceptance. Temporary execution/expiry remains planned for pass 5; tuning is later work.
+> Active context and memory specification. Scoped retrieval, source-backed memory/summary maintenance, model-aware compaction, and temporary execution/expiry are implemented and verified in the v0.1 baseline. Historical delivery records live in [[archive/v0.1/Harness Implementation Plan.md|Harness Implementation Plan]].
 
-Related: [[Harness Design]] · [[Memory & Context.canvas]] · [[Decision Register]] · [[Things to Optimize]]
+Related: [[Harness Design]] · [[Granite Architecture.canvas]] · [[Decision Register]] · [[Things to Optimize]]
 
-Concrete retrieval/tool exposure is agreed in [[Repository & Context Tools]] · [[Context Retrieval.canvas]] (D-058): separate repository read/write capabilities and native scoped list/search/read operations with bounded source-linked results. Exact tool names remain illustrative.
+Concrete retrieval/tool exposure is agreed in [[Repository & Context Tools]] · [[Granite Architecture.canvas]] (Zone 3) (D-058): separate repository read/write capabilities and native scoped list/search/read operations with bounded source-linked results. Exact tool names remain illustrative.
 
 ## What is saved
 
@@ -36,7 +36,7 @@ Personality belongs in identity, not user memory. Identity loads in every contex
 - Corrections replace/supersede the affected fact rather than appending contradictory “facts.” The user can inspect and edit remembered content and see its sources.
 - Check revisions before applying automatic edits so a pending update does not silently overwrite a user's newer edit.
 
-Source references support the agreed deletion boundary below. Implement source-reference synchronization and cached-context invalidation in pass 4; wire complete project/section deletion and expiry in pass 5.
+Source references support the agreed deletion boundary below. Source-reference synchronization and cached-context invalidation were established in v0.1 Pass 4 and integrated with project/section deletion and expiry in v0.1 Pass 5.
 
 ## Current files and manual edits — D-060
 

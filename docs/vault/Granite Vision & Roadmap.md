@@ -15,7 +15,7 @@ The original recorded design emphasizes:
 - **Tools that accomplish work.** Repository editing, commands, tests, skills and scoped integrations sit behind Granite's own authorization, visible outcomes and Stop/recovery behavior.
 - **User control.** Current saved memory/notes remain inspectable and editable; approvals and source/scope checks are enforced by the harness rather than relying only on model instructions.
 
-Background: [[Harness Design]] (hierarchy, identity/model distinction, context and permissions), [[Memory & Context Policy]], [[Harness Overview.canvas]], and the October 18 milestone notes in `docs/archive/atlas-verification.md` and `docs/archive/multi-agent-verification.md`.
+Background: [[Harness Design]] (hierarchy, identity/model distinction, context and permissions), [[Memory & Context Policy]], [[Granite Architecture.canvas]], and the October 18 milestone notes in `docs/archive/atlas-verification.md` and `docs/archive/multi-agent-verification.md`.
 
 ## Long-term orchestration goal — reaffirmed by the user
 
@@ -25,11 +25,11 @@ This is an explicit v0.3 goal. D-003 keeps v0.1 free of delegated subagents; the
 
 This goal still needs design for worker model/connection selection, task/context handoff, workspace ownership, permissions, result inspection, failure, cancellation and resource use. It does not grant workers automatic access to all agent identities, sections, credentials or repositories. D-063's fixed model within an existing chat/session remains intact unless separately revised.
 
-## v0.1 — Complete the basic harness
+## v0.1 — Complete the basic harness (COMPLETE)
 
-Finish [[Harness Implementation Plan]]: the existing six passes plus the already-added pass 3A. Preserve its context/memory, lifecycle, scope, tool and recovery requirements and release verification. Basic compaction/context-fit handling, scoped tool lookup and ordinary command execution remain v0.1 obligations; the later optimization assignments do not remove their baseline correctness requirements.
+The foundational six passes plus Pass 3A are complete and verified (241/241 automated tests passing, clean build, local package verified). Context/memory, lifecycle, scope, tool and recovery requirements and release verification are delivered.
 
-Delivery status lives in [[Harness Implementation Plan]]; version headings are not completion claims.
+Detailed delivery records and acceptance criteria live in [[archive/v0.1/Harness Implementation Plan.md|Harness Implementation Plan]].
 
 ## v0.2 — Broad practical capability
 

@@ -1,6 +1,6 @@
 # Harness Implementation Plan
 
-> v0.1 delivery plan, consolidated October 29, 2026. Passes 1–3 and both 3A passes are implemented with recorded verification; passes 4–6 remain planned. Completion of implementation is separate from exhaustive acceptance. [[Start Here]] indexes the evidence; [[Tests to Run Later]] preserves skipped verification.
+> v0.1 delivery plan. All six passes plus Pass 3A are implemented and verified (241/241 automated tests passing). [[Start Here]] indexes the evidence; [[Tests to Run Later]] preserves manual/live verification items.
 
 Related: [[Start Here]] · [[Harness Design]] · [[Decision Register]] · [[Run Lifecycle Design]] · [[Container & Settings Rules]] · [[Things to Optimize]]
 

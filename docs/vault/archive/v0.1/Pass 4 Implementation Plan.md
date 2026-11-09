@@ -2,7 +2,7 @@
 
 > Accepted implementation plan, October 29, 2026. The baseline is implemented; see [[Pass 4 Implementation & Testing]] for evidence and remaining acceptance. The text below records the intended scope, not a claim of final acceptance. The behavior contract remains [[Harness Implementation Plan]], [[Memory & Context Policy]] and [[Tools & Permissions]].
 
-Related: [[Available Agent Tools.canvas]] · [[Repository & Context Tools]] · [[Start Here]] · [[Tests to Run Later]].
+Related: [[Granite Architecture.canvas]] · [[Repository & Context Tools]] · [[Start Here]] · [[Tests to Run Later]].
 
 ## Outcome
 

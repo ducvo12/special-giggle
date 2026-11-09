@@ -1,10 +1,10 @@
 # Container & Settings Rules
 
-> Accepted v0.1 lifecycle/settings specification, consolidated October 29, 2026. Full project/section deletion, missing-folder relinking and duplicate-link warnings are pass 5. Basic agent/chat deletion already exists but currently requires work to finish; cancel-and-delete and derived-source cleanup are not complete. Pass 4 owns memory refresh; existing run/settings controls are covered by passes 1–3A.
+> Active lifecycle and container settings specification. The v0.1 baseline (cascading deletion, missing-folder relinking, memory refresh, and duplicate-link warnings) is complete and verified. Historical delivery records live in [[archive/v0.1/Harness Implementation Plan.md|Harness Implementation Plan]].
 
 Related: [[Harness Design]] · [[Harness Implementation Plan]] · [[Memory & Context Policy]] · [[Run Lifecycle Design#Queues and capacity]] · [[Tools & Permissions#Skills]] · [[Tools & Permissions#Core tools and optional discovery]] · [[Decision Register]]
 
-Start visually: [[Container & Settings.canvas]] · [[Repository Access.canvas]] · [[Memory & Context.canvas]]
+Start visually: [[Granite Architecture.canvas]] (Zone 1: Container & Data Hierarchy). Historical drafts in `archive/legacy-canvases/`.
 
 ## Delete the container and its contents
 
@@ -16,7 +16,7 @@ Folder deletion follows physical storage: code physically inside the deleted fol
 
 Reuse the existing deletion sequence: prevent new descendant work, cancel queued work/approvals, Stop active runs and settle their writers before removing files/data. D-067 preserves completed external-repository edits from both the active and earlier runs; no rollback precedes deletion. Do not discard an unresolved recovery record or report successful deletion when cleanup is incomplete. Durable transaction/retry mechanics are implementation details.
 
-## Current memory and notes — pass 4
+## Current memory and notes (introduced in v0.1 Pass 4)
 
 User/agent edits have equal standing; refresh eligible current files on every model request with revision guards. No stale cached author preference and no automatic interruption to inject edits. Removing a line does not erase historical evidence or establish permanent suppression. Full rules and source-deletion semantics: [[Memory & Context Policy]].
 
