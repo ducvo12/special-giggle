@@ -34,8 +34,8 @@
 
 ## 3. Post-Diagramming Next Milestone: v0.2 Roadmap
 Full details, technical problem definitions, and educational study concepts are documented in [[v0.2 Implementation Plan]]:
-1. **Pass 1 — Retired (November 9, 2026):** Cancel filesystem chat storage and composer navigation commands; retain SQLite and existing navigation. Generate logs only on explicit export requests if export is added later. Broader file previews and new-chat shortcuts are deferred. **Pass 2 is the next active milestone.**
-2. **Pass 2 — External IDE Launch:** Clicking a repository opens the user's preferred IDE (VS Code, Cursor, Zed, JetBrains) via deep links (`vscode://`, `cursor://`). *(Educational focus: OS URL schemes & process hand-off).*
+1. **Pass 1 — Retired (November 9, 2026):** Cancel filesystem chat storage and composer navigation commands; retain SQLite and existing navigation. Generate logs only on explicit export requests if export is added later. Broader file previews and new-chat shortcuts are deferred. **Pass 2 is postponed while code readability and codebase understanding take priority.**
+2. **Pass 2 — External IDE Launch (Postponed):** Clicking a repository opens the user's preferred IDE (VS Code, Cursor, Zed, JetBrains) via deep links (`vscode://`, `cursor://`). *(Educational focus: OS URL schemes & process hand-off).*
 3. **Pass 3 — Isolated Git Worktrees:** Multi-worktree concurrency without dirty working-tree collisions. *(Educational focus: SWE-agent / SWE-bench working tree isolation).*
 4. **Pass 4 — Same-Section Repository Grants:** Scoped multi-repository collaboration. *(Educational focus: Capability-based access control).*
 5. **Pass 5 — Web Documentation Search:** Live framework docs retrieval for local models. *(Educational focus: Tool-boundary RAG & sanitization).*

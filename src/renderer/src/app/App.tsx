@@ -280,7 +280,6 @@ export default function App() {
             onStop={stop}
           />
         )}
-
       </div>
 
       {dialog && agent && <TreeDialog action={dialog} agent={agent} organization={organization}

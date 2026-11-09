@@ -33,7 +33,7 @@ Implementation and integrated acceptance for the v0.1 baseline are complete acro
 
 ## Next Milestones (v0.2 & v0.3)
 
-- [[v0.2 Implementation Plan]] — delivery plan and educational roadmap for v0.2; Pass 1 is retired, and Pass 2 (external IDE launch) is next.
+- [[v0.2 Implementation Plan]] — delivery plan and educational roadmap for v0.2; Pass 1 is retired and Pass 2 (external IDE launch) is postponed while code readability and codebase understanding take priority.
 - [[V1_HANDOFF]] — Granite v1 handoff brief and immediate v0.2 roadmap.
 - [[Granite Vision & Roadmap]] — version roadmap assignments (v0.1, v0.2, v0.3).
 - [[Repository Access & Worktree Plan]] — v0.2 proposal for isolated Git worktrees and same-section cross-project repository grants.
