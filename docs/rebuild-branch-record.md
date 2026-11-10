@@ -1,4 +1,4 @@
-# Granite rebuild: current decisions and remaining work
+.# Granite rebuild: current decisions and remaining work
 
 Updated November 9, 2026.
 
@@ -28,10 +28,10 @@ Working agreements:
 
 The workspace has two levels: typed regions outside and tab groups inside. A region is the permanent container for a family of tabs; a group is a splittable leaf containing tabs.
 
-| Region | Accepted tabs | Internal layout |
-| --- | --- | --- |
-| Explorer | Agent | Any number of groups that fit, split horizontally or vertically. |
-| Content | Chat, Image, File | The same split/group behavior as Explorer; content kinds may coexist in one group. |
+| Region   | Accepted tabs     | Internal layout                                                                    |
+| -------- | ----------------- | ---------------------------------------------------------------------------------- |
+| Explorer | Agent             | Any number of groups that fit, split horizontally or vertically.                   |
+| Content  | Chat, Image, File | The same split/group behavior as Explorer; content kinds may coexist in one group. |
 
 Exactly one region of each type exists. Explorer starts on the left and Content on the right. The outer layout is always horizontal. Tabs and groups stay inside their owning region, so chats cannot appear on both sides of Explorer. Compatibility is enforced in the layout operations as well as the UI.
 
