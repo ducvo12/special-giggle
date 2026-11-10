@@ -15,6 +15,7 @@ export interface Rect { x: number; y: number; width: number; height: number }
 export interface DockTarget { paneId: string | null; edge: Edge }
 
 export const paneGap = 12
+export const splitSeam = 1
 export const minimumPaneSize = { width: 200, height: 140 }
 
 // Initialize a pane with one selected placeholder tab.

@@ -1,4 +1,4 @@
-import { useEffect, type KeyboardEvent, type PointerEvent, type PointerEventHandler } from 'react'
+import { useEffect, useRef, type CSSProperties, type KeyboardEvent, type PointerEvent, type PointerEventHandler } from 'react'
 import { paneTypes } from './pane-types'
 import type { PaneNode, Rect } from './layout'
 import type { Tab } from './tabs'
@@ -10,15 +10,16 @@ interface PaneProps {
   onTabDragStart: (tab: Tab, event: PointerEvent<HTMLButtonElement>) => void
   onDragStart: PointerEventHandler<HTMLDivElement>
   onClose: () => void
-  onAddTab: () => void
+  onAddTab: (titlebar: HTMLDivElement | null) => void
   onSelectTab: (id: string) => void
-  onCloseTab: (id: string) => void
+  onCloseTab: (id: string, titlebar: HTMLDivElement | null) => void
 }
 
 // Keep the pane's layout slot stable while its surface floats. Tabs are controlled
 // by the layout so moving the pane cannot discard their state.
 export default function Pane({ pane, floating, draggedTabId, onTabDragStart, onDragStart, onClose, onAddTab, onSelectTab, onCloseTab }: PaneProps) {
   const active = pane.tabs.find(tab => tab.id === pane.activeTabId)!
+  const titlebar = useRef<HTMLDivElement>(null)
 
   // Keep the selected tab reachable when the strip has more tabs than fit on screen.
   useEffect(() => {
@@ -44,7 +45,7 @@ export default function Pane({ pane, floating, draggedTabId, onTabDragStart, onD
     const index = pane.tabs.findIndex(tab => tab.id === id)
     const next = id === pane.activeTabId ? pane.tabs[index + 1] ?? pane.tabs[index - 1] : active
     if (next) document.getElementById(next.id)!.focus()
-    onCloseTab(id)
+    onCloseTab(id, titlebar.current)
   }
 
   return (
@@ -54,12 +55,16 @@ export default function Pane({ pane, floating, draggedTabId, onTabDragStart, onD
         aria-label={pane.title}
         data-pane-type={pane.paneType}
         data-pane-id={pane.id}
-        style={floating ? { left: floating.x, top: floating.y, width: floating.width, height: floating.height } : undefined}
+        style={{ ...(floating ? { left: floating.x, top: floating.y, width: floating.width, height: floating.height } : undefined), '--vt': `pane-${pane.id}` } as CSSProperties}
       >
-        <div className="pane-titlebar">
-          <div className="pane-tabs" role="tablist" aria-label={`${pane.title} tabs`}>
+        <div className="pane-titlebar" ref={titlebar}>
+          <div className="pane-tabs" role="tablist" aria-label={`${pane.title} tabs`} style={{ '--vt': `strip-${pane.id}` } as CSSProperties}>
             {pane.tabs.map(tab => (
-              <div className={`pane-tab${tab.id === pane.activeTabId ? ' is-active' : ''}${tab.id === draggedTabId ? ' is-dragging' : ''}`} key={tab.id}>
+              <div
+                className={`pane-tab${tab.id === pane.activeTabId ? ' is-active' : ''}${tab.id === draggedTabId ? ' is-dragging' : ''}`}
+                key={tab.id}
+                style={{ '--vt': `tab-${tab.id}` } as CSSProperties}
+              >
                 <button
                   type="button"
                   role="tab"
@@ -88,20 +93,33 @@ export default function Pane({ pane, floating, draggedTabId, onTabDragStart, onD
           </div>
 
           {pane.paneType === 'explorer' && (
-            <button type="button" className="tab-add quiet-button" aria-label={`Add tab to ${pane.title}`} onClick={onAddTab}>
+            <button
+              type="button"
+              className="tab-add quiet-button"
+              aria-label={`Add tab to ${pane.title}`}
+              style={{ '--vt': `add-${pane.id}` } as CSSProperties}
+              onClick={() => onAddTab(titlebar.current)}
+            >
               +
             </button>
           )}
 
           <div className="pane-drag-handle" onPointerDown={onDragStart} title={`Drag ${pane.title}`} />
 
-          <button type="button" className="pane-close quiet-button" aria-label={`Close ${pane.title}`} title={`Close ${pane.title}`} onClick={onClose}>
+          <button
+            type="button"
+            className="pane-close quiet-button"
+            aria-label={`Close ${pane.title}`}
+            title={`Close ${pane.title}`}
+            style={{ '--vt': `close-${pane.id}` } as CSSProperties}
+            onClick={onClose}
+          >
             ×
           </button>
         </div>
 
         <div className="pane-body" role="tabpanel" id={`${pane.id}-panel`} aria-labelledby={active.id} tabIndex={0}>
-          <p className="pane-placeholder">
+          <p className="pane-placeholder" key={active.id}>
             {pane.title} / {paneTypes[pane.paneType].label} / {active.title}
           </p>
         </div>

@@ -52,4 +52,10 @@
   --shadow-pane: 0 8px 30px #00000040;
   --shadow-dropdown: 0 8px 28px #0008;
   --glow-accent: 0 0 0 3px rgba(255, 255, 255, 0.04);
+
+  /* --- Motion --- */
+  --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 220ms;
 }
