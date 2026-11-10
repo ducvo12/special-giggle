@@ -1,18 +1,19 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
 import Pane from './Pane'
 import { tabDropAt, type DropPreview } from './tab-drop'
 import { addTab, closeTab, selectTab, type Tab } from './tabs'
-import { dockingAt, paneGap, minimumSize, resizeSplit, removePane, updatePane, type SplitPath, type Layout, type PaneNode, type Rect } from './layout'
+import { dockPane, dockTab, dockingAt, tabDockingTargetAt, dockingPreview, paneGap, minimumSize, resizeSplit, removePane, updatePane, type SplitPath, type Layout, type PaneNode, type Rect } from './layout'
+import { paneTypes, type PaneType } from './pane-types'
+import { regionHeaderHeight, regionMinimum, regionSwapAt, resizeRegions, swapRegions, updateRegion, type Region, type RegionLayout } from './regions'
 
 interface WorkspaceProps {
-  layout: Layout | null
-  onLayoutChange: (layout: Layout | null) => void
+  layout: RegionLayout
+  onLayoutChange: (layout: RegionLayout) => void
   onBoundsChange: (bounds: Rect) => void
+  newPane: Pick<PaneNode, 'id' | 'title'>
 }
 
-interface Drag {
-  pane: PaneNode
-  tab?: Tab
+interface PointerDrag {
   pointerId: number
   origin: Rect
   startX: number
@@ -21,8 +22,13 @@ interface Drag {
   y: number
 }
 
+type DragTarget = { kind: 'group'; region: PaneType; pane: PaneNode; tab?: Tab } | { kind: 'region'; region: PaneType }
+type Drag = PointerDrag & DragTarget
+type GroupDrag = Extract<Drag, { kind: 'group' }>
+type ResizeTarget = { kind: 'regions' } | { kind: 'groups'; region: PaneType; path: SplitPath }
+
 interface Resize {
-  path: SplitPath
+  target: ResizeTarget
   pointerId: number
   axis: 'horizontal' | 'vertical'
   start: number
@@ -31,23 +37,27 @@ interface Resize {
   ratio: number
 }
 
+interface WorkspaceDrop extends Omit<DropPreview, 'layout'> {
+  layout: RegionLayout
+}
+
 // Ignore small pointer movements so clicking a title bar does not start a drag.
-function moved(drag: Drag) {
+function moved(drag: PointerDrag) {
   return Math.hypot(drag.x - drag.startX, drag.y - drag.startY) >= 5
 }
 
-// Own the committed layout and temporary pointer interactions. A drop or resize
-// release commits the change; cancellation only discards the temporary state.
-export default function Workspace({ layout, onLayoutChange, onBoundsChange }: WorkspaceProps) {
+// Share pointer capture and cancellation across region swaps, group docking, and resizing.
+export default function Workspace({ layout, onLayoutChange, onBoundsChange, newPane }: WorkspaceProps) {
   const [resize, setResize] = useState<Resize | null>(null)
   const [drag, setDrag] = useState<Drag | null>(null)
   const surface = useRef<HTMLDivElement>(null)
   const workspace = useRef<HTMLElement>(null)
+  const groupSurfaces = useRef<Partial<Record<PaneType, HTMLDivElement | null>>>({})
   const interacting = drag !== null || resize !== null
-  const draggedTabId = drag?.tab?.id
-  const visibleLayout = resize && layout ? resizeSplit(layout, resize.path, resize.ratio, resize.available) : layout
+  const draggedTabId = drag?.kind === 'group' ? drag.tab?.id : undefined
+  const visibleLayout = resize ? resizedLayout(resize.target, resize.ratio, resize.available) : layout
 
-  // Discard temporary drag or resize state; the committed layout remains intact.
+  // Discard temporary interactions without changing the committed layout.
   const cancelInteraction = useCallback(() => {
     setDrag(null)
     setResize(null)
@@ -56,22 +66,21 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange }: Wo
   // Finish cleanup before paint so a preceding layout change cannot cancel the next drag.
   useLayoutEffect(cancelInteraction, [layout, cancelInteraction])
 
-  // Report the usable area so creation can refuse splits that would not fit.
+  // Report the outer usable area for group creation and native window minimums.
   useEffect(() => {
     const observer = new ResizeObserver(([entry]) => {
       onBoundsChange({ x: 0, y: 0, width: entry.contentRect.width, height: entry.contentRect.height })
+      cancelInteraction()
     })
-    // Creation should be available before the first asynchronous observer delivery.
     const bounds = surface.current!.getBoundingClientRect()
     onBoundsChange({ x: 0, y: 0, width: bounds.width, height: bounds.height })
     observer.observe(surface.current!)
     return () => observer.disconnect()
-  }, [onBoundsChange])
+  }, [onBoundsChange, cancelInteraction])
 
-  // Focus or window-size changes invalidate an active pointer interaction.
+  // Escape, focus changes, and window resizing invalidate an active pointer interaction.
   useEffect(() => {
     if (!interacting) return
-    // Let Escape cancel even when the workspace has captured the pointer.
     const keyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key === 'Escape') {
         cancelInteraction()
@@ -88,135 +97,179 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange }: Wo
     }
   }, [interacting, cancelInteraction, draggedTabId])
 
-  // Tab bars accept compatible tabs before edge docking is considered. A sole-tab
-  // drag carries the whole pane visually and can still reposition it at an edge.
-  function dropAt(drag: Drag): DropPreview | null {
-    if (!layout) return null
-    const bounds = surface.current!.getBoundingClientRect()
+  // Resolve group drops against only the source region's tree and surface.
+  // Tab bars insert first; the entire body offers proportional split targets.
+  function groupDropAt(drag: GroupDrag, groups: Layout, bounds: DOMRect): DropPreview | null {
+    if (drag.x < bounds.left || drag.x > bounds.right || drag.y < bounds.top || drag.y > bounds.bottom) return null
     const target = document.elementFromPoint(drag.x, drag.y)?.closest<HTMLElement>('.pane')
-    const wholePane = !drag.tab || drag.pane.tabs.length === 1
+    if (target && target.closest<HTMLElement>('[data-region]')?.dataset.region !== drag.region) return null
     if (drag.tab && target) {
       const header = target.querySelector('.pane-titlebar')!.getBoundingClientRect()
-      if (!wholePane || (drag.y >= header.top && drag.y <= header.bottom)) {
-        return tabDropAt(layout, drag.pane.id, drag.tab.id, target, bounds, drag.x, drag.y)
+      if (drag.y >= header.top && drag.y <= header.bottom) {
+        return tabDropAt(groups, drag.pane.id, drag.tab.id, target, bounds, drag.x, drag.y)
       }
     }
-    if (wholePane) {
-      const dock = dockingAt(layout, drag.pane.id, { x: 0, y: 0, width: bounds.width, height: bounds.height }, drag.x - bounds.left, drag.y - bounds.top)
-      if (dock) return { layout: dock.layout, preview: dock.preview, label: `Dock ${dock.target.edge}` }
+    const area = { x: 0, y: 0, width: bounds.width, height: bounds.height }
+    const x = drag.x - bounds.left
+    const y = drag.y - bounds.top
+    if (!drag.tab) {
+      const dock = dockingAt(groups, drag.pane.id, area, x, y)
+      return dock ? { layout: dock.layout, preview: dock.preview, label: `Dock ${dock.target.edge}` } : null
     }
-    if (drag.tab && target) return tabDropAt(layout, drag.pane.id, drag.tab.id, target, bounds, drag.x, drag.y)
-    return null
+    const dockTarget = tabDockingTargetAt(groups, area, x, y)
+    if (!dockTarget) return null
+    const wholePane = drag.pane.tabs.length === 1
+    const next = wholePane ? dockPane(groups, drag.pane.id, dockTarget) : dockTab(groups, drag.pane.id, drag.tab.id, newPane, dockTarget)
+    if (next === groups) return null
+    const dock = dockingPreview(next, wholePane ? drag.pane.id : newPane.id, dockTarget, area)
+    if (!dock) return null
+    const label = wholePane ? `Dock ${dockTarget.edge}` : `Split ${drag.tab.title} ${dockTarget.edge}`
+    return { layout: dock.layout, preview: dock.preview, label }
   }
 
-  // Capture the pointer so dragging continues outside the title bar. Record the
-  // original bounds to preserve the pane's size and the point where it was grabbed.
-  function startDrag(pane: PaneNode, event: PointerEvent<HTMLElement>, tab?: Tab) {
+  // Translate local group previews into outer coordinates without crossing ownership boundaries.
+  function dropAt(drag: Drag): WorkspaceDrop | null {
+    const bounds = surface.current!.getBoundingClientRect()
+    if (drag.kind === 'region') {
+      const drop = regionSwapAt(layout, drag.region, { x: 0, y: 0, width: bounds.width, height: bounds.height }, drag.x - bounds.left, drag.y - bounds.top)
+      return drop ? { ...drop, label: 'Swap regions' } : null
+    }
+    const region = layout.regions.find(region => region.type === drag.region)!
+    const groupBounds = groupSurfaces.current[drag.region]!.getBoundingClientRect()
+    const drop = groupDropAt(drag, region.layout!, groupBounds)
+    if (!drop) return null
+    const offset = { x: groupBounds.left - bounds.left, y: groupBounds.top - bounds.top }
+    const preview = { ...drop.preview, x: drop.preview.x + offset.x, y: drop.preview.y + offset.y }
+    const marker = drop.marker ? { ...drop.marker, x: drop.marker.x + offset.x, y: drop.marker.y + offset.y } : undefined
+    return { ...drop, layout: updateRegion(layout, drag.region, drop.layout), preview, marker }
+  }
+
+  // Capture at the common workspace so all interactions continue across region boundaries.
+  function startDrag(target: DragTarget, event: PointerEvent<HTMLElement>) {
     if (interacting || event.button !== 0 || !event.isPrimary) return
     event.preventDefault()
     workspace.current!.setPointerCapture(event.pointerId)
-    const selector = tab && pane.tabs.length > 1 ? '.pane-tab' : '.pane'
+    let selector = '.workspace-region'
+    if (target.kind === 'group') {
+      selector = target.tab && target.pane.tabs.length > 1 ? '.pane-tab' : '.pane'
+    }
     const bounds = event.currentTarget.closest(selector)!.getBoundingClientRect()
-    setDrag({
-      pane,
-      tab,
+    const pointer: PointerDrag = {
       pointerId: event.pointerId,
       origin: { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height },
       startX: event.clientX,
       startY: event.clientY,
       x: event.clientX,
       y: event.clientY
-    })
+    }
+    setDrag({ ...pointer, ...target })
   }
 
-  // Use the release position for the final decision; invalid drops leave the tree untouched.
+  // Decide from the release position; cancellation and invalid drops preserve both trees.
   function finishDrag(event: PointerEvent<HTMLElement>) {
     if (!drag || event.pointerId !== drag.pointerId) return
     const final = { ...drag, x: event.clientX, y: event.clientY }
-    const tabId = drag.tab?.id
+    const tabId = drag.kind === 'group' ? drag.tab?.id : undefined
     if (moved(final)) {
       const drop = dropAt(final)
       if (drop) {
         onLayoutChange(drop.layout)
         if (tabId) requestAnimationFrame(() => document.getElementById(tabId)?.focus())
       }
-    } else if (tabId) {
-      changePane(drag.pane.id, pane => selectTab(pane, tabId))
+    } else if (tabId && drag.kind === 'group') {
+      changePane(drag.region, drag.pane.id, pane => selectTab(pane, tabId))
       document.getElementById(tabId)?.focus()
     }
     setDrag(null)
   }
 
-  // Measure the split itself so nested dividers resize only their own region.
-  function startResize(node: Extract<Layout, { kind: 'split' }>, path: SplitPath, event: PointerEvent<HTMLDivElement>) {
+  // Outer resizing changes region proportions; inner resizing changes only one region's tree.
+  function resizedLayout(target: ResizeTarget, ratio: number, available: number): RegionLayout {
+    if (target.kind === 'regions') return resizeRegions(layout, ratio, available)
+    const region = layout.regions.find(region => region.type === target.region)!
+    return updateRegion(layout, target.region, resizeSplit(region.layout!, target.path, ratio, available))
+  }
+
+  // Measure the divider's own grid so nested resizing stays local to that split.
+  function startResize(target: ResizeTarget, axis: Resize['axis'], event: PointerEvent<HTMLDivElement>) {
     if (interacting || event.button !== 0 || !event.isPrimary) return
     event.preventDefault()
     const split = event.currentTarget.parentElement!
     const bounds = split.getBoundingClientRect()
-    const first = split.firstElementChild!.getBoundingClientRect()
-    const horizontal = node.axis === 'horizontal'
+    const horizontal = axis === 'horizontal'
     const available = (horizontal ? bounds.width : bounds.height) - paneGap
-    const size = horizontal ? first.width : first.height
+    const size = split.firstElementChild!.getBoundingClientRect()[horizontal ? 'width' : 'height']
     workspace.current!.setPointerCapture(event.pointerId)
-    setResize({
-      path,
-      pointerId: event.pointerId,
-      axis: node.axis,
-      start: horizontal ? event.clientX : event.clientY,
-      size,
-      available,
-      ratio: size / available
-    })
+    setResize({ target, axis, pointerId: event.pointerId, start: horizontal ? event.clientX : event.clientY, size, available, ratio: size / available })
   }
 
-  // Preserve the initial grab offset; clamping belongs to the layout's sizing rules.
+  // Preserve the grab offset; the corresponding layout owns minimum-size clamping.
   function resizeAt(event: PointerEvent<HTMLElement>, session: Resize): Resize {
     const position = session.axis === 'horizontal' ? event.clientX : event.clientY
     return { ...session, ratio: (session.size + position - session.start) / session.available }
   }
 
   // Arrow keys move ten pixels; Home and End go to the minimum-size limits.
-  function resizeWithKeyboard(node: Extract<Layout, { kind: 'split' }>, path: SplitPath, event: KeyboardEvent<HTMLDivElement>) {
-    if (interacting || !layout) return
-    const decrease = node.axis === 'horizontal' ? 'ArrowLeft' : 'ArrowUp'
-    const increase = node.axis === 'horizontal' ? 'ArrowRight' : 'ArrowDown'
+  function resizeWithKeyboard(target: ResizeTarget, axis: Resize['axis'], event: KeyboardEvent<HTMLDivElement>) {
+    if (interacting) return
+    const decrease = axis === 'horizontal' ? 'ArrowLeft' : 'ArrowUp'
+    const increase = axis === 'horizontal' ? 'ArrowRight' : 'ArrowDown'
     if (![decrease, increase, 'Home', 'End'].includes(event.key)) return
     event.preventDefault()
     const split = event.currentTarget.parentElement!
-    const dimension = node.axis === 'horizontal' ? 'width' : 'height'
+    const dimension = axis === 'horizontal' ? 'width' : 'height'
     const available = split.getBoundingClientRect()[dimension] - paneGap
     const size = split.firstElementChild!.getBoundingClientRect()[dimension]
     let ratio = (size + (event.key === decrease ? -10 : 10)) / available
     if (event.key === 'Home') ratio = 0
     if (event.key === 'End') ratio = 1
-    onLayoutChange(resizeSplit(layout, path, ratio, available))
+    onLayoutChange(resizedLayout(target, ratio, available))
   }
 
-  // Store tab changes in the layout rather than component-local state, so docking
-  // and its React remounts cannot reset the pane's tabs or selection.
-  function changePane(id: string, update: (pane: PaneNode) => PaneNode | null) {
+  // Use one accessible divider contract for both the region row and internal splits.
+  function renderDivider(target: ResizeTarget, axis: Resize['axis'], ratio: number) {
+    return (
+      <div
+        className="pane-divider"
+        role="separator"
+        tabIndex={0}
+        aria-label={target.kind === 'regions' ? 'Resize regions' : `Resize ${paneTypes[target.region].label} groups`}
+        aria-orientation={axis === 'horizontal' ? 'vertical' : 'horizontal'}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(ratio * 100)}
+        onPointerDown={event => startResize(target, axis, event)}
+        onKeyDown={event => resizeWithKeyboard(target, axis, event)}
+      />
+    )
+  }
+
+  // Store tab state in its owning region so docking and remounts preserve it.
+  function changePane(type: PaneType, id: string, update: (pane: PaneNode) => PaneNode | null) {
     cancelInteraction()
-    if (layout) onLayoutChange(updatePane(layout, id, update))
+    const region = layout.regions.find(region => region.type === type)!
+    onLayoutChange(updateRegion(layout, type, updatePane(region.layout!, id, update)))
   }
 
-  // Render the split tree recursively. Only the grabbed pane floats; its slot
-  // remains in the layout to preserve neighboring sizes and mark the return position.
-  function renderLayout(node: Layout, path: SplitPath = []): ReactNode {
+  // Render the same group tree for Explorer and Content, including both split directions.
+  function renderLayout(node: Layout, region: PaneType, path: SplitPath = []): ReactNode {
     if (node.kind === 'pane') {
+      const dragging = drag?.kind === 'group' && drag.pane.id === node.id
       return (
         <Pane
           key={node.id}
           pane={node}
-          floating={drag?.pane.id === node.id && wholePaneDrag ? floating : undefined}
-          draggedTabId={drag?.pane.id === node.id && !wholePaneDrag && floating ? drag.tab?.id : undefined}
-          onTabDragStart={(tab, event) => startDrag(node, event, tab)}
-          onDragStart={event => startDrag(node, event)}
-          onAddTab={() => changePane(node.id, pane => addTab(pane, 'agent'))}
-          onSelectTab={id => changePane(node.id, pane => selectTab(pane, id))}
-          onCloseTab={id => changePane(node.id, pane => closeTab(pane, id))}
+          floating={dragging && wholePaneDrag ? floating : undefined}
+          draggedTabId={dragging && !wholePaneDrag && floating ? drag.tab?.id : undefined}
+          onTabDragStart={(tab, event) => startDrag({ kind: 'group', region, pane: node, tab }, event)}
+          onDragStart={event => startDrag({ kind: 'group', region, pane: node }, event)}
+          onAddTab={() => changePane(region, node.id, pane => addTab(pane, 'agent'))}
+          onSelectTab={id => changePane(region, node.id, pane => selectTab(pane, id))}
+          onCloseTab={id => changePane(region, node.id, pane => closeTab(pane, id))}
           onClose={() => {
             cancelInteraction()
-            if (layout) onLayoutChange(removePane(layout, node.id))
+            const groups = layout.regions.find(item => item.type === region)!.layout!
+            onLayoutChange(updateRegion(layout, region, removePane(groups, node.id)))
           }}
         />
       )
@@ -230,22 +283,56 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange }: Wo
         className={`pane-split pane-split-${node.axis}`}
         style={node.axis === 'horizontal' ? { gridTemplateColumns: tracks } : { gridTemplateRows: tracks }}
       >
-        {renderLayout(node.first, [...path, 'first'])}
+        {renderLayout(node.first, region, [...path, 'first'])}
 
-        <div
-          className="pane-divider"
-          role="separator"
-          tabIndex={0}
-          aria-label="Resize panes"
-          aria-orientation={node.axis === 'horizontal' ? 'vertical' : 'horizontal'}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={Math.round(node.ratio * 100)}
-          onPointerDown={event => startResize(node, path, event)}
-          onKeyDown={event => resizeWithKeyboard(node, path, event)}
-        />
+        {renderDivider({ kind: 'groups', region, path }, node.axis, node.ratio)}
 
-        {renderLayout(node.second, [...path, 'second'])}
+        {renderLayout(node.second, region, [...path, 'second'])}
+      </div>
+    )
+  }
+
+  // Give region swapping a keyboard equivalent without changing internal group positions.
+  function moveRegionWithKeyboard(type: PaneType, event: KeyboardEvent<HTMLDivElement>) {
+    if (interacting || !['ArrowLeft', 'ArrowRight', 'Enter', ' '].includes(event.key)) return
+    event.preventDefault()
+    if (event.key === 'ArrowLeft' && layout.regions[0].type === type) return
+    if (event.key === 'ArrowRight' && layout.regions[1].type === type) return
+    onLayoutChange(swapRegions(layout))
+  }
+
+  // A region has its own drag handle and a stable slot, even when its final group closes.
+  function renderRegion(region: Region) {
+    const moving = drag?.kind === 'region' && drag.region === region.type && floating
+    return (
+      <div className={`region-slot${moving ? ' region-slot-dragging' : ''}`}>
+        <section
+          className={`workspace-region${moving ? ' region-floating' : ''}`}
+          aria-label={`${paneTypes[region.type].label} region`}
+          data-region={region.type}
+          style={moving ? { left: moving.x, top: moving.y, width: moving.width, height: moving.height } : undefined}
+        >
+          <div
+            className="region-drag-handle"
+            role="button"
+            tabIndex={0}
+            aria-label={`Move ${paneTypes[region.type].label} region`}
+            title="Drag to swap sides, or use the Left and Right arrow keys"
+            style={{ height: regionHeaderHeight }}
+            onPointerDown={event => startDrag({ kind: 'region', region: region.type }, event)}
+            onKeyDown={event => moveRegionWithKeyboard(region.type, event)}
+          >
+            {paneTypes[region.type].label}
+          </div>
+
+          <div className="pane-layout" ref={element => { groupSurfaces.current[region.type] = element }}>
+            {region.layout ? renderLayout(region.layout, region.type) : (
+              <div className="region-empty">
+                No open tabs
+              </div>
+            )}
+          </div>
+        </section>
       </div>
     )
   }
@@ -255,8 +342,10 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange }: Wo
     x: drag.origin.x + drag.x - drag.startX,
     y: drag.origin.y + drag.y - drag.startY
   } : undefined
-  const wholePaneDrag = Boolean(floating && drag && (!drag.tab || drag.pane.tabs.length === 1))
+  const wholePaneDrag = Boolean(floating && drag?.kind === 'group' && (!drag.tab || drag.pane.tabs.length === 1))
   const drop = floating && drag ? dropAt(drag) : null
+  const [first, second] = visibleLayout.regions
+  const tracks = `minmax(${regionMinimum(first).width}px, ${visibleLayout.ratio * 100}fr) ${paneGap}px minmax(${regionMinimum(second).width}px, ${(1 - visibleLayout.ratio) * 100}fr)`
 
   return (
     <main
@@ -268,9 +357,9 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange }: Wo
         if (resize && event.pointerId === resize.pointerId) setResize(resizeAt(event, resize))
       }}
       onPointerUp={event => {
-        if (resize && layout && event.pointerId === resize.pointerId) {
+        if (resize && event.pointerId === resize.pointerId) {
           const final = resizeAt(event, resize)
-          onLayoutChange(resizeSplit(layout, final.path, final.ratio, final.available))
+          onLayoutChange(resizedLayout(final.target, final.ratio, final.available))
           setResize(null)
         } else {
           finishDrag(event)
@@ -279,8 +368,14 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange }: Wo
       onPointerCancel={cancelInteraction}
       onLostPointerCapture={cancelInteraction}
     >
-      <div className="pane-layout" ref={surface}>
-        {visibleLayout && renderLayout(visibleLayout)}
+      <div className="region-layout" ref={surface} style={{ gridTemplateColumns: tracks }}>
+        {visibleLayout.regions.map((region, index) => (
+          <Fragment key={region.type}>
+            {renderRegion(region)}
+
+            {index === 0 && renderDivider({ kind: 'regions' }, 'horizontal', visibleLayout.ratio)}
+          </Fragment>
+        ))}
 
         {drop && (
           <div
@@ -296,7 +391,7 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange }: Wo
           <div className="tab-drop-marker" aria-hidden="true" style={{ left: drop.marker.x, top: drop.marker.y, width: drop.marker.width, height: drop.marker.height }} />
         )}
 
-        {floating && drag?.tab && !wholePaneDrag && (
+        {floating && drag?.kind === 'group' && drag.tab && !wholePaneDrag && (
           <div className="pane-tab tab-drag-preview" aria-hidden="true" style={{ left: floating.x, top: floating.y, width: floating.width, height: floating.height }}>
             {drag.tab.title}
           </div>

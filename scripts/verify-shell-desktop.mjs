@@ -17,299 +17,347 @@ try {
   await new Promise(resolve => provider.listen(0, '127.0.0.1', resolve))
   await desktop.launch()
   const state = await desktop.evaluate(`(async () => ({
-    panes: Array.from(document.querySelectorAll('main[aria-label="Workspace"] section'), pane => pane.getAttribute('aria-label')),
+    regions: [...document.querySelectorAll('[data-region]')].map(region => region.dataset.region),
+    groups: [...document.querySelectorAll('.pane')].map(pane => pane.getAttribute('aria-label')),
     brand: document.querySelector('.app-brand')?.textContent.trim(),
     bridge: Object.keys(window.granite).sort(),
     node: typeof window.require,
     connections: await window.granite.connections.list(),
     accounts: await window.granite.chatgpt.accounts()
   }))()`)
-  assert.deepEqual(state.panes, ['Pane 1', 'Pane 2'])
+  assert.deepEqual(state.regions, ['explorer', 'content'])
+  assert.deepEqual(state.groups, ['Group 1', 'Group 2'])
   assert.equal(state.brand, 'Archon')
   assert.deepEqual(state.bridge, ['chatgpt', 'connections', 'models', 'platform', 'window'])
   assert.equal(state.node, 'undefined')
   assert.deepEqual(state.connections, { ok: true, value: [] })
   assert.deepEqual(state.accounts, { ok: true, value: [] })
+  assert.equal(await desktop.evaluate(`Boolean(document.querySelector('[aria-label="Add tab to Group 2"]'))`), false)
 
-  async function paneBounds(title) {
+  // Bounds and pointer helpers exercise real inputs rather than React internals.
+  async function bounds(selector) {
     return desktop.evaluate(`(() => {
-      const rect = document.querySelector('section[aria-label="' + ${JSON.stringify(title)} + '"]').getBoundingClientRect();
+      const rect = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();
       return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
     })()`)
   }
 
-  async function beginDrag(title, x, y) {
-    const rect = await paneBounds(title)
-    const start = await desktop.evaluate(`(() => {
-      const rect = document.querySelector('section[aria-label="' + ${JSON.stringify(title)} + '"] .pane-drag-handle').getBoundingClientRect();
-      return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
-    })()`)
-    const offset = { x: start.x - rect.x, y: start.y - rect.y }
-    await desktop.rpc('Input.dispatchMouseEvent', { type: 'mouseMoved', ...start })
-    await desktop.rpc('Input.dispatchMouseEvent', { type: 'mousePressed', ...start, button: 'left', buttons: 1, clickCount: 1 })
-    await desktop.rpc('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, buttons: 1 })
-    // Pointer dispatch may return before the final movement frame is rendered.
-    try {
-      await desktop.wait(() => desktop.evaluate(`(() => {
-        const rect = document.querySelector('.pane-floating')?.getBoundingClientRect();
-        return Boolean(rect && Math.abs(rect.x - ${x - offset.x}) < 1 && Math.abs(rect.y - ${y - offset.y}) < 1);
-      })()`), `${title} follows pointer`)
-    } catch (error) {
-      console.error({ title, start, target: { x, y }, original: rect, actual: await paneBounds(title), interaction: await desktop.evaluate('({workspace:document.querySelector(".workspace").className, floating:document.querySelector(".pane-floating")?.getBoundingClientRect().toJSON()})') })
-      throw error
-    }
-    const moving = await paneBounds(title)
-    assert.ok(Math.abs(moving.x - (x - offset.x)) < 1, JSON.stringify({ moving, rect, pointer: { x, y } }))
-    assert.ok(Math.abs(moving.y - (y - offset.y)) < 1)
-    assert.equal(moving.width, rect.width)
-    assert.equal(moving.height, rect.height)
-    const origin = await desktop.evaluate(`(() => {
-      const rect = document.querySelector('.pane-slot-dragging').getBoundingClientRect();
-      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
-    })()`)
-    assert.deepEqual(origin, rect)
+  // Native scrollbars can cover part of a narrow tab; use a visible point that hits the handle.
+  async function pointerPoint(selector) {
+    let point
+    await desktop.wait(async () => {
+      point = await desktop.evaluate(`(() => {
+        const element = document.querySelector(${JSON.stringify(selector)});
+        const rect = element.getBoundingClientRect();
+        let { left, right, top, bottom } = rect;
+        const strip = element.closest('.pane-tabs');
+        if (strip) {
+          const clip = strip.getBoundingClientRect();
+          left = Math.max(left, clip.left + strip.clientLeft);
+          right = Math.min(right, clip.left + strip.clientLeft + strip.clientWidth);
+          top = Math.max(top, clip.top + strip.clientTop);
+          bottom = Math.min(bottom, clip.top + strip.clientTop + strip.clientHeight);
+        }
+        if (right <= left || bottom <= top) return null;
+        for (const x of [0.5, 0.25, 0.75]) {
+          for (const y of [0.5, 0.25, 0.75]) {
+            const point = { x: left + (right - left) * x, y: top + (bottom - top) * y };
+            if (element.contains(document.elementFromPoint(point.x, point.y))) return point;
+          }
+        }
+        return null;
+      })()`)
+      return point !== null
+    }, `${selector} receives pointer input`)
+    return point
   }
 
-  async function release(x, y) {
-    await desktop.rpc('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', buttons: 0, clickCount: 1 })
-    await desktop.wait(() => desktop.evaluate('!document.querySelector(".is-dragging, .is-resizing-horizontal, .is-resizing-vertical")'), 'drag finished')
-    assert.equal(await desktop.evaluate('Boolean(document.querySelector(".pane-floating, .pane-slot-dragging, .tab-drag-preview, .pane-tab.is-dragging"))'), false)
+  async function press(point) {
+    await desktop.rpc('Input.dispatchMouseEvent', { type: 'mouseMoved', ...point })
+    await desktop.rpc('Input.dispatchMouseEvent', { type: 'mousePressed', ...point, button: 'left', buttons: 1, clickCount: 1 })
   }
 
-  // Start divider movement separately so callers can exercise commit and cancellation.
-  async function beginResize(dx, dy) {
-    const divider = await desktop.evaluate(`(() => {
-      const rect = document.querySelector('[role="separator"]').getBoundingClientRect();
-      return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
-    })()`)
-    const end = { x: divider.x + dx, y: divider.y + dy }
-    await desktop.rpc('Input.dispatchMouseEvent', { type: 'mouseMoved', ...divider })
-    await desktop.rpc('Input.dispatchMouseEvent', { type: 'mousePressed', ...divider, button: 'left', buttons: 1, clickCount: 1 })
-    await desktop.rpc('Input.dispatchMouseEvent', { type: 'mouseMoved', ...end, buttons: 1 })
+  async function move(point) {
+    await desktop.rpc('Input.dispatchMouseEvent', { type: 'mouseMoved', ...point, buttons: 1 })
+  }
+
+  async function release(point) {
+    await desktop.rpc('Input.dispatchMouseEvent', { type: 'mouseReleased', ...point, button: 'left', buttons: 0, clickCount: 1 })
+    await desktop.wait(() => desktop.evaluate('!document.querySelector(".workspace.is-dragging, .workspace.is-resizing-horizontal, .workspace.is-resizing-vertical")'), `interaction finished at ${JSON.stringify(point)}`)
+    assert.equal(await desktop.evaluate('Boolean(document.querySelector(".pane-floating, .region-floating, .tab-drag-preview, .pane-tab.is-dragging"))'), false)
+  }
+
+  async function click(label) {
+    const selector = `[aria-label="${label}"]`
+    const point = await pointerPoint(selector)
+    await press(point)
+    await release(point)
+  }
+
+  async function key(key) {
+    await desktop.rpc('Input.dispatchKeyEvent', { type: 'keyDown', key, code: key })
+  }
+
+  async function beginDrag(selector, point) {
+    const start = await pointerPoint(selector)
+    await press(start)
+    await move(point)
+    await desktop.wait(() => desktop.evaluate('Boolean(document.querySelector(".pane-floating, .region-floating, .tab-drag-preview"))'), `${selector} follows pointer`)
+  }
+
+  async function preview(label) {
+    await desktop.wait(() => desktop.evaluate(`document.querySelector('.pane-dock-preview')?.textContent.trim() === ${JSON.stringify(label)}`), label)
+    return bounds('.pane-dock-preview')
+  }
+
+  async function beginResize(selector, dx, dy) {
+    const start = await pointerPoint(selector)
+    const end = { x: start.x + dx, y: start.y + dy }
+    await press(start)
+    await move(end)
     return end
   }
 
-  // Navigation cannot be duplicated; Content offers all three viewable tab kinds.
-  assert.deepEqual(await desktop.evaluate('[...document.querySelectorAll(".pane")].map(pane => pane.dataset.paneType)'), ['navigation', 'content'])
-  await desktop.fill('select[aria-label="New pane type"]', 'navigation', 'select')
-  await desktop.wait(() => desktop.evaluate('document.querySelector(".add-pane").disabled && document.querySelector(".add-pane").title === "The navigation pane is already open"'), 'navigation duplication blocked')
-  await desktop.fill('select[aria-label="New pane type"]', 'content', 'select')
-  try {
-    await desktop.wait(() => desktop.evaluate('!document.querySelector(".add-pane").disabled'), 'content pane creation available')
-  } catch (error) {
-    console.error(await desktop.evaluate('({selected:document.querySelector(".new-pane-type").value, disabled:document.querySelector(".add-pane").disabled, reason:document.querySelector(".add-pane").title, bounds:document.querySelector(".pane-layout").getBoundingClientRect().toJSON(), alert:document.querySelector("[role=alert]")?.textContent})'))
-    throw error
+  // Compare geometry within each region so a swap may change position without changing its contents.
+  async function snapshot() {
+    return desktop.evaluate(`[...document.querySelectorAll('[data-region]')].map(region => {
+      const origin = region.getBoundingClientRect();
+      return { type: region.dataset.region, width: origin.width, height: origin.height,
+        groups: [...region.querySelectorAll('.pane')].map(pane => {
+          const rect = pane.getBoundingClientRect();
+          return { id: pane.dataset.paneId, x: rect.x - origin.x, y: rect.y - origin.y, width: rect.width, height: rect.height,
+            tabs: [...pane.querySelectorAll('[role=tab]')].map(tab => ({ id: tab.id, selected: tab.getAttribute('aria-selected') })) };
+        }) };
+    }).sort((a, b) => a.type.localeCompare(b.type))`)
   }
-  assert.equal(await desktop.evaluate(`Boolean(document.querySelector('[aria-label="Add tab to Pane 2"]'))`), false)
 
-  // Tab controls must select real placeholder content without beginning a pane drag.
-  await clickButton('Add tab to Pane 1')
-  await desktop.wait(() => desktop.evaluate('document.getElementById("pane-1-tab-2")?.getAttribute("aria-selected") === "true"'), 'new tab selected')
-  await clickButton('Close Agent 2 in Pane 1')
-  await clickButton('Add tab to Pane 1')
-  await desktop.wait(() => desktop.evaluate('document.getElementById("pane-1-tab-3")?.getAttribute("aria-selected") === "true"'), 'tab number not reused')
-  await clickButton('Agent 1 in Pane 1')
-  await desktop.wait(() => desktop.evaluate('document.querySelector("#pane-1-panel")?.textContent.trim() === "Pane 1 / Navigation / Agent 1"'), 'tab content selected')
-  await desktop.rpc('Input.dispatchKeyEvent', { type: 'keyDown', key: 'ArrowRight', code: 'ArrowRight' })
-  await desktop.wait(() => desktop.evaluate('document.getElementById("pane-1-tab-3")?.getAttribute("aria-selected") === "true"'), 'keyboard tab selection')
-  assert.equal(await desktop.evaluate('Boolean(document.querySelector(".is-dragging"))'), false)
-  const tabsImage = await desktop.rpc('Page.captureScreenshot', { format: 'png' })
-  await writeFile(join(tmpdir(), 'granite-tabs.png'), Buffer.from(tabsImage.data, 'base64'))
+  function sameRect(actual, expected) {
+    for (const key of ['x', 'y', 'width', 'height']) assert.ok(Math.abs(actual[key] - expected[key]) < 1, JSON.stringify({ key, actual, expected }))
+  }
 
-  // Check feedback before release, then cancel and verify exact restoration.
-  const original = await paneBounds('Pane 1')
-  let end = await beginResize(100, 0)
-  await desktop.wait(async () => Math.abs((await paneBounds('Pane 1')).width - original.width - 100) < 1, 'live column resize')
-  await desktop.rpc('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape' })
-  await release(end.x, end.y)
-  assert.deepEqual(await paneBounds('Pane 1'), original)
+  const outerDivider = '.region-layout > .pane-divider'
+  const explorer = '[data-region=explorer]'
+  const content = '[data-region=content]'
+  const group1 = '[data-pane-id=pane-1]'
+  const group2 = '[data-pane-id=pane-2]'
 
-  // Out-of-range movement clamps to the pane minimum rather than collapsing it.
-  end = await beginResize(-450, 0)
-  await release(end.x, end.y)
-  assert.ok(Math.abs((await paneBounds('Pane 1')).width - 200) < 1)
-  end = await beginResize(150, 0)
-  await release(end.x, end.y)
-  const chosen = await paneBounds('Pane 1')
-  assert.ok(Math.abs(chosen.width - 350) < 1)
+  // Tab selection, keyboard navigation, close selection, and numbering remain controlled.
+  await click('Add tab to Group 1')
+  await desktop.wait(() => desktop.evaluate('document.getElementById("pane-1-tab-2")?.getAttribute("aria-selected") === "true"'), 'Agent 2 selected')
+  await click('Close Agent 2 in Group 1')
+  await click('Add tab to Group 1')
+  await click('Agent 1 in Group 1')
+  await desktop.wait(() => desktop.evaluate('document.getElementById("pane-1-tab-1")?.getAttribute("aria-selected") === "true" && document.activeElement?.id === "pane-1-tab-1"'), 'Agent 1 selected and focused')
+  await key('ArrowRight')
+  await desktop.wait(() => desktop.evaluate('document.getElementById("pane-1-tab-3")?.getAttribute("aria-selected") === "true"'), 'keyboard Agent 3 selection')
+  assert.equal(await desktop.evaluate('document.querySelector("#pane-1-panel").textContent.trim()'), 'Group 1 / Explorer / Agent 3')
 
-  // Dock against a pane's bottom edge; the preview must match the committed placement.
-  const second = await paneBounds('Pane 2')
-  const bottom = { x: second.x + second.width / 2, y: second.y + second.height - 90 }
-  await beginDrag('Pane 1', bottom.x, bottom.y)
-  await desktop.wait(() => desktop.evaluate('Boolean(document.querySelector(".pane-dock-preview"))'), 'dock preview')
-  const preview = await desktop.evaluate(`(() => {
-    const rect = document.querySelector('.pane-dock-preview').getBoundingClientRect();
-    return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
-  })()`)
-  const previewImage = await desktop.rpc('Page.captureScreenshot', { format: 'png' })
-  await writeFile(join(tmpdir(), 'granite-docking-preview.png'), Buffer.from(previewImage.data, 'base64'))
-  await release(bottom.x, bottom.y)
-  const initialDock = await paneBounds('Pane 1')
-  for (const key of ['x', 'y', 'width', 'height']) assert.ok(Math.abs(initialDock[key] - preview[key]) < 1, JSON.stringify({ key, initialDock, preview }))
-  assert.ok(initialDock.y > (await paneBounds('Pane 2')).y)
-  assert.equal(await desktop.evaluate('document.getElementById("pane-1-tab-3")?.getAttribute("aria-selected")'), 'true')
-  assert.equal(await desktop.evaluate(`document.querySelectorAll('section[aria-label="Pane 1"] [role="tab"]').length`), 2)
-  end = await beginResize(0, 60)
-  await release(end.x, end.y)
-  const docked = await paneBounds('Pane 1')
-  assert.ok(Math.abs(docked.height - (initialDock.height - 60)) < 1)
+  // Region resizing cancels exactly, clamps at minimums, and supports keyboard control.
+  const original = await bounds(explorer)
+  let end = await beginResize(outerDivider, 80, 0)
+  await desktop.wait(async () => Math.abs((await bounds(explorer)).width - original.width - 80) < 1, 'live outer resize')
+  await key('Escape')
+  await release(end)
+  sameRect(await bounds(explorer), original)
+  end = await beginResize(outerDivider, -450, 0)
+  await release(end)
+  assert.equal((await bounds(explorer)).width, 200)
+  end = await beginResize(outerDivider, 300, 0)
+  await release(end)
+  assert.equal((await bounds(explorer)).width, 500)
+  await desktop.evaluate(`document.querySelector(${JSON.stringify(outerDivider)}).focus()`)
+  await key('ArrowRight')
+  await desktop.wait(async () => Math.abs((await bounds(explorer)).width - 510) < 1, 'keyboard region resize')
+  await key('ArrowLeft')
+  await desktop.wait(async () => Math.abs((await bounds(explorer)).width - 500) < 1, 'keyboard region resize restored')
 
-  // Focusable separators provide keyboard resizing in the split's orientation.
-  await desktop.evaluate(`document.querySelector('[role="separator"]').focus()`)
-  await desktop.rpc('Input.dispatchKeyEvent', { type: 'keyDown', key: 'ArrowUp', code: 'ArrowUp' })
-  await desktop.wait(async () => Math.abs((await paneBounds('Pane 1')).height - docked.height - 10) < 1, 'keyboard row resize')
-  await desktop.rpc('Input.dispatchKeyEvent', { type: 'keyDown', key: 'ArrowDown', code: 'ArrowDown' })
-  await desktop.wait(async () => Math.abs((await paneBounds('Pane 1')).height - docked.height) < 1, 'keyboard resize restored')
+  // Split well inside the Agent body, beyond the old edge threshold, with no modifier key.
+  let area = await bounds(`${explorer} .pane-layout`)
+  let point = { x: area.x + area.width * 0.7, y: area.y + area.height / 2 }
+  const beforeSplit = await snapshot()
+  await beginDrag('#pane-1-tab-3', point)
+  await preview('Split Agent 3 right')
+  await key('Escape')
+  await release(point)
+  assert.deepEqual(await snapshot(), beforeSplit)
+  await beginDrag('#pane-1-tab-3', point)
+  const splitPreview = await preview('Split Agent 3 right')
+  await release(point)
+  await desktop.wait(() => desktop.evaluate('document.getElementById("pane-1-tab-3")?.closest(".pane").dataset.paneId === "pane-3"'), 'Agent tab split into Group 3')
+  sameRect(await bounds('[data-pane-id=pane-3]'), splitPreview)
+  assert.equal((await bounds(explorer)).width, 500)
+  await desktop.wait(() => desktop.evaluate('document.activeElement?.id === "pane-1-tab-3"'), 'detached Agent tab focused')
+  assert.equal(await desktop.evaluate('document.getElementById("pane-1-tab-1").getAttribute("aria-selected")'), 'true')
 
-  // Invalid center drops and Escape preserve the existing layout.
-  const upper = await paneBounds('Pane 2')
-  const center = { x: upper.x + upper.width / 2, y: upper.y + upper.height / 2 }
-  await beginDrag('Pane 1', center.x, center.y)
+  // The new Agent group can split vertically inside the same Explorer region.
+  await click('Add tab to Group 3')
+  await desktop.wait(() => desktop.evaluate('document.getElementById("pane-3-tab-1")?.getAttribute("aria-selected") === "true"'), 'new Agent tab selected in Group 3')
+  const third = await bounds('[data-pane-id=pane-3]')
+  point = { x: third.x + third.width / 2, y: third.y + third.height * 0.7 }
+  await beginDrag('#pane-3-tab-1', point)
+  await preview('Split Agent 1 bottom')
+  await release(point)
+  await desktop.wait(() => desktop.evaluate('document.querySelectorAll("[data-region=explorer] .pane").length === 3'), 'nested Agent groups')
+  const fourth = await bounds('[data-pane-id=pane-4]')
+  assert.ok(fourth.y > (await bounds('[data-pane-id=pane-3]')).y)
+  assert.equal(fourth.x, (await bounds('[data-pane-id=pane-3]')).x)
+  assert.equal(await desktop.evaluate('document.querySelectorAll("[data-region]").length'), 2)
+
+  // Whole groups dock only within their region, with preview geometry matching the result.
+  area = await bounds(`${explorer} .pane-layout`)
+  point = { x: area.x + area.width / 2, y: area.y + 10 }
+  await beginDrag('[data-pane-id=pane-4] .pane-drag-handle', point)
+  const dockPreview = await preview('Dock top')
+  await release(point)
+  sameRect(await bounds('[data-pane-id=pane-4]'), dockPreview)
+  const innerDivider = `${explorer} .pane-split-vertical > .pane-divider`
+  const beforeResize = await snapshot()
+  end = await beginResize(innerDivider, 0, 40)
+  await key('Escape')
+  await release(end)
+  assert.deepEqual(await snapshot(), beforeResize)
+  end = await beginResize(innerDivider, 0, 40)
+  await release(end)
+  await desktop.evaluate(`document.querySelector(${JSON.stringify(innerDivider)}).focus()`)
+  const beforeKeyboard = await bounds('[data-pane-id=pane-4]')
+  await key('ArrowDown')
+  await desktop.wait(async () => Math.abs((await bounds('[data-pane-id=pane-4]')).height - beforeKeyboard.height - 10) < 1, 'keyboard inner resize')
+
+  // Content keeps its existing creation, tab transfer, reorder, and split behavior.
+  await click('Add Content group')
+  await desktop.wait(() => desktop.evaluate('Boolean(document.querySelector("[data-pane-id=pane-5]"))'), 'Content Group 5')
+  // A sole tab dropped in another group's body docks beside it instead of merging.
+  const second = await bounds(group2)
+  point = { x: second.x + second.width * 0.7, y: second.y + second.height * 0.6 }
+  const beforeBodyDock = await snapshot()
+  await beginDrag('#pane-5-tab-1', point)
+  await preview('Dock right')
+  assert.equal(await desktop.evaluate('Boolean(document.querySelector(".tab-drop-marker"))'), false)
+  await key('Escape')
+  await release(point)
+  assert.deepEqual(await snapshot(), beforeBodyDock)
+  await beginDrag('#pane-5-tab-1', point)
+  const bodyDockPreview = await preview('Dock right')
+  await release(point)
+  sameRect(await bounds('[data-pane-id=pane-5]'), bodyDockPreview)
+  assert.equal(await desktop.evaluate('document.querySelectorAll("[data-pane-id=pane-2] [role=tab]").length'), 1)
+  assert.equal(await desktop.evaluate('document.getElementById("pane-5-tab-1").closest(".pane").dataset.paneId'), 'pane-5')
+  // Only the tab-bar row inserts/merges, and it still supports exact reordering.
+  point = await pointerPoint(`${group2} .pane-drag-handle`)
+  await beginDrag('#pane-5-tab-1', point)
+  await desktop.wait(() => desktop.evaluate('Boolean(document.querySelector(".tab-drop-marker"))'), 'Content insertion marker')
+  await release(point)
+  await desktop.wait(() => desktop.evaluate('!document.querySelector("[data-pane-id=pane-5]")'), 'empty source group removed')
+  const firstTab = await bounds('#pane-2-tab-1')
+  point = { x: firstTab.x + 1, y: firstTab.y + firstTab.height / 2 }
+  await beginDrag('#pane-5-tab-1', point)
+  await release(point)
+  assert.deepEqual(await desktop.evaluate(`[...document.querySelectorAll('[data-pane-id=pane-2] [role=tab]')].map(tab => tab.id)`), ['pane-5-tab-1', 'pane-2-tab-1'])
+  area = await bounds(`${content} .pane-layout`)
+  point = { x: area.x + area.width / 2, y: area.y + area.height * 0.7 }
+  await beginDrag('#pane-5-tab-1', point)
+  const contentPreview = await preview('Split Chat 1 bottom')
+  await release(point)
+  sameRect(await bounds('[data-pane-id=pane-6]'), contentPreview)
+
+  // Cross-region tab and group drops have no preview and preserve both region trees.
+  const beforeInvalid = await snapshot()
+  point = await pointerPoint(`${content} .pane-layout`)
+  await beginDrag('#pane-1-tab-1', point)
   assert.equal(await desktop.evaluate('Boolean(document.querySelector(".pane-dock-preview"))'), false)
-  await release(center.x, center.y)
-  assert.deepEqual(await paneBounds('Pane 1'), docked)
-  await beginDrag('Pane 1', upper.x + 60, center.y)
-  await desktop.wait(() => desktop.evaluate('Boolean(document.querySelector(".pane-dock-preview"))'), 'workspace preview')
-  await desktop.rpc('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape' })
-  await release(upper.x + 60, center.y)
-  assert.deepEqual(await paneBounds('Pane 1'), docked)
-
-  // Dock at the workspace's left edge to return to full-height columns.
-  await beginDrag('Pane 1', upper.x + 60, center.y)
-  await desktop.wait(() => desktop.evaluate('Boolean(document.querySelector(".pane-dock-preview"))'), 'left edge preview')
-  await release(upper.x + 60, center.y)
-  const left = await paneBounds('Pane 1')
-  const right = await paneBounds('Pane 2')
-  assert.ok(left.x < right.x)
-  assert.equal(left.y, right.y)
-  assert.equal(left.height, right.height)
-
-  // Use native pointer events to ensure header and close controls are clickable
-  // without starting window/pane dragging.
-  async function clickButton(label) {
-    const point = await desktop.evaluate(`(() => {
-      const button = [...document.querySelectorAll('button')].find(button => button.textContent.trim() === ${JSON.stringify(label)} || button.getAttribute('aria-label') === ${JSON.stringify(label)});
-      const rect = button.getBoundingClientRect();
-      return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
-    })()`)
-    await desktop.rpc('Input.dispatchMouseEvent', { type: 'mouseMoved', ...point })
-    await desktop.rpc('Input.dispatchMouseEvent', { type: 'mousePressed', ...point, button: 'left', buttons: 1, clickCount: 1 })
-    await desktop.rpc('Input.dispatchMouseEvent', { type: 'mouseReleased', ...point, button: 'left', buttons: 0, clickCount: 1 })
-  }
-
-  // Tab drags use the same real pointer path as pane drags, with a tab-sized ghost
-  // for groups and the whole pane for a sole tab.
-  async function beginTabDrag(id, point) {
-    const start = await desktop.evaluate(`(() => {
-      const rect = document.getElementById(${JSON.stringify(id)}).getBoundingClientRect();
-      return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
-    })()`)
-    await desktop.rpc('Input.dispatchMouseEvent', { type: 'mouseMoved', ...start })
-    await desktop.rpc('Input.dispatchMouseEvent', { type: 'mousePressed', ...start, button: 'left', buttons: 1, clickCount: 1 })
-    await desktop.rpc('Input.dispatchMouseEvent', { type: 'mouseMoved', ...point, buttons: 1 })
-    await desktop.wait(() => desktop.evaluate('Boolean(document.querySelector(".pane-floating, .tab-drag-preview"))'), 'tab follows pointer')
-  }
-
-  // Append over the empty title-bar area, leaving insertion before existing tabs
-  // available for the reorder check below.
-  async function tabTarget(title) {
-    return desktop.evaluate(`(() => {
-      const rect = document.querySelector('section[aria-label="' + ${JSON.stringify(title)} + '"] .pane-drag-handle').getBoundingClientRect();
-      return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
-    })()`)
-  }
-
-  await clickButton('Add pane')
-  await desktop.wait(() => desktop.evaluate('document.querySelectorAll(".pane").length === 3'), 'third pane')
-  await clickButton('Add pane')
-  await desktop.wait(() => desktop.evaluate('document.querySelectorAll(".pane").length === 4'), 'fourth pane')
-  assert.equal(await desktop.evaluate('document.querySelectorAll("[role=separator]").length'), 3)
-  const leftEdge = await desktop.evaluate(`(() => {
-    const rect = document.querySelector('.pane-layout').getBoundingClientRect();
-    return { x: rect.left + 10, y: rect.bottom - 20, height: rect.height };
-  })()`)
-  await beginTabDrag('pane-3-tab-1', { x: leftEdge.x, y: leftEdge.y })
-  await desktop.wait(() => desktop.evaluate('document.querySelector(".pane-dock-preview")?.textContent.trim() === "Dock left"'), 'sole tab docks its pane')
-  await release(leftEdge.x, leftEdge.y)
-  assert.equal((await paneBounds('Pane 3')).height, leftEdge.height)
-
-  const intoSecond = await tabTarget('Pane 2')
-  await beginTabDrag('pane-3-tab-1', intoSecond)
-  await desktop.wait(() => desktop.evaluate('Boolean(document.querySelector(".tab-drop-marker"))'), 'tab insertion marker')
-  await release(intoSecond.x, intoSecond.y)
-  await desktop.wait(() => desktop.evaluate('document.querySelectorAll(".pane").length === 3'), 'sole-tab source pane removed')
-  assert.equal(await desktop.evaluate('document.getElementById("pane-3-tab-1").closest(".pane").getAttribute("aria-label")'), 'Pane 2')
-  const rejected = await tabTarget('Pane 1')
-  await beginTabDrag('pane-3-tab-1', rejected)
+  await release(point)
+  assert.deepEqual(await snapshot(), beforeInvalid)
+  point = await pointerPoint(`${group1} .pane-drag-handle`)
+  await beginDrag('#pane-5-tab-1', point)
   assert.equal(await desktop.evaluate('Boolean(document.querySelector(".pane-dock-preview"))'), false)
-  await release(rejected.x, rejected.y)
-  assert.equal(await desktop.evaluate('document.getElementById("pane-3-tab-1").closest(".pane").getAttribute("aria-label")'), 'Pane 2')
-  const intoFourth = await tabTarget('Pane 4')
-  await beginTabDrag('pane-3-tab-1', intoFourth)
-  await desktop.wait(() => desktop.evaluate('Boolean(document.querySelector(".tab-drop-marker"))'), 'compatible target marker')
-  await desktop.rpc('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape' })
-  await release(intoFourth.x, intoFourth.y)
-  assert.equal(await desktop.evaluate('document.getElementById("pane-3-tab-1").closest(".pane").getAttribute("aria-label")'), 'Pane 2')
-  await beginTabDrag('pane-3-tab-1', intoFourth)
-  await desktop.wait(() => desktop.evaluate('Boolean(document.querySelector(".tab-drop-marker"))'), 'final tab insertion preview')
-  const transferImage = await desktop.rpc('Page.captureScreenshot', { format: 'png' })
-  await writeFile(join(tmpdir(), 'granite-tab-transfer.png'), Buffer.from(transferImage.data, 'base64'))
-  await release(intoFourth.x, intoFourth.y)
-  await desktop.wait(() => desktop.evaluate('document.getElementById("pane-3-tab-1").closest(".pane").getAttribute("aria-label") === "Pane 4"'), 'tab moved between groups')
-  await desktop.wait(() => desktop.evaluate('document.activeElement?.id === "pane-3-tab-1"'), 'moved tab focused')
-  assert.equal(await desktop.evaluate('document.getElementById("pane-3-tab-1").getAttribute("aria-selected")'), 'true')
-  const beforeFirst = await desktop.evaluate(`(() => {
-    const rect = document.getElementById('pane-4-tab-1').getBoundingClientRect();
-    return { x: rect.x + 1, y: rect.y + rect.height / 2 };
-  })()`)
-  await beginTabDrag('pane-3-tab-1', beforeFirst)
-  await release(beforeFirst.x, beforeFirst.y)
-  assert.deepEqual(await desktop.evaluate(`[...document.querySelectorAll('section[aria-label="Pane 4"] [role="tab"]')].map(tab => tab.id)`), ['pane-3-tab-1', 'pane-4-tab-1'])
+  await release(point)
+  assert.deepEqual(await snapshot(), beforeInvalid)
+  await beginDrag('[data-pane-id=pane-6] .pane-drag-handle', point)
+  assert.equal(await desktop.evaluate('Boolean(document.querySelector(".pane-dock-preview"))'), false)
+  await release(point)
+  assert.deepEqual(await snapshot(), beforeInvalid)
 
-  const one = await paneBounds('Pane 1')
-  const nestedDrop = { x: one.x + one.width - 80, y: one.y + one.height / 2 }
-  await beginDrag('Pane 4', nestedDrop.x, nestedDrop.y)
-  await desktop.wait(() => desktop.evaluate('Boolean(document.querySelector(".pane-dock-preview"))'), 'nested docking preview')
-  await release(nestedDrop.x, nestedDrop.y)
-  assert.ok((await paneBounds('Pane 4')).x > (await paneBounds('Pane 1')).x)
-  await clickButton('Close Pane 4')
-  await desktop.wait(() => desktop.evaluate('document.querySelectorAll(".pane").length === 2'), 'sibling expands')
-  assert.equal(await desktop.evaluate('Boolean(document.querySelector(".is-dragging"))'), false)
+  // An undersized edge split must reject the drop instead of merging into another group.
+  await click('Add tab to Group 1')
+  await desktop.wait(() => desktop.evaluate('document.getElementById("pane-1-tab-4")?.getAttribute("aria-selected") === "true"'), 'new Agent tab selected in Group 1')
+  const beforeTooSmall = await snapshot()
+  area = await bounds(`${explorer} .pane-layout`)
+  point = { x: area.x + area.width - 20, y: area.y + area.height - 90 }
+  await beginDrag('#pane-1-tab-4', point)
+  assert.equal(await desktop.evaluate('Boolean(document.querySelector(".pane-dock-preview"))'), false)
+  await release(point)
+  assert.deepEqual(await snapshot(), beforeTooSmall)
+  point = { x: area.x - 1, y: area.y + area.height / 2 }
+  await beginDrag('#pane-1-tab-4', point)
+  assert.equal(await desktop.evaluate('Boolean(document.querySelector(".pane-dock-preview"))'), false)
+  await release(point)
+  assert.deepEqual(await snapshot(), beforeTooSmall)
 
-  // Check viewport resizing after pointer checks so device emulation cannot alter
-  // the coordinate mapping used by subsequent native pointer input.
-  end = await beginResize(100, 0)
-  await release(end.x, end.y)
-  const beforeViewport = await paneBounds('Pane 1')
-  const beforeSecond = await paneBounds('Pane 2')
+  // Whole-region dragging swaps the two regions without resizing or changing either subtree.
+  const outer = await bounds('.region-layout')
+  const beforeSwap = await snapshot()
+  const explorerSize = await bounds(explorer)
+  point = { x: outer.x + outer.width - 10, y: outer.y + outer.height / 2 }
+  await beginDrag(`${explorer} .region-drag-handle`, point)
+  await preview('Swap regions')
+  assert.equal((await bounds('.region-floating')).width, explorerSize.width)
+  assert.equal((await bounds('.region-floating')).height, explorerSize.height)
+  await key('Escape')
+  await release(point)
+  assert.deepEqual(await snapshot(), beforeSwap)
+  await beginDrag(`${explorer} .region-drag-handle`, point)
+  const swapPreview = await preview('Swap regions')
+  const swapImage = await desktop.rpc('Page.captureScreenshot', { format: 'png' })
+  await writeFile(join(tmpdir(), 'granite-region-swap-preview.png'), Buffer.from(swapImage.data, 'base64'))
+  await release(point)
+  await desktop.wait(() => desktop.evaluate('document.querySelector("[data-region]").dataset.region === "content"'), 'Explorer moved to the right')
+  sameRect(await bounds(explorer), swapPreview)
+  assert.deepEqual(await snapshot(), beforeSwap)
+  point = { x: outer.x + outer.width / 2, y: outer.y + 1 }
+  await beginDrag(`${explorer} .region-drag-handle`, point)
+  assert.equal(await desktop.evaluate('Boolean(document.querySelector(".pane-dock-preview"))'), false)
+  await release(point)
+  assert.equal(await desktop.evaluate('document.querySelector("[data-region]").dataset.region'), 'content')
+  point = { x: outer.x + outer.width - 10, y: outer.y + outer.height / 2 }
+  await beginDrag(`${content} .region-drag-handle`, point)
+  await preview('Swap regions')
+  await release(point)
+  assert.equal(await desktop.evaluate('document.querySelector("[data-region]").dataset.region'), 'explorer')
+  assert.deepEqual(await snapshot(), beforeSwap)
+  await desktop.evaluate(`document.querySelector('${explorer} .region-drag-handle').focus()`)
+  await key('ArrowRight')
+  await desktop.wait(() => desktop.evaluate('document.querySelector("[data-region]").dataset.region === "content"'), 'keyboard region swap')
+  await key('ArrowLeft')
+  await desktop.wait(() => desktop.evaluate('document.querySelector("[data-region]").dataset.region === "explorer"'), 'keyboard region swap back')
+
+  // Closing groups leaves both typed regions available; canceled splits consumed no group IDs.
+  await click('Close Group 4')
+  await click('Close Group 3')
+  await click('Close Agent 4 in Group 1')
+  await click('Close Agent 1 in Group 1')
+  await desktop.wait(() => desktop.evaluate('Boolean(document.querySelector("[data-region=explorer] .region-empty"))'), 'empty Explorer remains')
+  assert.equal(await desktop.evaluate('document.querySelectorAll("[data-region]").length'), 2)
+  await click('Close Group 6')
+  await click('Close Chat 1 in Group 2')
+  await desktop.wait(() => desktop.evaluate('document.querySelectorAll(".region-empty").length === 2'), 'both regions empty')
+  await desktop.fill('select[aria-label="New group region"]', 'explorer', 'select')
+  await click('Add Explorer group')
+  await desktop.wait(() => desktop.evaluate('Boolean(document.querySelector("[data-region=explorer] [data-pane-id=pane-7]"))'), 'Explorer restored with next group ID')
+  await desktop.fill('select[aria-label="New group region"]', 'content', 'select')
+  await click('Add Content group')
+  await desktop.wait(() => desktop.evaluate('Boolean(document.querySelector("[data-region=content] [data-pane-id=pane-8]"))'), 'Content restored')
+
+  // Viewport checks run after pointer input so emulation cannot alter its coordinate mapping.
+  const beforeViewport = await bounds(explorer)
+  const beforeContent = await bounds(content)
   const originalViewport = await desktop.evaluate('({width: innerWidth, height: innerHeight})')
   await desktop.rpc('Emulation.setDeviceMetricsOverride', { width: 900, height: 650, deviceScaleFactor: 1, mobile: false })
-  await desktop.wait(async () => (await paneBounds('Pane 1')).width < beforeViewport.width - 20, 'viewport resize')
-  const smallFirst = await paneBounds('Pane 1')
-  const smallSecond = await paneBounds('Pane 2')
-  assert.ok(Math.abs(smallFirst.width / (smallFirst.width + smallSecond.width) - beforeViewport.width / (beforeViewport.width + beforeSecond.width)) < 0.002)
-  // Electron may retain the emulated viewport after clearDeviceMetricsOverride.
-  // Restore the original dimensions explicitly before checking the saved proportions.
+  await desktop.wait(async () => (await bounds(explorer)).width < beforeViewport.width - 20, 'viewport resize')
+  const smallExplorer = await bounds(explorer)
+  const smallContent = await bounds(content)
+  assert.ok(Math.abs(smallExplorer.width / (smallExplorer.width + smallContent.width) - beforeViewport.width / (beforeViewport.width + beforeContent.width)) < 0.002)
   await desktop.rpc('Emulation.setDeviceMetricsOverride', { ...originalViewport, deviceScaleFactor: 1, mobile: false })
-  try {
-    await desktop.wait(async () => Math.abs((await paneBounds('Pane 1')).width - beforeViewport.width) < 1, 'viewport proportions restored')
-  } catch (error) {
-    console.error({ beforeViewport, beforeSecond, restored: await paneBounds('Pane 1'), viewport: await desktop.evaluate('({ width: innerWidth, height: innerHeight, scrollX, scrollY, workspace: document.querySelector(".pane-layout").getBoundingClientRect().toJSON() })') })
-    throw error
-  }
-
-  // Closing the last pane exposes the backdrop; numbering is not reused on reopen.
-  await desktop.click('Close Agent 3 in Pane 1')
-  await desktop.wait(() => desktop.evaluate('document.getElementById("pane-1-tab-1")?.getAttribute("aria-selected") === "true"'), 'close selects neighboring tab')
-  await desktop.click('Close Agent 1 in Pane 1')
-  await desktop.wait(() => desktop.evaluate('document.querySelectorAll(".pane").length === 1'), 'last pane fills workspace')
-  await desktop.click('Close Pane 2')
-  await desktop.wait(() => desktop.evaluate('document.querySelectorAll(".pane, [role=separator]").length === 0'), 'empty workspace')
-  await desktop.fill('select[aria-label="New pane type"]', 'navigation', 'select')
-  await desktop.wait(() => desktop.evaluate('document.querySelector(".add-pane").getAttribute("aria-label") === "Add navigation pane" && !document.querySelector(".add-pane").disabled'), 'navigation creation ready')
-  await desktop.click('Add pane')
-  await desktop.wait(() => desktop.evaluate(`Boolean(document.querySelector('section[aria-label="Pane 5"][data-pane-type="navigation"]'))`), 'pane restored')
+  await desktop.wait(async () => Math.abs((await bounds(explorer)).width - beforeViewport.width) < 1, 'viewport proportions restored')
   const invalidMinimum = await desktop.evaluate('window.granite.window.setMinimumSize(-1, 100)')
   assert.equal(invalidMinimum.ok, false)
   await desktop.wait(() => desktop.evaluate('!document.querySelector("[role=alert]")'), 'window minimum applied')
@@ -340,7 +388,7 @@ try {
   const screenshot = await desktop.rpc('Page.captureScreenshot', { format: 'png' })
   const imagePath = join(tmpdir(), 'granite-shell.png')
   await writeFile(imagePath, Buffer.from(screenshot.data, 'base64'))
-  console.log(`Pane tabs, dragging/docking, divider resizing, cancellation, isolation, connection persistence, and local model discovery passed. Screenshot: ${imagePath}`)
+  console.log(`Typed regions, width-preserving swaps, Agent/Content splits, scoped tab/group movement, resizing, cancellation, empty-region recovery, isolation, and local connections passed. Screenshot: ${imagePath}`)
 } finally {
   await desktop.quit()
   await new Promise((resolve, reject) => provider.close(error => error ? reject(error) : resolve()))

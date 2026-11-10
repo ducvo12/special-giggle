@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { addTab, closeTab, selectTab } from '../src/renderer/src/components/panes/tabs.ts'
-import { addPane, createPane, findPane, moveTab, dockPane, initialLayout, removePane, updatePane } from '../src/renderer/src/components/panes/layout.ts'
+import { addPane, createPane, findPane, moveTab, dockPane, dockTab, dockingTargetAt, dockingPreview, paneRects, removePane, updatePane } from '../src/renderer/src/components/panes/layout.ts'
+
+import { initialLayout } from './fixtures/panes.ts'
 
 test('panes start with one selected tab, and adding selects a uniquely numbered tab', () => {
   const initial = createPane('test', 'Test')
@@ -48,11 +50,11 @@ test('docking preserves all tabs and selection, while whole-pane closing removes
 
 
 test('pane families accept their own tab kinds and reject incompatible additions without side effects', () => {
-  const navigation = createPane('nav', 'Navigation', 'navigation')
-  assert.equal(navigation.tabs[0].type, 'agent')
-  assert.equal(addTab(navigation).tabs[1].title, 'Agent 2')
+  const explorer = createPane('nav', 'Explorer', 'explorer')
+  assert.equal(explorer.tabs[0].type, 'agent')
+  assert.equal(addTab(explorer).tabs[1].title, 'Agent 2')
   for (const type of ['chat', 'image', 'file'] as const) {
-    assert.equal(addTab(navigation, type), navigation)
+    assert.equal(addTab(explorer, type), explorer)
   }
   const content = createPane('content', 'Content', 'content')
   assert.equal(content.tabs[0].type, 'chat')
@@ -63,26 +65,19 @@ test('pane families accept their own tab kinds and reject incompatible additions
   assert.equal(mixed.activeTabId, mixed.tabs[2].id)
 })
 
-test('the navigation pane is unique and can be restored after closing', () => {
-  const navigation = createPane('nav-new', 'Navigation', 'navigation')
+test('Explorer accepts multiple groups while each region rejects a different family', () => {
+  const first = createPane('first', 'First', 'explorer')
+  const second = createPane('second', 'Second', 'explorer')
   const bounds = { x: 0, y: 0, width: 1000, height: 700 }
-  assert.equal(addPane(initialLayout, navigation, bounds), initialLayout)
-  const closed = removePane(initialLayout, 'pane-1')!
-  const restored = addPane(closed, navigation, bounds)!
-  assert.equal(restored.kind, 'split')
-  assert.equal(navigation.paneType, 'navigation')
-  assert.equal(navigation.tabs[0].type, 'agent')
-  assert.equal(addPane(restored, createPane('another', 'Other', 'navigation'), bounds), restored)
+  const layout = addPane(first, second, bounds)!
+  assert.equal(paneRects(layout, bounds).size, 2)
+  assert.equal(addPane(layout, createPane('chat', 'Chat'), bounds), layout)
+  assert.equal(addPane(initialLayout, second, bounds), initialLayout)
+  const moved = dockPane(layout, first.id, { paneId: second.id, edge: 'bottom' })
+  assert.equal(findPane(moved, first.id)!.paneType, 'explorer')
+  assert.equal(findPane(moved, second.id), second)
+  assert.equal(findPane(moved, first.id)!.tabs[0], first.tabs[0])
 })
-
-test('whole-pane docking preserves its family and can place different families beside each other', () => {
-  const moved = dockPane(initialLayout, 'pane-1', { paneId: 'pane-2', edge: 'bottom' })
-  assert.ok(moved.kind === 'split' && moved.first.kind === 'pane' && moved.second.kind === 'pane')
-  assert.equal(moved.first.paneType, 'content')
-  assert.equal(moved.second.paneType, 'navigation')
-  assert.equal(moved.second.tabs[0].type, 'agent')
-})
-
 
 test('tab transfer preserves identity, selects the destination, and settles source selection', () => {
   const source = addTab(createPane('source', 'Source'), 'image')
@@ -111,8 +106,10 @@ test('moving a final tab collapses its pane and preserves the tab in its destina
 })
 
 test('incompatible and stale transfers leave the original layout unchanged', () => {
-  assert.equal(moveTab(initialLayout, 'pane-1', 'pane-1-tab-1', 'pane-2'), initialLayout)
-  assert.equal(moveTab(initialLayout, 'pane-2', 'pane-2-tab-1', 'pane-1'), initialLayout)
+  const mixed = { kind: 'split', axis: 'horizontal', ratio: 0.5,
+    first: createPane('pane-1', 'Explorer', 'explorer'), second: createPane('pane-2', 'Content') } as const
+  assert.equal(moveTab(mixed, 'pane-1', 'pane-1-tab-1', 'pane-2'), mixed)
+  assert.equal(moveTab(mixed, 'pane-2', 'pane-2-tab-1', 'pane-1'), mixed)
   assert.equal(moveTab(initialLayout, 'missing', 'pane-2-tab-1', 'pane-1'), initialLayout)
   assert.equal(moveTab(initialLayout, 'pane-2', 'missing', 'pane-1'), initialLayout)
   assert.equal(moveTab(initialLayout, 'pane-2', 'pane-2-tab-1', 'missing'), initialLayout)
@@ -135,4 +132,71 @@ test('transfers preserve source numbering and cannot collide with destination-ge
   const destination = addTab(findPane(moved, target.id)!)
   assert.equal(new Set(destination.tabs.map(tab => tab.id)).size, 3)
   assert.equal(addTab(findPane(moved, source.id)!).activeTabId, 'source-tab-3')
+})
+
+test('both families can detach a grouped tab beside its source, another group, or the region edge', () => {
+  for (const family of ['explorer', 'content'] as const) {
+    const source = addTab(addTab(createPane('source', 'Source', family)))
+    const other = createPane('other', 'Other', family)
+    const layout = { kind: 'split', axis: 'horizontal', ratio: 0.5, first: source, second: other } as const
+    const bounds = { x: 0, y: 0, width: 1400, height: 900 }
+    for (const paneId of [source.id, other.id, null]) {
+      for (const edge of ['left', 'right', 'top', 'bottom'] as const) {
+        const tab = source.tabs[1]
+        const selected = updatePane(layout, source.id, pane => selectTab(pane, tab.id))!
+        const moved = dockTab(selected, source.id, tab.id, { id: 'new', title: 'New' }, { paneId, edge })
+        const detached = findPane(moved, 'new')!
+        assert.deepEqual(detached.tabs, [tab])
+        assert.equal(detached.tabs[0], tab)
+        assert.equal(detached.activeTabId, tab.id)
+        assert.equal(detached.paneType, family)
+        const remaining = findPane(moved, source.id)!
+        assert.deepEqual(remaining.tabs, [source.tabs[0], source.tabs[2]])
+        assert.equal(remaining.activeTabId, source.tabs[2].id)
+        assert.equal(remaining.nextTab, source.nextTab)
+        assert.equal(findPane(moved, other.id), other)
+        const rects = paneRects(moved, bounds)
+        const placed = rects.get('new')!
+        const sibling = rects.get(paneId ?? source.id)!
+        if (edge === 'left') assert.ok(placed.x < sibling.x)
+        if (edge === 'right') assert.ok(placed.x > sibling.x)
+        if (edge === 'top') assert.ok(placed.y < sibling.y)
+        if (edge === 'bottom') assert.ok(placed.y > sibling.y)
+        assert.equal(rects.size, 3)
+      }
+    }
+    assert.equal(source.tabs.length, 3)
+  }
+})
+
+test('detachment preserves inactive selection and uses the new pane namespace for future tabs', () => {
+  const source = addTab(createPane('source', 'Source'))
+  const moved = dockTab(source, source.id, source.tabs[0].id, { id: 'new', title: 'New' }, { paneId: source.id, edge: 'bottom' })
+  assert.equal(findPane(moved, source.id)!.activeTabId, source.activeTabId)
+  assert.equal(addTab(findPane(moved, 'new')!).activeTabId, 'new-tab-1')
+  assert.equal(addTab(findPane(moved, source.id)!).activeTabId, 'source-tab-3')
+})
+
+test('detachment rejects sole tabs, stale inputs, and reused pane IDs', () => {
+  const layout = updatePane(initialLayout, 'pane-2', pane => addTab(pane))!
+  const identity = { id: 'new', title: 'New' }
+  const target = { paneId: 'pane-2', edge: 'bottom' } as const
+  assert.equal(dockTab(initialLayout, 'pane-2', 'pane-2-tab-1', identity, target), initialLayout)
+  assert.equal(dockTab(layout, 'missing', 'pane-2-tab-1', identity, target), layout)
+  assert.equal(dockTab(layout, 'pane-2', 'missing', identity, target), layout)
+  assert.equal(dockTab(layout, 'pane-2', 'pane-2-tab-1', identity, { ...target, paneId: 'missing' }), layout)
+  assert.equal(dockTab(layout, 'pane-2', 'pane-2-tab-1', { id: 'pane-1', title: 'Reused' }, target), layout)
+})
+
+test('tab docking previews match final geometry and reject splits that cannot fit', () => {
+  const source = addTab(createPane('source', 'Source'))
+  const bounds = { x: 0, y: 0, width: 1000, height: 700 }
+  const target = dockingTargetAt(source, bounds, 500, 90)!
+  assert.deepEqual(target, { paneId: source.id, edge: 'top' })
+  const moved = dockTab(source, source.id, source.activeTabId, { id: 'new', title: 'New' }, target)
+  assert.deepEqual(dockingPreview(moved, 'new', target, bounds)!.preview, paneRects(moved, bounds).get('new'))
+  assert.equal(dockingPreview(moved, 'new', target, { ...bounds, height: 291 }), null)
+  assert.equal(dockingPreview(moved, 'new', target, { ...bounds, height: 292 })!.preview.height, 140)
+  assert.equal(dockingTargetAt(source, bounds, 500, 350), null)
+  assert.equal(dockingTargetAt(source, bounds, -1, 90), null)
 })

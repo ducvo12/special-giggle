@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { addPane, createPane, removePane, dockPane, dockingAt, initialLayout, paneRects, resizeSplit, type Layout } from '../src/renderer/src/components/panes/layout.ts'
+import { addPane, createPane, removePane, dockPane, dockingAt, tabDockingTargetAt, paneRects, resizeSplit, type Layout } from '../src/renderer/src/components/panes/layout.ts'
+
+import { initialLayout } from './fixtures/panes.ts'
 
 const bounds = { x: 0, y: 0, width: 1000, height: 700 }
 
@@ -64,6 +66,47 @@ test('docking engages farther inside workspace and pane edges while keeping cent
   assert.deepEqual(dockingAt(initialLayout, 'pane-1', bounds, 800, 60)?.target, { paneId: null, edge: 'top' })
   assert.deepEqual(dockingAt(initialLayout, 'pane-1', bounds, 800, 90)?.target, { paneId: 'pane-2', edge: 'top' })
   assert.equal(dockingAt(initialLayout, 'pane-1', bounds, 800, 350), null)
+})
+
+test('tab docking covers the full group interior with four proportional targets and no neutral center', () => {
+  const group = createPane('group', 'Group')
+  const large = { x: 0, y: 0, width: 1600, height: 1000 }
+  for (const [x, y, edge] of [
+    [480, 500, 'left'], [1120, 500, 'right'],
+    [800, 300, 'top'], [800, 700, 'bottom'], [800, 500, 'left']
+  ] as const) {
+    assert.deepEqual(tabDockingTargetAt(group, large, x, y), { paneId: group.id, edge })
+  }
+})
+
+test('tab split targets stay proportional in tall and wide groups', () => {
+  const group = createPane('group', 'Group')
+  const tall = { x: 100, y: 50, width: 800, height: 1800 }
+  const wide = { x: 100, y: 50, width: 1800, height: 800 }
+  assert.deepEqual(tabDockingTargetAt(group, tall, 500, 680), { paneId: group.id, edge: 'top' })
+  assert.deepEqual(tabDockingTargetAt(group, tall, 500, 1220), { paneId: group.id, edge: 'bottom' })
+  assert.deepEqual(tabDockingTargetAt(group, wide, 730, 450), { paneId: group.id, edge: 'left' })
+  assert.deepEqual(tabDockingTargetAt(group, wide, 1270, 450), { paneId: group.id, edge: 'right' })
+})
+
+test('tab docking targets the hovered group, retains region-edge docking, and rejects gaps and outside points', () => {
+  const large = { x: 0, y: 0, width: 1600, height: 1000 }
+  for (const [id, rect] of paneRects(initialLayout, large)) {
+    for (const x of [0.2, 0.4, 0.6, 0.8]) {
+      for (const y of [0.2, 0.4, 0.6, 0.8]) {
+        assert.equal(tabDockingTargetAt(initialLayout, large, rect.x + rect.width * x, rect.y + rect.height * y)!.paneId, id)
+      }
+    }
+  }
+  assert.deepEqual(tabDockingTargetAt(initialLayout, large, 10, 500), { paneId: null, edge: 'left' })
+  assert.deepEqual(tabDockingTargetAt(initialLayout, large, 1590, 500), { paneId: null, edge: 'right' })
+  assert.deepEqual(tabDockingTargetAt(initialLayout, large, 800, 10), { paneId: null, edge: 'top' })
+  assert.deepEqual(tabDockingTargetAt(initialLayout, large, 800, 990), { paneId: null, edge: 'bottom' })
+  assert.equal(tabDockingTargetAt(initialLayout, large, 800, 500), null)
+  assert.equal(tabDockingTargetAt(initialLayout, large, -1, 500), null)
+  assert.equal(tabDockingTargetAt(initialLayout, large, 1601, 500), null)
+  assert.equal(tabDockingTargetAt(initialLayout, large, 500, -1), null)
+  assert.equal(tabDockingTargetAt(initialLayout, large, 500, 1001), null)
 })
 
 test('resizing clamps both sides to their minimum dimensions in either orientation', () => {

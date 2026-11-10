@@ -4,6 +4,62 @@
   padding: 12px;
 }
 
+.region-layout {
+  position: relative;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.region-slot,
+.workspace-region {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.region-slot {
+  position: relative;
+}
+
+.region-drag-handle {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 0 8px;
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.region-drag-handle:hover {
+  color: var(--text-strong);
+  background: var(--surface-hover);
+}
+
+.region-drag-handle:focus-visible {
+  outline: 1px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.region-empty {
+  display: grid;
+  place-items: center;
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+}
+
 .pane {
   flex: 1;
   display: flex;
@@ -64,7 +120,8 @@
 }
 
 .workspace.is-dragging,
-.workspace.is-dragging .pane-drag-handle {
+.workspace.is-dragging .pane-drag-handle,
+.workspace.is-dragging .region-drag-handle {
   cursor: grabbing;
   user-select: none;
 }
@@ -73,7 +130,8 @@
   position: relative;
 }
 
-.pane-slot-dragging::before {
+.pane-slot-dragging::before,
+.region-slot-dragging::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -82,7 +140,8 @@
   pointer-events: none;
 }
 
-.pane-floating {
+.pane-floating,
+.region-floating {
   position: fixed;
   z-index: 2;
   pointer-events: none;

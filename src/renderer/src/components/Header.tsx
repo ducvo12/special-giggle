@@ -3,34 +3,24 @@ import { paneTypes, type PaneType } from './panes/pane-types'
 interface HeaderProps {
   paneType: PaneType
   onPaneTypeChange: (type: PaneType) => void
-  navigationOpen: boolean
-  onAddPane: () => void
-  canAddPane: boolean
+  onAddGroup: () => void
+  canAddGroup: boolean
 }
 
-// Reserve space for native controls and expose the two pane families for creation.
-const Header = ({ onAddPane, canAddPane, paneType, onPaneTypeChange, navigationOpen }: HeaderProps) => {
-  let addTitle = 'Add pane'
-  if (paneType === 'navigation' && navigationOpen) {
-    addTitle = 'The navigation pane is already open'
-  } else if (!canAddPane) {
-    addTitle = 'Enlarge the window or close a pane to make room'
-  }
-
+// Keep temporary group creation available while real explorer content opening is deferred.
+export default function Header({ onAddGroup, canAddGroup, paneType, onPaneTypeChange }: HeaderProps) {
   return (
-    <header
-      className={`app-header ${window.granite.platform === "darwin" ? "app-header-mac" : ""}`}
-    >
+    <header className={`app-header ${window.granite.platform === 'darwin' ? 'app-header-mac' : ''}`}>
       <div className="app-brand">
         <span>Archon</span>
       </div>
 
       <select
-        className="new-pane-type quiet-button"
-        aria-label="New pane type"
+        className="new-group-region quiet-button"
+        aria-label="New group region"
         value={paneType}
         onChange={event => {
-          if (event.currentTarget.value === 'navigation' || event.currentTarget.value === 'content') {
+          if (event.currentTarget.value === 'explorer' || event.currentTarget.value === 'content') {
             onPaneTypeChange(event.currentTarget.value)
           }
         }}
@@ -39,23 +29,21 @@ const Header = ({ onAddPane, canAddPane, paneType, onPaneTypeChange, navigationO
           {paneTypes.content.label}
         </option>
 
-        <option value="navigation">
-          {paneTypes.navigation.label}
+        <option value="explorer">
+          {paneTypes.explorer.label}
         </option>
       </select>
 
       <button
         type="button"
-        className="add-pane quiet-button"
-        aria-label={`Add ${paneTypes[paneType].label.toLowerCase()} pane`}
-        onClick={onAddPane}
-        disabled={!canAddPane}
-        title={addTitle}
+        className="add-group quiet-button"
+        aria-label={`Add ${paneTypes[paneType].label} group`}
+        onClick={onAddGroup}
+        disabled={!canAddGroup}
+        title={canAddGroup ? 'Add group' : 'Enlarge this region or close a group to make room'}
       >
-        Add pane
+        Add group
       </button>
     </header>
-  );
-};
-
-export default Header;
+  )
+}

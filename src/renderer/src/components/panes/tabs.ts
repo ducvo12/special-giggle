@@ -18,7 +18,7 @@ function createTab(paneId: string, number: number, type: TabType): Tab {
   return { id: `${paneId}-tab-${number}`, title: `${tabLabels[type]} ${number}`, type }
 }
 
-// Start with the family's default tab kind: Agent for Navigation, Chat for Content.
+// Start with the family's default tab kind: Agent for Explorer, Chat for Content.
 export function initialTabs(paneId: string, paneType: PaneType): PaneTabs {
   const tab = createTab(paneId, 1, paneTypes[paneType].tabs[0])
   return { paneType, tabs: [tab], activeTabId: tab.id, nextTab: 2 }

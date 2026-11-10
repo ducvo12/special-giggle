@@ -1,6 +1,6 @@
 # Granite rebuild development
 
-This branch is a runnable desktop shell for rebuilding Granite incrementally with the user directing the architecture. It starts with one Navigation pane and one Content pane, with controls to add and close panes and typed placeholder tabs. The full prior implementation is preserved at commit `d6a68013c7121a1acfe320fc083d9f76dc63cdb5`; existing harness documentation and planning vault files describe that earlier app.
+This branch is a runnable desktop shell for rebuilding Granite incrementally with the user directing the architecture. It has one Explorer region and one Content region, with independently splittable tab groups inside each region and typed placeholder tabs. The full prior implementation is preserved at commit `d6a68013c7121a1acfe320fc083d9f76dc63cdb5`; existing harness documentation and planning vault files describe that earlier app.
 
 ## Run and verify
 
@@ -16,9 +16,9 @@ npm run dev
 | `npm run lint` | Source, test, and script lint checks. |
 | `npm run typecheck` | Production TypeScript checks. |
 | `npm run typecheck:tests` | Strict test TypeScript checks. |
-| `npm test` | Pane layout, connection, authentication, link validation, and desktop-session tests under Electron's Node runtime. |
+| `npm test` | Region/group layout, connection, authentication, link validation, and desktop-session tests under Electron's Node runtime. |
 | `npm run build` | Type-check and compile main, preload, and renderer. |
-| `npm run verify:shell` | Launch the compiled shell in a disposable profile and check pane dragging/docking, divider resizing, pane creation/closing, tab movement, and the connection bridge against a local simulated provider. |
+| `npm run verify:shell` | Launch the compiled shell in a disposable profile and check region swapping, scoped group/tab docking, both levels of resizing, empty-region recovery, and the connection bridge against a local simulated provider. |
 | `npm run preview` | Open the compiled app. |
 | `npm run package` | Build and create a local unpacked app. |
 | `npm run dist` | Build an installer; distribution requires platform signing configuration. |
@@ -39,18 +39,43 @@ Run lint, both type checks, relevant tests, and a fresh build after code changes
 | `src/backend/connections/` | Saved connection settings and credentials. |
 | `src/backend/models/` | Model discovery and account model catalog. |
 | `src/shared/` | Connection and bridge contracts. |
-| `src/renderer/src/app/App.tsx` | Shared layout state, pane creation, header actions, and native window minimum updates. |
+| `src/renderer/src/app/App.tsx` | Typed region state, group creation, header actions, and native window minimum updates. |
 | `src/renderer/src/components/panes/Pane.tsx` | Controlled tab strip, placeholder content, empty title-bar drag area, and close controls. |
-| `src/renderer/src/components/panes/Workspace.tsx` | Pointer capture, drag/resize cancellation, docking previews, divider controls, and layout rendering. |
+| `src/renderer/src/components/panes/Workspace.tsx` | Shared pointer interactions for region swapping, scoped group docking, resizing, cancellation, and layout rendering. |
+| `src/renderer/src/components/panes/regions.ts` | Unique horizontal region pair, width-preserving swapping, region geometry, family validation, and outer minimums. |
 | `src/renderer/src/components/panes/layout.ts` | Split tree, pane/tab ownership, docking targets, geometry, and minimum-size checks. |
 | `src/renderer/src/components/panes/tabs.ts` | Typed placeholder tab creation, selection, numbering, and closing rules. |
-| `src/renderer/src/components/panes/pane-types.ts` | Navigation/Content families and their allowed tab kinds. |
+| `src/renderer/src/components/panes/pane-types.ts` | Explorer/Content families and their allowed tab kinds. |
 | `src/renderer/src/components/panes/tab-drop.ts` | Compatible tab hit testing, insertion markers, and move previews. |
 | `src/renderer/src/styles/` | Original design tokens and styles retained for reuse. |
 
-Only tokens, base, shell, and pane styles are loaded. Other stylesheets are retained design references, with no corresponding feature implementation. The two panes have opaque shaded surfaces. Drag the empty title-bar area to dock against another pane or the workspace edge; the pane follows the pointer at its original size while an outline marks its former location. A separate preview shows the final docked placement. Workspace docking engages up to 72 CSS pixels from an edge, and pane docking up to 96; zones scale down on small surfaces to retain a neutral center. Center/outside drops do nothing. Escape, pointer cancellation, window blur, and window resizing cancel an active drag. New splits divide space equally. Drag a divider to resize either orientation; Escape cancels the resize. Focus a divider and use arrow keys for 10-pixel adjustments, or Home/End for its size limits. Splits retain their chosen proportions on window resizing, clamping at the 200-by-140 CSS pixel pane minimums and restoring preferred proportions when space returns. Nested splits include all descendant minimums. Docking rejects arrangements that cannot fit. Add pane splits the largest pane with room, preferring its longer dimension, and is disabled when no split fits. Pane numbers are not reused after closing. Closing collapses the pane's split and expands its sibling; closing the final pane exposes the backdrop, with Add pane still available in the header. Native window minimum dimensions follow the layout, including header, padding, and native frame space. Navigation accepts Agent tabs; Content accepts Chat, Image, and File tabs. These are labeled placeholders without real agent/chat/file behavior. The header selector chooses the family for new panes. Only one Navigation pane may exist, and it can be restored after closing. Each pane starts with one selected placeholder tab: Agent for Navigation, Chat for Content. Navigation's + adds an Agent tab. Content has no + control; real content opening belongs to the future explorer. For this playground, new Content panes still start with a Chat placeholder, and tabs can be gathered by moving them between Content panes. Compatibility is enforced by creation and transfer operations, not only by the controls; numbers are not reused after closing. Clicking a tab selects its placeholder content. Arrow keys, Home, and End navigate the focused tab strip. Closing the active tab selects its right neighbor, or the left neighbor when last; closing an inactive tab preserves selection. Closing the final tab closes its pane. The pane × closes the entire group. Tab state lives in the layout and survives docking. Drag tab labels to move them into compatible panes; dropping in a body appends, while dropping in a title bar shows an insertion marker and also supports reordering within a pane. Incompatible targets have no preview and reject the drop. Moving a final tab into another pane closes its source pane. A sole-tab drag carries the whole pane and can use edge docking; dragging the empty title bar always moves the whole pane. Multi-tab drags show a floating tab and leave its source slot outlined. Escape and invalid/outside drops preserve the original layout, selection, and tab identities. Creating a new split from an individual tab in a multi-tab pane, duplicate views, and persistence are not implemented yet. The shell has no agent worker, database, chat, tools, repository operations, or real pane content. There are no model requests on startup. Saved connections and sign-in operations remain callable through the bridge but have no UI. Existing user application data is not deleted or migrated.
+## Workspace behavior
 
-The first pane manager will operate inside one native window. Detached windows and their OS-specific behavior are deferred. The current layout uses a binary split tree, with pane leaves and horizontal or vertical splits.
+### Regions and swapping
+
+Exactly two typed regions exist: Explorer starts on the left and Content on the right. They are always side by side. Each region contains its own binary split tree of tab groups. Explorer accepts Agent tabs; Content accepts Chat, Image, and File tabs. Both families support any number of horizontal/vertical nested groups that fit. Tabs and groups cannot cross their region boundary. Each region is unique; the groups inside it are not limited to one.
+
+Drag the labeled Explorer/Content handle above the groups to swap the two regions at the opposite horizontal workspace edge. The region floats at its original size, an outline marks its slot, and a preview shows the final placement. Region widths, tab identities, selection, internal splits, and proportions travel with their regions. Top/bottom-center and outside drops do nothing. A focused region handle also supports Left/Right arrows, Enter, or Space for swapping.
+
+### Tab and group movement
+
+Drag a group's empty title-bar area to dock it within its own region. Drag tab labels to merge/reorder only on a compatible tab-bar row (including empty header space for appending). The entire group body offers split docking: proportional distances to its four sides choose left, right, top, or bottom, with no neutral center and no Option key required. Tall and wide groups retain generous targets in both directions; ties resolve consistently, preferring left, then right, top, and bottom. A grouped tab leaves its source slot outlined and has a tab-sized ghost. A sole-tab drag carries the entire group and docks it beside the body target instead of merging. Splitting an Agent tab works exactly like splitting a Content tab, including beside its own source. Invalid/undersized splits are rejected rather than merged. Group and region previews use final-layout geometry. Region edges retain full-region docking priority within a zone of up to 72 CSS pixels, scaled down on small surfaces. Whole-group title-bar drags retain the earlier edge zones (up to 72 pixels at region edges and 96 at group edges), with smaller zones on small surfaces and neutral centers.
+
+### Resizing and cancellation
+
+Escape, pointer cancellation, lost capture, window blur, and window resizing discard temporary interactions. New internal splits start at equal proportions. Pointer dividers resize both orientations. Focus a divider and use arrow keys for ten-pixel adjustments or Home/End for its minimum-size limits. The outer divider resizes the horizontal region pair. Nested group minimums (200 by 140 CSS pixels each), region headers, workspace padding, app header, and native frame space all contribute to the native window minimum. Preferred proportions survive window resizing, clamping at minimums and restoring when room returns.
+
+### Group creation and closing
+
+The header's **New group region / Add group** controls are playground tools, adding a placeholder group inside the selected region. They never create another top-level region. Creation splits the largest group with room, preferring its longer dimension, and disables when no split fits. Closing a group's final tab removes that group and expands its sibling. Closing a region's final group leaves an empty region that can be refilled through Add group. Closing both regions' groups leaves both region handles and the outer divider available. Group numbers are shared across both regions and never reused; previews and cancellations consume no numbers.
+
+### Tab controls
+
+Each group starts with one selected placeholder tab. Explorer's + adds Agent tabs. Content has no + control; real content opening belongs to the future explorer. Clicking selects a tab; Arrow keys, Home, and End navigate a focused strip and keep selection visible. Closing the active tab selects the right neighbor, or the left when last; closing an inactive tab preserves selection. Transfers preserve the existing tab object and select/focus it at the destination. Tab state belongs to each region's group tree, surviving docking and region swaps.
+
+### Deferred application behavior
+
+Only tokens, base, shell, and pane styles are loaded. Other stylesheets remain design references. Duplicate views, layout persistence, detached native windows, real explorer/content opening, and type-specific preferred sizing remain deferred. The shell has no agent worker, database, chat execution, tools, repository operations, or real pane content. There are no model requests on startup. Saved connections, sign-in, and model discovery remain callable through the isolated bridge without UI. Existing user application data is not deleted or migrated.
 
 ## Conventions
 

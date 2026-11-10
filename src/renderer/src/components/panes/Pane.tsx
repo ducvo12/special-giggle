@@ -87,7 +87,7 @@ export default function Pane({ pane, floating, draggedTabId, onTabDragStart, onD
             ))}
           </div>
 
-          {pane.paneType === 'navigation' && (
+          {pane.paneType === 'explorer' && (
             <button type="button" className="tab-add quiet-button" aria-label={`Add tab to ${pane.title}`} onClick={onAddTab}>
               +
             </button>

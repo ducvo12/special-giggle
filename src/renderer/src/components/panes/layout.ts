@@ -17,12 +17,6 @@ export interface DockTarget { paneId: string | null; edge: Edge }
 export const paneGap = 12
 export const minimumPaneSize = { width: 200, height: 140 }
 
-export const initialLayout: Layout = {
-  kind: 'split', axis: 'horizontal', ratio: 0.5,
-  first: createPane('pane-1', 'Pane 1', 'navigation'),
-  second: createPane('pane-2', 'Pane 2')
-}
-
 // Initialize a pane with one selected placeholder tab.
 export function createPane(id: string, title: string, paneType: PaneType = 'content'): PaneNode {
   return { kind: 'pane', id, title, ...initialTabs(id, paneType) }
@@ -98,17 +92,30 @@ export function dockPane(layout: Layout, id: string, target: DockTarget): Layout
   return remaining ? insertPane(remaining, pane, target) : layout
 }
 
-// Navigation is a single workspace-wide pane containing multiple agent-view tabs.
-export function hasPaneType(layout: Layout | null, type: PaneType): boolean {
-  if (!layout) return false
+// Detach one existing view into another group of the same family.
+export function dockTab(layout: Layout, sourceId: string, tabId: string, identity: Pick<PaneNode, 'id' | 'title'>, target: DockTarget): Layout {
+  const source = findPane(layout, sourceId)
+  const tab = source?.tabs.find(tab => tab.id === tabId)
+  if (!source || !tab || source.tabs.length < 2) return layout
+  if (findPane(layout, identity.id) || (target.paneId !== null && !findPane(layout, target.paneId))) return layout
+  const pane: PaneNode = {
+    kind: 'pane', ...identity, paneType: source.paneType,
+    tabs: [tab], activeTabId: tab.id, nextTab: 1
+  }
+  const remaining = updatePane(layout, sourceId, pane => closeTab(pane, tabId))!
+  return insertPane(remaining, pane, target)
+}
+
+// Region boundaries accept only groups belonging to their family.
+export function isPaneType(layout: Layout, type: PaneType): boolean {
   if (layout.kind === 'pane') return layout.paneType === type
-  return hasPaneType(layout.first, type) || hasPaneType(layout.second, type)
+  return isPaneType(layout.first, type) && isPaneType(layout.second, type)
 }
 
 // Split the largest pane that has room, preferring its longer dimension.
 // Return the unchanged tree when full; an empty workspace becomes one pane.
 export function addPane(layout: Layout | null, pane: Extract<Layout, { kind: 'pane' }>, bounds: Rect): Layout | null {
-  if (pane.paneType === 'navigation' && hasPaneType(layout, 'navigation')) return layout
+  if (layout && !isPaneType(layout, pane.paneType)) return layout
   if (!layout) return bounds.width >= minimumPaneSize.width && bounds.height >= minimumPaneSize.height ? pane : null
   const candidates = [...paneRects(layout, bounds)].sort((a, b) => b[1].width * b[1].height - a[1].width * a[1].height)
   for (const [id, rect] of candidates) {
@@ -189,27 +196,44 @@ function edgeAt(rect: Rect, x: number, y: number, zone: number): Edge | null {
   return edges[0][1] <= zone ? edges[0][0] : null
 }
 
-// Prefer workspace edges over individual pane edges, then simulate the move.
-// Only offer a preview if every pane would still meet its minimum size.
-export function dockingAt(layout: Layout, id: string, bounds: Rect, x: number, y: number) {
-  let target: DockTarget | null = null
+// Prefer workspace edges. Exclude a moving pane, but allow a tab to split its own group.
+export function dockingTargetAt(layout: Layout, bounds: Rect, x: number, y: number, excludedPaneId?: string): DockTarget | null {
   const workspaceEdge = edgeAt(bounds, x, y, Math.min(72, bounds.width / 4, bounds.height / 4))
-  if (workspaceEdge) {
-    target = { paneId: null, edge: workspaceEdge }
-  } else {
-    for (const [paneId, rect] of paneRects(layout, bounds)) {
-      if (paneId === id) continue
-      const edge = edgeAt(rect, x, y, Math.min(96, rect.width / 3, rect.height / 3))
-      if (edge) {
-        target = { paneId, edge }
-        break
-      }
-    }
+  if (workspaceEdge) return { paneId: null, edge: workspaceEdge }
+  for (const [paneId, rect] of paneRects(layout, bounds)) {
+    if (paneId === excludedPaneId) continue
+    const edge = edgeAt(rect, x, y, Math.min(96, rect.width / 3, rect.height / 3))
+    if (edge) return { paneId, edge }
   }
-  if (!target) return null
-  const next = dockPane(layout, id, target)
-  const minimum = minimumSize(next)
+  return null
+}
+
+// Tab bodies have no neutral center. Relative distances give all four sides
+// generous targets even in very wide or tall groups; outer edges still wrap the region.
+export function tabDockingTargetAt(layout: Layout, bounds: Rect, x: number, y: number): DockTarget | null {
+  const regionEdge = edgeAt(bounds, x, y, Math.min(72, bounds.width / 4, bounds.height / 4))
+  if (regionEdge) return { paneId: null, edge: regionEdge }
+  for (const [paneId, rect] of paneRects(layout, bounds)) {
+    if (x < rect.x || x > rect.x + rect.width || y < rect.y || y > rect.y + rect.height) continue
+    const edges: [Edge, number][] = [
+      ['left', (x - rect.x) / rect.width], ['right', (rect.x + rect.width - x) / rect.width],
+      ['top', (y - rect.y) / rect.height], ['bottom', (rect.y + rect.height - y) / rect.height]
+    ]
+    edges.sort((a, b) => a[1] - b[1])
+    return { paneId, edge: edges[0][0] }
+  }
+  return null
+}
+
+// Preview the final placement only when all panes fit, for both pane and tab docking.
+export function dockingPreview(layout: Layout, id: string, target: DockTarget, bounds: Rect) {
+  const minimum = minimumSize(layout)
   if (bounds.width < minimum.width || bounds.height < minimum.height) return null
-  const rects = paneRects(next, bounds)
-  return { layout: next, target, preview: rects.get(id)! }
+  return { layout, target, preview: paneRects(layout, bounds).get(id)! }
+}
+
+// Simulate a whole-pane move using the same targeting and sizing rules as tab splits.
+export function dockingAt(layout: Layout, id: string, bounds: Rect, x: number, y: number) {
+  const target = dockingTargetAt(layout, bounds, x, y, id)
+  return target ? dockingPreview(dockPane(layout, id, target), id, target, bounds) : null
 }
