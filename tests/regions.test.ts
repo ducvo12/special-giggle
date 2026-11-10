@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { createPane, dockTab, findPane, minimumPaneSize, paneGap, removePane } from '../src/renderer/src/components/panes/layout.ts'
+import { createPane, dockTab, findPane, minimumPaneSize, removePane } from '../src/renderer/src/components/panes/layout.ts'
 import { addTab } from '../src/renderer/src/components/panes/tabs.ts'
-import { initialRegions, regionHeaderHeight, regionRects, regionSwapAt, regionsMinimum, resizeRegions, swapRegions, updateRegion, type RegionLayout } from '../src/renderer/src/components/panes/regions.ts'
+import { initialRegions, regionGap, regionHeaderHeight, regionRects, regionSwapAt, regionsMinimum, resizeRegions, swapRegions, updateRegion, type RegionLayout } from '../src/renderer/src/components/panes/regions.ts'
 
 const bounds = { x: 0, y: 0, width: 1100, height: 700 }
 
@@ -58,7 +58,7 @@ test('swapping regions preserves widths, group trees, tabs, and preferred propor
 })
 
 test('only the opposite horizontal edge offers a region swap and its preview matches the final region', () => {
-  const layout = resizeRegions(initialRegions, 0.3, bounds.width - paneGap)
+  const layout = resizeRegions(initialRegions, 0.3, bounds.width - regionGap)
   const drop = regionSwapAt(layout, 'explorer', bounds, 1090, 350)!
   assert.equal(drop.layout.regions[1].type, 'explorer')
   assert.deepEqual(drop.preview, regionRects(drop.layout, bounds).get('explorer'))
@@ -83,13 +83,13 @@ test('outer resizing and native minimums include every nested group and both reg
     ], ratio: 0.5
   }
   assert.deepEqual(regionsMinimum(layout), { width: 624, height: 292 + regionHeaderHeight })
-  const small = resizeRegions(layout, 0, bounds.width - paneGap)
+  const small = resizeRegions(layout, 0, bounds.width - regionGap)
   assert.equal(regionRects(small, bounds).get('explorer')!.width, 412)
-  const large = resizeRegions(layout, 1, bounds.width - paneGap)
+  const large = resizeRegions(layout, 1, bounds.width - regionGap)
   assert.equal(regionRects(large, bounds).get('content')!.width, minimumPaneSize.width)
   const preferred = { ...layout, ratio: 0.7 }
   assert.ok(regionRects(preferred, { ...bounds, width: 700 }).get('content')!.width >= 200)
-  assert.equal(regionRects(preferred, bounds).get('explorer')!.width, (bounds.width - paneGap) * 0.7)
+  assert.equal(regionRects(preferred, bounds).get('explorer')!.width, (bounds.width - regionGap) * 0.7)
 })
 
 test('closing the final group leaves its typed region empty, sized, swappable, and refillable', () => {

@@ -40,7 +40,7 @@ export default function App() {
   function changeLayout(update: LayoutUpdate) {
     setWorkspaceState(current => {
       const candidatePane = { id: `pane-${current.nextPane}`, title: `Group ${current.nextPane}` }
-      const nextLayout = typeof update === 'function' ? update(current.layout, candidatePane) : update
+      const nextLayout = update(current.layout, candidatePane)
       if (nextLayout === current.layout) return current
       const created = nextLayout.regions.some(item => item.layout && findPane(item.layout, candidatePane.id))
       return { layout: nextLayout, nextPane: created ? current.nextPane + 1 : current.nextPane }

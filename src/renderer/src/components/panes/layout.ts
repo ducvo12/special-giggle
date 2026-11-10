@@ -14,7 +14,8 @@ export type Layout =
 export interface Rect { x: number; y: number; width: number; height: number }
 export interface DockTarget { paneId: string | null; edge: Edge }
 
-export const paneGap = 12
+// Reserve room for the expanded split during docking, even when the groups sit flush.
+export const splitDragGap = 12
 export const splitSeam = 1
 export const minimumPaneSize = { width: 200, height: 140 }
 
@@ -123,8 +124,8 @@ export function addPane(layout: Layout | null, pane: Extract<Layout, { kind: 'pa
     const edges: Edge[] = rect.width >= rect.height ? ['right', 'bottom'] : ['bottom', 'right']
     for (const edge of edges) {
       const horizontal = edge === 'right'
-      if (horizontal && rect.width < minimumPaneSize.width * 2 + paneGap) continue
-      if (!horizontal && rect.height < minimumPaneSize.height * 2 + paneGap) continue
+      if (horizontal && rect.width < minimumPaneSize.width * 2 + splitDragGap) continue
+      if (!horizontal && rect.height < minimumPaneSize.height * 2 + splitDragGap) continue
       return insertPane(layout, pane, { paneId: id, edge })
     }
   }
@@ -140,9 +141,9 @@ export function minimumSize(layout: Layout): { width: number; height: number } {
   const first = minimumSize(layout.first)
   const second = minimumSize(layout.second)
   if (layout.axis === 'horizontal') {
-    return { width: first.width + paneGap + second.width, height: Math.max(first.height, second.height) }
+    return { width: first.width + splitDragGap + second.width, height: Math.max(first.height, second.height) }
   }
-  return { width: Math.max(first.width, second.width), height: first.height + paneGap + second.height }
+  return { width: Math.max(first.width, second.width), height: first.height + splitDragGap + second.height }
 }
 
 // Clamp the rendered size without changing the preferred ratio, so growing the
@@ -160,8 +161,7 @@ export function resizeSplit(layout: Layout, path: SplitPath, ratio: number, avai
   return { ...layout, ratio: firstSize({ ...layout, ratio }, available) / available }
 }
 
-// Match the rendered split proportions and minimum constraints so docking previews
-// describe the final placement, including layouts that have been resized.
+// Use the expanded split geometry for docking and for checking room for new groups.
 export function paneRects(layout: Layout, bounds: Rect): Map<string, Rect> {
   const result = new Map<string, Rect>()
   // Divide each split's rectangle until every pane has its own bounds.
@@ -171,15 +171,15 @@ export function paneRects(layout: Layout, bounds: Rect): Map<string, Rect> {
       return
     }
     if (node.axis === 'horizontal') {
-      const available = rect.width - paneGap
+      const available = rect.width - splitDragGap
       const width = firstSize(node, available)
       visit(node.first, { ...rect, width })
-      visit(node.second, { ...rect, x: rect.x + width + paneGap, width: available - width })
+      visit(node.second, { ...rect, x: rect.x + width + splitDragGap, width: available - width })
     } else {
-      const available = rect.height - paneGap
+      const available = rect.height - splitDragGap
       const height = firstSize(node, available)
       visit(node.first, { ...rect, height })
-      visit(node.second, { ...rect, y: rect.y + height + paneGap, height: available - height })
+      visit(node.second, { ...rect, y: rect.y + height + splitDragGap, height: available - height })
     }
   }
   visit(layout, bounds)

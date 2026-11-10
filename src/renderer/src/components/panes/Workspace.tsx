@@ -2,21 +2,19 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, ty
 import Pane from './Pane'
 import { tabDropAt, type DropPreview } from './tab-drop'
 import { addTab, closeTab, selectTab, type Tab } from './tabs'
-import { dockPane, dockTab, dockingAt, tabDockingTargetAt, dockingPreview, paneGap, splitSeam, minimumSize, resizeSplit, removePane, updatePane, type SplitPath, type Layout, type PaneNode, type Rect } from './layout'
+import { dockPane, dockTab, dockingAt, tabDockingTargetAt, dockingPreview, splitDragGap, splitSeam, minimumSize, resizeSplit, removePane, updatePane, type SplitPath, type Layout, type PaneNode, type Rect } from './layout'
 import { paneTypes, type PaneType } from './pane-types'
-import { regionHeaderHeight, regionMinimum, regionSwapAt, resizeRegions, swapRegions, updateRegion, type Region, type RegionLayout } from './regions'
+import { regionGap, regionHeaderHeight, regionMinimum, regionSwapAt, resizeRegions, swapRegions, updateRegion, type Region, type RegionLayout } from './regions'
 import { runScopedTransition, type TransitionMode } from './transition'
 
-export type LayoutUpdate =
-  | RegionLayout
-  | ((current: RegionLayout, nextPane: Pick<PaneNode, 'id' | 'title'>) => RegionLayout)
+export type LayoutUpdate = (current: RegionLayout, nextPane: Pick<PaneNode, 'id' | 'title'>) => RegionLayout
 
 interface WorkspaceProps {
   layout: RegionLayout
   onLayoutChange: (layout: LayoutUpdate) => void
   onBoundsChange: (bounds: Rect) => void
   newPane: Pick<PaneNode, 'id' | 'title'>
-  workspaceRef?: RefObject<HTMLElement | null>
+  workspaceRef: RefObject<HTMLElement | null>
 }
 
 interface PointerDrag {
@@ -60,15 +58,23 @@ function sameTarget(a: ResizeTarget, b: ResizeTarget): boolean {
   return a.region === b.region && a.path.length === b.path.length && a.path.every((branch, index) => branch === b.path[index])
 }
 
+function measureSplit(divider: HTMLElement, axis: Resize['axis'], target: ResizeTarget) {
+  const split = divider.parentElement!
+  const dimension = axis === 'horizontal' ? 'width' : 'height'
+  const gap = target.kind === 'regions' ? regionGap : splitSeam
+  return {
+    available: split.getBoundingClientRect()[dimension] - gap,
+    size: split.firstElementChild!.getBoundingClientRect()[dimension]
+  }
+}
+
 // Share pointer capture and cancellation across region swaps, group docking, and resizing.
-export default function Workspace({ layout, onLayoutChange, onBoundsChange, newPane, workspaceRef }: WorkspaceProps) {
+export default function Workspace({ layout, onLayoutChange, onBoundsChange, newPane, workspaceRef: workspace }: WorkspaceProps) {
   const [resize, setResize] = useState<Resize | null>(null)
   const [drag, setDrag] = useState<Drag | null>(null)
   const [separated, setSeparated] = useState(false)
   const activePointer = useRef<number | null>(null)
   const surface = useRef<HTMLDivElement>(null)
-  const localWorkspace = useRef<HTMLElement>(null)
-  const workspace = workspaceRef ?? localWorkspace
   const groupSurfaces = useRef<Partial<Record<PaneType, HTMLDivElement | null>>>({})
   const interacting = drag !== null || resize !== null
   const draggedTabId = drag?.kind === 'group' ? drag.tab?.id : undefined
@@ -89,6 +95,11 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange, newP
     activePointer.current = null
     setDrag(null)
     setResize(null)
+  }, [])
+
+  const clearFloatingDrag = useCallback((tabId: string | undefined) => {
+    setDrag(null)
+    if (tabId) queueMicrotask(() => document.getElementById(tabId)?.focus())
   }, [])
 
   // Ignore late pointer-capture loss once an interaction already handed cleanup to a view transition.
@@ -125,10 +136,7 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange, newP
       activePointer.current = null
       if (workspace.current?.hasPointerCapture(pointer)) workspace.current.releasePointerCapture(pointer)
       if (dragMode) {
-        runScopedTransition(workspace.current, dragMode, () => {
-          cancelInteraction()
-          if (draggedTabId) queueMicrotask(() => document.getElementById(draggedTabId)?.focus())
-        })
+        runScopedTransition(workspace.current, dragMode, () => clearFloatingDrag(draggedTabId))
       } else {
         cancelInteraction()
         if (draggedTabId) requestAnimationFrame(() => document.getElementById(draggedTabId)?.focus())
@@ -142,7 +150,7 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange, newP
       window.removeEventListener('blur', abandonInteraction)
       window.removeEventListener('resize', abandonInteraction)
     }
-  }, [interacting, cancelInteraction, abandonInteraction, draggedTabId, dragMode, workspace])
+  }, [interacting, cancelInteraction, abandonInteraction, clearFloatingDrag, draggedTabId, dragMode, workspace])
 
   // Resolve group drops against only the source region's tree and surface.
   // Tab bars insert first; the entire body offers proportional split targets.
@@ -220,18 +228,16 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange, newP
     const tabId = drag.kind === 'group' ? drag.tab?.id : undefined
     if (moved(final)) {
       const drop = dropAt(final)
+      let mode = dragMode ?? 'groups'
       if (drop) {
-        const mode: TransitionMode = drag.kind === 'region' ? 'regions' : drop.marker ? 'tabs' : 'groups'
-        runScopedTransition(workspace.current, mode, () => {
-          onLayoutChange(drop.layout)
-          setDrag(null)
-          if (tabId) queueMicrotask(() => document.getElementById(tabId)?.focus())
-        })
-        return
+        if (drag.kind === 'region') mode = 'regions'
+        else mode = drop.marker ? 'tabs' : 'groups'
       }
-      runScopedTransition(workspace.current, dragMode ?? 'groups', () => {
-        setDrag(null)
-        if (tabId) queueMicrotask(() => document.getElementById(tabId)?.focus())
+
+      runScopedTransition(workspace.current, mode, () => {
+        // A layout change invalidates the drop geometry measured on release.
+        if (drop) commitMeasuredLayout(drop.layout)
+        clearFloatingDrag(tabId)
       })
       return
     }
@@ -240,6 +246,10 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange, newP
       document.getElementById(tabId)?.focus()
     }
     setDrag(null)
+  }
+
+  function commitMeasuredLayout(next: RegionLayout) {
+    onLayoutChange(current => current === layout ? next : current)
   }
 
   // Outer resizing changes region proportions; inner resizing changes only one region's tree.
@@ -253,15 +263,10 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange, newP
   function startResize(target: ResizeTarget, axis: Resize['axis'], event: PointerEvent<HTMLDivElement>) {
     if (interacting || activePointer.current !== null || event.button !== 0 || !event.isPrimary) return
     event.preventDefault()
-    const split = event.currentTarget.parentElement!
-    const bounds = split.getBoundingClientRect()
-    const horizontal = axis === 'horizontal'
-    const gap = target.kind === 'regions' ? paneGap : splitSeam
-    const available = (horizontal ? bounds.width : bounds.height) - gap
-    const size = split.firstElementChild!.getBoundingClientRect()[horizontal ? 'width' : 'height']
+    const { available, size } = measureSplit(event.currentTarget, axis, target)
     activePointer.current = event.pointerId
     workspace.current!.setPointerCapture(event.pointerId)
-    setResize({ target, axis, pointerId: event.pointerId, start: horizontal ? event.clientX : event.clientY, size, available, ratio: size / available })
+    setResize({ target, axis, pointerId: event.pointerId, start: axis === 'horizontal' ? event.clientX : event.clientY, size, available, ratio: size / available })
   }
 
   // Preserve the grab offset; the corresponding layout owns minimum-size clamping.
@@ -277,15 +282,11 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange, newP
     const increase = axis === 'horizontal' ? 'ArrowRight' : 'ArrowDown'
     if (![decrease, increase, 'Home', 'End'].includes(event.key)) return
     event.preventDefault()
-    const split = event.currentTarget.parentElement!
-    const dimension = axis === 'horizontal' ? 'width' : 'height'
-    const gap = target.kind === 'regions' ? paneGap : splitSeam
-    const available = split.getBoundingClientRect()[dimension] - gap
-    const size = split.firstElementChild!.getBoundingClientRect()[dimension]
+    const { available, size } = measureSplit(event.currentTarget, axis, target)
     let ratio = (size + (event.key === decrease ? -10 : 10)) / available
     if (event.key === 'Home') ratio = 0
     if (event.key === 'End') ratio = 1
-    onLayoutChange(resizedLayout(target, ratio, available))
+    commitMeasuredLayout(resizedLayout(target, ratio, available))
   }
 
   // Use one accessible divider contract for both the region row and internal splits.
@@ -348,7 +349,7 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange, newP
     }
     const first = minimumSize(node.first)
     const second = minimumSize(node.second)
-    const gap = separating ? paneGap : splitSeam
+    const gap = separating ? splitDragGap : splitSeam
     const dimension = node.axis === 'horizontal' ? 'width' : 'height'
     const tracks = `minmax(${first[dimension]}px, ${node.ratio * 100}fr) ${gap}px minmax(${second[dimension]}px, ${(1 - node.ratio) * 100}fr)`
     return (
@@ -414,7 +415,7 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange, newP
 
   const drop = floating && drag && (!separatingDrag || separated) ? dropAt(drag) : null
   const [first, second] = visibleLayout.regions
-  const tracks = `minmax(${regionMinimum(first).width}px, ${visibleLayout.ratio * 100}fr) ${paneGap}px minmax(${regionMinimum(second).width}px, ${(1 - visibleLayout.ratio) * 100}fr)`
+  const tracks = `minmax(${regionMinimum(first).width}px, ${visibleLayout.ratio * 100}fr) ${regionGap}px minmax(${regionMinimum(second).width}px, ${(1 - visibleLayout.ratio) * 100}fr)`
 
   return (
     <main
@@ -433,7 +434,7 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange, newP
         if (resize && activePointer.current === resize.pointerId && event.pointerId === resize.pointerId) {
           activePointer.current = null
           const final = resizeAt(event, resize)
-          onLayoutChange(resizedLayout(final.target, final.ratio, final.available))
+          commitMeasuredLayout(resizedLayout(final.target, final.ratio, final.available))
           setResize(null)
         } else if (drag && activePointer.current === drag.pointerId && event.pointerId === drag.pointerId) {
           activePointer.current = null

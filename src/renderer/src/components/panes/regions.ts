@@ -1,4 +1,4 @@
-import { createPane, isPaneType, minimumPaneSize, minimumSize, paneGap, type Layout, type Rect } from './layout.ts'
+import { createPane, isPaneType, minimumPaneSize, minimumSize, type Layout, type Rect } from './layout.ts'
 import type { PaneType } from './pane-types.ts'
 
 export interface Region {
@@ -12,6 +12,7 @@ export interface RegionLayout {
 }
 
 export const regionHeaderHeight = 30
+export const regionGap = 12
 
 export const initialRegions: RegionLayout = {
   regions: [
@@ -31,7 +32,7 @@ export function regionMinimum(region: Region) {
 export function regionsMinimum(layout: RegionLayout) {
   const first = regionMinimum(layout.regions[0])
   const second = regionMinimum(layout.regions[1])
-  return { width: first.width + paneGap + second.width, height: Math.max(first.height, second.height) }
+  return { width: first.width + regionGap + second.width, height: Math.max(first.height, second.height) }
 }
 
 // Clamp outer resizing against all nested groups, preserving their minimum widths.
@@ -43,11 +44,11 @@ export function resizeRegions(layout: RegionLayout, ratio: number, available: nu
 
 // Match the outer grid, including minimum-size clamping after window resizing.
 export function regionRects(layout: RegionLayout, bounds: Rect): Map<PaneType, Rect> {
-  const available = bounds.width - paneGap
+  const available = bounds.width - regionGap
   const width = resizeRegions(layout, layout.ratio, available).ratio * available
   return new Map([
     [layout.regions[0].type, { ...bounds, width }],
-    [layout.regions[1].type, { ...bounds, x: bounds.x + width + paneGap, width: available - width }]
+    [layout.regions[1].type, { ...bounds, x: bounds.x + width + regionGap, width: available - width }]
   ])
 }
 
