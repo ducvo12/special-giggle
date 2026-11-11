@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { createPane, dockTab, findPane, minimumPaneSize, removePane } from '../src/renderer/src/components/panes/layout.ts'
 import { addTab } from '../src/renderer/src/components/panes/tabs.ts'
-import { initialRegions, regionGap, regionHeaderHeight, regionRects, regionSwapAt, regionsMinimum, resizeRegions, swapRegions, updateRegion, type RegionLayout } from '../src/renderer/src/components/panes/regions.ts'
+import { initialRegions, regionGap, regionRects, regionSwapAt, regionsMinimum, resizeRegions, swapRegions, updateRegion, type RegionLayout } from '../src/renderer/src/components/panes/regions.ts'
 
 const bounds = { x: 0, y: 0, width: 1100, height: 700 }
 
@@ -73,7 +73,7 @@ test('only the opposite horizontal edge offers a region swap and its preview mat
   assert.equal(regionSwapAt(drop.layout, 'explorer', bounds, 10, 350)!.layout.regions[0].type, 'explorer')
 })
 
-test('outer resizing and native minimums include every nested group and both region headers', () => {
+test('outer resizing and native minimums include every nested group', () => {
   const explorer = createPane('agent', 'Agent', 'explorer')
   const content = createPane('chat', 'Chat')
   const layout: RegionLayout = {
@@ -82,7 +82,7 @@ test('outer resizing and native minimums include every nested group and both reg
       { type: 'content', layout: { kind: 'split', axis: 'vertical', ratio: 0.5, first: content, second: createPane('chat-2', 'Chat 2') } }
     ], ratio: 0.5
   }
-  assert.deepEqual(regionsMinimum(layout), { width: 624, height: 292 + regionHeaderHeight })
+  assert.deepEqual(regionsMinimum(layout), { width: 618, height: 292 })
   const small = resizeRegions(layout, 0, bounds.width - regionGap)
   assert.equal(regionRects(small, bounds).get('explorer')!.width, 412)
   const large = resizeRegions(layout, 1, bounds.width - regionGap)
@@ -96,7 +96,7 @@ test('closing the final group leaves its typed region empty, sized, swappable, a
   const empty = updateRegion(initialRegions, 'explorer', removePane(initialRegions.regions[0].layout!, 'pane-1'))
   assert.equal(empty.regions.length, 2)
   assert.equal(empty.regions[0].layout, null)
-  assert.deepEqual(regionsMinimum(empty), { width: 412, height: 140 + regionHeaderHeight })
+  assert.deepEqual(regionsMinimum(empty), { width: 406, height: 140 })
   assert.equal(swapRegions(empty).regions[1].type, 'explorer')
   const filled = updateRegion(empty, 'explorer', createPane('new-agent', 'New Agent', 'explorer'))
   assert.equal(findPane(filled.regions[0].layout!, 'new-agent')!.tabs[0].type, 'agent')

@@ -11,8 +11,7 @@ export interface RegionLayout {
   ratio: number
 }
 
-export const regionHeaderHeight = 30
-export const regionGap = 12
+export const regionGap = 6
 
 export const initialRegions: RegionLayout = {
   regions: [
@@ -24,8 +23,7 @@ export const initialRegions: RegionLayout = {
 
 // Empty regions remain visible and retain room for their next tab group.
 export function regionMinimum(region: Region) {
-  const minimum = region.layout ? minimumSize(region.layout) : minimumPaneSize
-  return { width: minimum.width, height: minimum.height + regionHeaderHeight }
+  return region.layout ? minimumSize(region.layout) : minimumPaneSize
 }
 
 // The outer layout always places its unique typed regions side by side.

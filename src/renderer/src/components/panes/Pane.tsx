@@ -6,6 +6,7 @@ import type { Tab } from './tabs'
 interface PaneProps {
   pane: PaneNode
   floating?: Rect
+  hasRegionHandle?: boolean
   draggedTabId?: string
   onTabDragStart: (tab: Tab, event: PointerEvent<HTMLButtonElement>) => void
   onDragStart: PointerEventHandler<HTMLDivElement>
@@ -17,7 +18,7 @@ interface PaneProps {
 
 // Keep the pane's layout slot stable while its surface floats. Tabs are controlled
 // by the layout so moving the pane cannot discard their state.
-export default function Pane({ pane, floating, draggedTabId, onTabDragStart, onDragStart, onClose, onAddTab, onSelectTab, onCloseTab }: PaneProps) {
+export default function Pane({ pane, floating, hasRegionHandle = false, draggedTabId, onTabDragStart, onDragStart, onClose, onAddTab, onSelectTab, onCloseTab }: PaneProps) {
   const active = pane.tabs.find(tab => tab.id === pane.activeTabId)!
   const titlebar = useRef<HTMLDivElement>(null)
 
@@ -51,7 +52,7 @@ export default function Pane({ pane, floating, draggedTabId, onTabDragStart, onD
   return (
     <div className={`pane-slot${floating ? ' pane-slot-dragging' : ''}`}>
       <section
-        className={`pane${floating ? ' pane-floating' : ''}`}
+        className={`pane${floating ? ' pane-floating' : ''}${hasRegionHandle && !floating ? ' has-region-handle' : ''}`}
         aria-label={pane.title}
         data-pane-type={pane.paneType}
         data-pane-id={pane.id}

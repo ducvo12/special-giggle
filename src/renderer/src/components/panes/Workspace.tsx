@@ -1,10 +1,10 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode, type RefObject } from 'react'
 import Pane from './Pane'
-import { tabDropAt, type DropPreview } from './tab-drop'
+import { inTabDropZone, tabDropAt, type DropPreview } from './tab-drop'
 import { addTab, closeTab, selectTab, type Tab } from './tabs'
 import { dockPane, dockTab, dockingAt, tabDockingTargetAt, dockingPreview, splitDragGap, splitSeam, minimumSize, resizeSplit, removePane, updatePane, type SplitPath, type Layout, type PaneNode, type Rect } from './layout'
 import { paneTypes, type PaneType } from './pane-types'
-import { regionGap, regionHeaderHeight, regionMinimum, regionSwapAt, resizeRegions, swapRegions, updateRegion, type Region, type RegionLayout } from './regions'
+import { regionGap, regionMinimum, regionSwapAt, resizeRegions, swapRegions, updateRegion, type Region, type RegionLayout } from './regions'
 import { runScopedTransition, type TransitionMode } from './transition'
 
 export type LayoutUpdate = (current: RegionLayout, nextPane: Pick<PaneNode, 'id' | 'title'>) => RegionLayout
@@ -153,16 +153,13 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange, newP
   }, [interacting, cancelInteraction, abandonInteraction, clearFloatingDrag, draggedTabId, dragMode, workspace])
 
   // Resolve group drops against only the source region's tree and surface.
-  // Tab bars insert first; the entire body offers proportional split targets.
+  // Tab bars insert first; lower pane bodies offer proportional split targets.
   function groupDropAt(drag: GroupDrag, groups: Layout, bounds: DOMRect): DropPreview | null {
     if (drag.x < bounds.left || drag.x > bounds.right || drag.y < bounds.top || drag.y > bounds.bottom) return null
     const target = document.elementFromPoint(drag.x, drag.y)?.closest<HTMLElement>('.pane')
     if (target && target.closest<HTMLElement>('[data-region]')?.dataset.region !== drag.region) return null
-    if (drag.tab && target) {
-      const header = target.querySelector('.pane-titlebar')!.getBoundingClientRect()
-      if (drag.y >= header.top && drag.y <= header.bottom) {
-        return tabDropAt(groups, drag.pane.id, drag.tab.id, target, bounds, drag.x, drag.y)
-      }
+    if (drag.tab && target && inTabDropZone(target, drag.y)) {
+      return tabDropAt(groups, drag.pane.id, drag.tab.id, target, bounds, drag.x, drag.y)
     }
     const area = { x: 0, y: 0, width: bounds.width, height: bounds.height }
     const x = drag.x - bounds.left
@@ -194,7 +191,7 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange, newP
     const drop = groupDropAt(drag, region.layout!, groupBounds)
     if (!drop) return null
     const offset = { x: groupBounds.left - bounds.left, y: groupBounds.top - bounds.top }
-    const preview = { ...drop.preview, x: drop.preview.x + offset.x, y: drop.preview.y + offset.y }
+    const preview = drop.preview ? { ...drop.preview, x: drop.preview.x + offset.x, y: drop.preview.y + offset.y } : undefined
     const marker = drop.marker ? { ...drop.marker, x: drop.marker.x + offset.x, y: drop.marker.y + offset.y } : undefined
     return { ...drop, layout: updateRegion(layout, drag.region, drop.layout), preview, marker }
   }
@@ -326,6 +323,7 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange, newP
           key={node.id}
           pane={node}
           floating={dragging && wholePaneDrag ? floating : undefined}
+          hasRegionHandle={path.every(branch => branch === 'first')}
           draggedTabId={dragging && !wholePaneDrag && floating ? drag.tab?.id : undefined}
           onTabDragStart={(tab, event) => startDrag({ kind: 'group', region, pane: node, tab }, event)}
           onDragStart={event => startDrag({ kind: 'group', region, pane: node }, event)}
@@ -367,7 +365,7 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange, newP
   }
 
   // Give region swapping a keyboard equivalent without changing internal group positions.
-  function moveRegionWithKeyboard(type: PaneType, event: KeyboardEvent<HTMLDivElement>) {
+  function moveRegionWithKeyboard(type: PaneType, event: KeyboardEvent<HTMLButtonElement>) {
     if (interacting || !['ArrowLeft', 'ArrowRight', 'Enter', ' '].includes(event.key)) return
     event.preventDefault()
     if (event.key === 'ArrowLeft' && layout.regions[0].type === type) return
@@ -375,7 +373,7 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange, newP
     runScopedTransition(workspace.current, 'regions', () => onLayoutChange(current => swapRegions(current)))
   }
 
-  // A region has its own drag handle and a stable slot, even when its final group closes.
+  // A region has its own drag handle integrated at top-left, even when its final group closes.
   function renderRegion(region: Region) {
     const moving = drag?.kind === 'region' && drag.region === region.type && floating
     const separating = separatingDrag && drag?.kind === 'group' && drag.region === region.type
@@ -388,18 +386,30 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange, newP
           data-region={region.type}
           style={{ ...(moving ? { left: moving.x, top: moving.y, width: moving.width, height: moving.height } : undefined), '--vt': `region-${region.type}` } as CSSProperties}
         >
-          <div
-            className="region-drag-handle"
-            role="button"
-            tabIndex={0}
+          <button
+            type="button"
+            className="region-drag-handle quiet-button"
             aria-label={`Move ${paneTypes[region.type].label} region`}
             title="Drag to swap sides, or use the Left and Right arrow keys"
-            style={{ height: regionHeaderHeight }}
             onPointerDown={event => startDrag({ kind: 'region', region: region.type }, event)}
             onKeyDown={event => moveRegionWithKeyboard(region.type, event)}
           >
-            {paneTypes[region.type].label}
-          </div>
+            <svg
+              width="8"
+              height="12"
+              viewBox="0 0 8 12"
+              fill="currentColor"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <circle cx="2" cy="2" r="1" />
+              <circle cx="6" cy="2" r="1" />
+              <circle cx="2" cy="6" r="1" />
+              <circle cx="6" cy="6" r="1" />
+              <circle cx="2" cy="10" r="1" />
+              <circle cx="6" cy="10" r="1" />
+            </svg>
+          </button>
 
           <div className={`pane-layout${frameClass}`} ref={element => { groupSurfaces.current[region.type] = element }}>
             {region.layout ? renderLayout(region.layout, region.type, separating) : (
@@ -453,7 +463,7 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange, newP
           </Fragment>
         ))}
 
-        {drop && (
+        {drop?.preview && (
           <div
             className="pane-dock-preview"
             role="status"

@@ -1,7 +1,7 @@
 .workspace {
   display: flex;
   min-height: 0;
-  padding: 12px;
+  padding: 6px;
 }
 
 .region-layout {
@@ -22,33 +22,35 @@
   min-height: 0;
 }
 
-.region-slot {
+.region-slot,
+.workspace-region {
   position: relative;
 }
 
 .region-drag-handle {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-  padding: 0 8px;
-  color: var(--text-muted);
-  font-family: var(--font-sans);
-  font-size: 12px;
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 24px;
+  padding: 0;
+  border-color: transparent;
+  color: var(--text-faint);
   cursor: grab;
   touch-action: none;
   user-select: none;
-  transition:
-    color var(--duration-fast) var(--ease-soft),
-    background var(--duration-fast) var(--ease-soft);
 }
 
-.region-drag-handle:hover {
+.region-drag-handle:hover:not(:disabled) {
   color: var(--text-strong);
   background: var(--surface-hover);
 }
 
 .region-drag-handle:focus-visible {
-  outline: 1px solid var(--focus);
+  outline: 2px solid var(--focus);
   outline-offset: -2px;
 }
 
@@ -90,6 +92,10 @@
   background: var(--surface-inset);
 }
 
+.pane.has-region-handle .pane-titlebar {
+  padding-left: 24px;
+}
+
 .pane-body {
   flex: 1;
   min-height: 0;
@@ -108,9 +114,11 @@
 
 .pane-layout {
   position: relative;
+  border: 0 solid transparent;
+  border-radius: var(--radius-lg);
+  box-shadow: none;
   transition:
     border-color var(--duration-normal) var(--ease-soft),
-    border-radius var(--duration-normal) var(--ease-soft),
     box-shadow var(--duration-normal) var(--ease-soft);
 }
 
@@ -139,7 +147,7 @@
 
 .pane-drag-handle {
   flex: 1;
-  min-width: 24px;
+  min-width: 8px;
   align-self: stretch;
   cursor: grab;
   touch-action: none;
@@ -151,6 +159,10 @@
 .workspace.is-dragging .region-drag-handle {
   cursor: grabbing;
   user-select: none;
+}
+
+.workspace.is-dragging .region-drag-handle {
+  pointer-events: none;
 }
 
 .pane-slot {
@@ -247,6 +259,12 @@
   place-items: center;
   cursor: col-resize;
   touch-action: none;
+}
+
+.region-layout > .pane-divider::before {
+  content: '';
+  position: absolute;
+  inset: 0 -2px;
 }
 
 .pane-split > .pane-divider {

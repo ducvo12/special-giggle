@@ -38,6 +38,21 @@ try {
   assert.deepEqual(state.connections, { ok: true, value: [] })
   assert.deepEqual(state.accounts, { ok: true, value: [] })
   assert.equal(await desktop.evaluate(`Boolean(document.querySelector('[aria-label="Add tab to Group 2"]'))`), false)
+  const spacing = await desktop.evaluate(`(() => {
+    const workspace = document.querySelector('.workspace').getBoundingClientRect();
+    const explorer = document.querySelector('[data-region=explorer] .pane-layout').getBoundingClientRect();
+    const content = document.querySelector('[data-region=content] .pane-layout').getBoundingClientRect();
+    const handles = [...document.querySelectorAll('.region-drag-handle')].map(el => el.textContent.trim());
+    return {
+      top: explorer.top - workspace.top,
+      bottom: workspace.bottom - explorer.bottom,
+      left: explorer.left - workspace.left,
+      right: workspace.right - content.right,
+      gap: content.left - explorer.right,
+      handles
+    };
+  })()`)
+  assert.deepEqual(spacing, { top: 6, bottom: 6, left: 6, right: 6, gap: 6, handles: ['', ''] })
 
   // Bounds and pointer helpers exercise real inputs rather than React internals.
   async function bounds(selector) {
@@ -291,7 +306,7 @@ try {
   assert.ok(Math.abs(flushFifth.x - (flushSecond.x + flushSecond.width) - 1) < 1)
   assert.equal(await desktop.evaluate('document.querySelectorAll("[data-pane-id=pane-2] [role=tab]").length'), 1)
   assert.equal(await desktop.evaluate('document.getElementById("pane-5-tab-1").closest(".pane").dataset.paneId'), 'pane-5')
-  // Only the tab-bar row inserts/merges, separating Content slots cleanly during drag.
+  // The tab-bar band merges cleanly even slightly below the strip, while deeper drops split/dock.
   point = await pointerPoint(`${group2} .pane-drag-handle`)
   await beginDrag('#pane-5-tab-1', point)
   await desktop.wait(() => desktop.evaluate(`document.querySelector('${content} .pane-layout').classList.contains('is-separating')`), 'Content separates during sole-tab drag')
@@ -299,12 +314,24 @@ try {
   sameRect(await bounds(`${content} .pane-slot-dragging`), bodyDockPreview)
   assert.equal(await desktop.evaluate(`document.querySelector('${explorer} .pane-layout').classList.contains('is-framed')`), true)
   await desktop.wait(() => desktop.evaluate('Boolean(document.querySelector(".tab-drop-marker"))'), 'Content insertion marker')
+  assert.equal(await desktop.evaluate('Boolean(document.querySelector(".pane-dock-preview"))'), false)
+  const group2Header = await bounds(`${group2} .pane-titlebar`)
+  const group2Separated = await bounds(group2)
+  await move({ x: group2Separated.x + group2Separated.width / 2, y: group2Header.y + group2Header.height + 36 })
+  await preview('Dock top')
+  assert.equal(await desktop.evaluate('Boolean(document.querySelector(".tab-drop-marker"))'), false)
+  point = { x: point.x, y: group2Header.y + group2Header.height + 20 }
+  await move(point)
+  await desktop.wait(() => desktop.evaluate('Boolean(document.querySelector(".tab-drop-marker"))'), 'Content expanded insertion marker')
+  assert.equal(await desktop.evaluate('Boolean(document.querySelector(".pane-dock-preview"))'), false)
   await release(point)
   await desktop.wait(() => desktop.evaluate('!document.querySelector("[data-pane-id=pane-5]")'), 'empty source group removed')
   await settled()
   const firstTab = await bounds('#pane-2-tab-1')
   point = { x: firstTab.x + 1, y: firstTab.y + firstTab.height / 2 }
   await beginDrag('#pane-5-tab-1', point)
+  await desktop.wait(() => desktop.evaluate('Boolean(document.querySelector(".tab-drop-marker"))'), 'Content reorder marker')
+  assert.equal(await desktop.evaluate('Boolean(document.querySelector(".pane-dock-preview"))'), false)
   await release(point)
   await settled()
   assert.deepEqual(await desktop.evaluate(`[...document.querySelectorAll('[data-pane-id=pane-2] [role=tab]')].map(tab => tab.id)`), ['pane-5-tab-1', 'pane-2-tab-1'])
@@ -340,6 +367,26 @@ try {
   // An undersized edge split must reject the drop instead of merging into another group.
   await click('Add tab to Group 1')
   await desktop.wait(() => desktop.evaluate('document.getElementById("pane-1-tab-4")?.getAttribute("aria-selected") === "true"'), 'new Agent tab selected in Group 1')
+  // Returning a dragged tab to its origin reframes the layout from transparent instead of flashing currentcolor white.
+  const tabOrigin = await pointerPoint('#pane-1-tab-4')
+  await beginDrag('#pane-1-tab-4', { x: tabOrigin.x, y: tabOrigin.y + 120 })
+  await desktop.wait(() => desktop.evaluate(`document.querySelector('${explorer} .pane-layout').classList.contains('is-separating')`), 'Explorer separates during multi-tab drag')
+  await settled(`${explorer} .pane-layout`)
+  assert.deepEqual(await desktop.evaluate(`(() => {
+    const s = getComputedStyle(document.querySelector('${explorer} .pane-layout'));
+    return { borderTopColor: s.borderTopColor, borderRadius: s.borderRadius };
+  })()`), { borderTopColor: 'rgba(0, 0, 0, 0)', borderRadius: '12px' })
+  await move(tabOrigin)
+  await desktop.wait(() => desktop.evaluate(`document.querySelector('${explorer} .pane-layout').classList.contains('is-framed')`), 'Explorer reframes on tab snap-back')
+  const snapFrame = await desktop.evaluate(`(() => {
+    const s = getComputedStyle(document.querySelector('${explorer} .pane-layout'));
+    return { borderTopColor: s.borderTopColor, borderRadius: s.borderRadius };
+  })()`)
+  assert.equal(snapFrame.borderRadius, '12px')
+  const snapRgb = snapFrame.borderTopColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/)
+  assert.ok(snapRgb && snapRgb.slice(1, 4).every(channel => Number(channel) <= 80), JSON.stringify(snapFrame))
+  await release(tabOrigin)
+  await settled()
   const beforeTooSmall = await snapshot()
   area = await bounds(`${explorer} .pane-layout`)
   point = { x: area.x + area.width - 20, y: area.y + area.height - 90 }

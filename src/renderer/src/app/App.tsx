@@ -3,7 +3,7 @@ import type { PaneType } from '../components/panes/pane-types'
 import Header from '../components/Header'
 import Workspace, { type LayoutUpdate } from '../components/panes/Workspace'
 import { addPane, createPane, findPane, type Rect } from '../components/panes/layout'
-import { initialRegions, regionHeaderHeight, regionRects, regionsMinimum, updateRegion, type RegionLayout } from '../components/panes/regions'
+import { initialRegions, regionRects, regionsMinimum, updateRegion, type RegionLayout } from '../components/panes/regions'
 import { runScopedTransition } from '../components/panes/transition'
 
 // Keep the two typed regions, their group trees, and group identities in shared state.
@@ -21,13 +21,12 @@ export default function App() {
   const measured = bounds.width > 0 && bounds.height > 0
   const region = layout.regions.find(region => region.type === paneType)!
   const regionBounds = measured ? regionRects(layout, bounds).get(paneType)! : bounds
-  const groupBounds = { ...regionBounds, height: regionBounds.height - regionHeaderHeight }
-  const candidate = addPane(region.layout, createPane(newPane.id, newPane.title, paneType), groupBounds)
+  const candidate = addPane(region.layout, createPane(newPane.id, newPane.title, paneType), regionBounds)
   const minimum = regionsMinimum(layout)
   const minWidth = Math.ceil(minimum.width + window.innerWidth - bounds.width)
   const minHeight = Math.ceil(minimum.height + window.innerHeight - bounds.height)
 
-  // Include the fixed app header, region handles, padding, and native window frame.
+  // Include the fixed app header, workspace padding, and native window frame.
   useEffect(() => {
     if (!measured) return
     void window.granite.window.setMinimumSize(minWidth, minHeight).then(result => {
@@ -53,8 +52,7 @@ export default function App() {
     runScopedTransition(workspace.current, 'groups', () => changeLayout((currentLayout, candidatePane) => {
       const target = currentLayout.regions.find(item => item.type === paneType)!
       const currentBounds = measured ? regionRects(currentLayout, bounds).get(paneType)! : bounds
-      const currentGroupBounds = { ...currentBounds, height: currentBounds.height - regionHeaderHeight }
-      return updateRegion(currentLayout, paneType, addPane(target.layout, createPane(candidatePane.id, candidatePane.title, paneType), currentGroupBounds))
+      return updateRegion(currentLayout, paneType, addPane(target.layout, createPane(candidatePane.id, candidatePane.title, paneType), currentBounds))
     }))
   }
 
