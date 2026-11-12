@@ -2,11 +2,12 @@ import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { desktopSession } from './desktop/session.mjs'
 
 const directory = await mkdtemp(join(tmpdir(), 'granite-shell-'))
-const desktop = desktopSession(directory, 9357)
+const entry = join(directory, 'verify-shell.cjs')
+const desktop = desktopSession(directory, 9357, {}, entry)
 const provider = createServer((request, response) => {
   assert.equal(request.url, '/v1/models')
   response.setHeader('Content-Type', 'application/json')
@@ -14,6 +15,12 @@ const provider = createServer((request, response) => {
 })
 
 try {
+  // Occluded test windows still need frames for transitions and drag updates.
+  await writeFile(entry, `
+    const { app } = require('electron')
+    app.on('browser-window-created', (_event, window) => window.webContents.setBackgroundThrottling(false))
+    require(${JSON.stringify(resolve('out/main/index.js'))})
+  `)
   await new Promise(resolve => provider.listen(0, '127.0.0.1', resolve))
   await desktop.launch()
   await desktop.evaluate(`(() => {
@@ -101,8 +108,32 @@ try {
     await desktop.rpc('Input.dispatchMouseEvent', { type: 'mouseMoved', ...point, buttons: 1 })
   }
 
+  // Sample the first frame after a visible drag is released or cancelled.
+  async function checkDragCleanup(event, dispatch) {
+    await desktop.evaluate(`(() => {
+      const workspace = document.querySelector('.workspace');
+      const visuals = '.pane-floating, .region-floating, .tab-drag-preview, .pane-tab.is-dragging, .pane-dock-preview, .tab-drop-marker';
+      window.__dragCleanup = !workspace.querySelector(visuals) ? null : new Promise(resolve => {
+        window.addEventListener(${JSON.stringify(event)}, () => requestAnimationFrame(() => {
+          resolve({
+            visuals: Boolean(workspace.querySelector(visuals)),
+            snapshot: workspace.hasAttribute('data-transition'),
+            paneShadows: [...workspace.querySelectorAll('.pane')].some(pane => getComputedStyle(pane).boxShadow !== 'none')
+          });
+        }), { capture: true, once: true });
+      });
+    })()`)
+    await dispatch()
+    const lingering = await desktop.evaluate('window.__dragCleanup').catch(error => {
+      throw new Error(`No drag cleanup frame after ${event}`, { cause: error })
+    })
+    if (lingering) {
+      assert.deepEqual(lingering, { visuals: false, snapshot: false, paneShadows: false }, `drag visuals cleared by the first frame after ${event}`)
+    }
+  }
+
   async function release(point) {
-    await desktop.rpc('Input.dispatchMouseEvent', { type: 'mouseReleased', ...point, button: 'left', buttons: 0, clickCount: 1 })
+    await checkDragCleanup('pointerup', () => desktop.rpc('Input.dispatchMouseEvent', { type: 'mouseReleased', ...point, button: 'left', buttons: 0, clickCount: 1 }))
     await desktop.wait(() => desktop.evaluate('!document.querySelector(".workspace.is-dragging, .workspace.is-resizing-horizontal, .workspace.is-resizing-vertical")'), `interaction finished at ${JSON.stringify(point)}`)
     assert.equal(await desktop.evaluate('Boolean(document.querySelector(".pane-floating, .region-floating, .tab-drag-preview, .pane-tab.is-dragging"))'), false)
   }
@@ -126,7 +157,9 @@ try {
   }
 
   async function key(key) {
-    await desktop.rpc('Input.dispatchKeyEvent', { type: 'keyDown', key, code: key })
+    const dispatch = () => desktop.rpc('Input.dispatchKeyEvent', { type: 'keyDown', key, code: key })
+    if (key === 'Escape') await checkDragCleanup('keydown', dispatch)
+    else await dispatch()
   }
 
   async function beginDrag(selector, point) {
@@ -198,8 +231,8 @@ try {
   end = await beginResize(outerDivider, -450, 0)
   await release(end)
   assert.equal((await bounds(explorer)).width, 200)
-  end = await beginResize(outerDivider, 300, 0)
-  await release(end)
+  end = await beginResize(outerDivider, 100, 0)
+  await release({ x: end.x + 200, y: end.y })
   assert.equal((await bounds(explorer)).width, 500)
   await desktop.evaluate(`document.querySelector(${JSON.stringify(outerDivider)}).focus()`)
   await key('ArrowRight')
@@ -415,6 +448,28 @@ try {
   await release(point)
   await settled()
   assert.deepEqual(await snapshot(), beforeSwap)
+  // The debugger's mouse input can omit native capture events. Deliver the loss
+  // event for the pointer that started this drag and check the next frame.
+  await desktop.evaluate(`(() => {
+    const workspace = document.querySelector('.workspace');
+    workspace.addEventListener('pointerdown', ({ pointerId }) => {
+      window.__loseDragCapture = () => workspace.dispatchEvent(new PointerEvent('lostpointercapture', { bubbles: true, pointerId }));
+    }, { once: true });
+  })()`)
+  await beginDrag(`${explorer} .region-drag-handle`, point)
+  await preview('Swap regions')
+  await checkDragCleanup('lostpointercapture', () => desktop.evaluate('window.__loseDragCapture()'))
+  await release(point)
+  assert.equal(await desktop.evaluate('document.querySelector("[data-region]").dataset.region'), 'explorer')
+  assert.deepEqual(await snapshot(), beforeSwap)
+
+  // Releasing away from the last preview must resolve the new position.
+  const neutral = { x: outer.x + outer.width / 2, y: outer.y + 1 }
+  await beginDrag(`${explorer} .region-drag-handle`, point)
+  await preview('Swap regions')
+  await release(neutral)
+  assert.equal(await desktop.evaluate('document.querySelector("[data-region]").dataset.region'), 'explorer')
+  assert.deepEqual(await snapshot(), beforeSwap)
   await beginDrag(`${explorer} .region-drag-handle`, point)
   const swapPreview = await preview('Swap regions')
   const swapImage = await desktop.rpc('Page.captureScreenshot', { format: 'png' })
@@ -424,15 +479,14 @@ try {
   await settled()
   sameRect(await bounds(explorer), swapPreview)
   assert.deepEqual(await snapshot(), beforeSwap)
-  point = { x: outer.x + outer.width / 2, y: outer.y + 1 }
-  await beginDrag(`${explorer} .region-drag-handle`, point)
+  await beginDrag(`${explorer} .region-drag-handle`, neutral)
   assert.equal(await desktop.evaluate('Boolean(document.querySelector(".pane-dock-preview"))'), false)
-  await release(point)
+  await release(neutral)
   await settled()
   assert.equal(await desktop.evaluate('document.querySelector("[data-region]").dataset.region'), 'content')
   point = { x: outer.x + outer.width - 10, y: outer.y + outer.height / 2 }
-  await beginDrag(`${content} .region-drag-handle`, point)
-  await preview('Swap regions')
+  await beginDrag(`${content} .region-drag-handle`, neutral)
+  assert.equal(await desktop.evaluate('Boolean(document.querySelector(".pane-dock-preview"))'), false)
   await release(point)
   await settled()
   assert.equal(await desktop.evaluate('document.querySelector("[data-region]").dataset.region'), 'explorer')

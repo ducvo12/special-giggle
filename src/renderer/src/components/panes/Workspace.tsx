@@ -1,11 +1,12 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode, type RefObject } from 'react'
+import { flushSync } from 'react-dom'
 import Pane from './Pane'
-import { inTabDropZone, tabDropAt, type DropPreview } from './tab-drop'
+import { tabDropAt, tabDropMargin, type DropPreview } from './tab-drop'
 import { addTab, closeTab, selectTab, type Tab } from './tabs'
 import { dockPane, dockTab, dockingAt, tabDockingTargetAt, dockingPreview, splitDragGap, splitSeam, minimumSize, resizeSplit, removePane, updatePane, type SplitPath, type Layout, type PaneNode, type Rect } from './layout'
 import { paneTypes, type PaneType } from './pane-types'
 import { regionGap, regionMinimum, regionSwapAt, resizeRegions, swapRegions, updateRegion, type Region, type RegionLayout } from './regions'
-import { runScopedTransition, type TransitionMode } from './transition'
+import { runScopedTransition } from './transition'
 
 export type LayoutUpdate = (current: RegionLayout, nextPane: Pick<PaneNode, 'id' | 'title'>) => RegionLayout
 
@@ -17,13 +18,15 @@ interface WorkspaceProps {
   workspaceRef: RefObject<HTMLElement | null>
 }
 
-interface PointerDrag {
-  pointerId: number
+interface Point {
+  x: number
+  y: number
+}
+
+interface PointerDrag extends Point {
   origin: Rect
   startX: number
   startY: number
-  x: number
-  y: number
 }
 
 type DragTarget = { kind: 'group'; region: PaneType; pane: PaneNode; tab?: Tab } | { kind: 'region'; region: PaneType }
@@ -33,7 +36,6 @@ type ResizeTarget = { kind: 'regions' } | { kind: 'groups'; region: PaneType; pa
 
 interface Resize {
   target: ResizeTarget
-  pointerId: number
   axis: 'horizontal' | 'vertical'
   start: number
   size: number
@@ -74,41 +76,41 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange, newP
   const [drag, setDrag] = useState<Drag | null>(null)
   const [separated, setSeparated] = useState(false)
   const activePointer = useRef<number | null>(null)
+  const pendingMove = useRef<{ frame: number; point: Point } | null>(null)
   const surface = useRef<HTMLDivElement>(null)
   const groupSurfaces = useRef<Partial<Record<PaneType, HTMLDivElement | null>>>({})
   const interacting = drag !== null || resize !== null
   const draggedTabId = drag?.kind === 'group' ? drag.tab?.id : undefined
   const floating = drag && moved(drag) ? {
-    ...drag.origin,
-    x: drag.origin.x + drag.x - drag.startX,
-    y: drag.origin.y + drag.y - drag.startY
+    left: drag.origin.x,
+    top: drag.origin.y,
+    width: drag.origin.width,
+    height: drag.origin.height,
+    translate: `${drag.x - drag.startX}px ${drag.y - drag.startY}px`
   } : undefined
   const wholePaneDrag = Boolean(floating && drag?.kind === 'group' && (!drag.tab || drag.pane.tabs.length === 1))
   const separatingDrag = Boolean(floating && drag?.kind === 'group')
-  const dragMode: TransitionMode | null = floating
-    ? (drag?.kind === 'region' ? 'regions' : drag?.kind === 'group' && drag.tab && !wholePaneDrag ? 'tabs' : 'groups')
-    : null
   const visibleLayout = resize ? resizedLayout(resize.target, resize.ratio, resize.available) : layout
 
-  // Discard temporary interactions without changing the committed layout.
-  const cancelInteraction = useCallback(() => {
+  const stopTracking = useCallback(() => {
     activePointer.current = null
+    if (pendingMove.current) cancelAnimationFrame(pendingMove.current.frame)
+    pendingMove.current = null
+  }, [])
+
+  // Clear the preview and invalidate queued input before releasing capture.
+  const cancelInteraction = useCallback(() => {
+    const pointer = activePointer.current
+    if (pointer === null) return
+    stopTracking()
     setDrag(null)
     setResize(null)
-  }, [])
-
-  const clearFloatingDrag = useCallback((tabId: string | undefined) => {
-    setDrag(null)
-    if (tabId) queueMicrotask(() => document.getElementById(tabId)?.focus())
-  }, [])
-
-  // Ignore late pointer-capture loss once an interaction already handed cleanup to a view transition.
-  const abandonInteraction = useCallback(() => {
-    if (activePointer.current !== null) cancelInteraction()
-  }, [cancelInteraction])
+    if (workspace.current?.hasPointerCapture(pointer)) workspace.current.releasePointerCapture(pointer)
+  }, [stopTracking, workspace])
 
   // Finish cleanup before paint so a preceding layout change cannot cancel the next drag.
   useLayoutEffect(cancelInteraction, [layout, cancelInteraction])
+  useEffect(() => stopTracking, [stopTracking])
 
   // Wait one synchronous layout commit when expanding flush subpanes before measuring drop targets.
   useLayoutEffect(() => {
@@ -119,47 +121,43 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange, newP
   useEffect(() => {
     const observer = new ResizeObserver(([entry]) => {
       onBoundsChange({ x: 0, y: 0, width: entry.contentRect.width, height: entry.contentRect.height })
-      abandonInteraction()
+      cancelInteraction()
     })
     const bounds = surface.current!.getBoundingClientRect()
     onBoundsChange({ x: 0, y: 0, width: bounds.width, height: bounds.height })
     observer.observe(surface.current!)
     return () => observer.disconnect()
-  }, [onBoundsChange, abandonInteraction])
+  }, [onBoundsChange, cancelInteraction])
 
   // Escape, focus changes, and window resizing invalidate an active pointer interaction.
   useEffect(() => {
     if (!interacting) return
     const keyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key !== 'Escape' || activePointer.current === null) return
-      const pointer = activePointer.current
-      activePointer.current = null
-      if (workspace.current?.hasPointerCapture(pointer)) workspace.current.releasePointerCapture(pointer)
-      if (dragMode) {
-        runScopedTransition(workspace.current, dragMode, () => clearFloatingDrag(draggedTabId))
-      } else {
-        cancelInteraction()
-        if (draggedTabId) requestAnimationFrame(() => document.getElementById(draggedTabId)?.focus())
-      }
+      cancelInteraction()
+      if (draggedTabId) queueMicrotask(() => document.getElementById(draggedTabId)?.focus())
     }
     window.addEventListener('keydown', keyDown)
-    window.addEventListener('blur', abandonInteraction)
-    window.addEventListener('resize', abandonInteraction)
+    window.addEventListener('blur', cancelInteraction)
+    window.addEventListener('resize', cancelInteraction)
     return () => {
       window.removeEventListener('keydown', keyDown)
-      window.removeEventListener('blur', abandonInteraction)
-      window.removeEventListener('resize', abandonInteraction)
+      window.removeEventListener('blur', cancelInteraction)
+      window.removeEventListener('resize', cancelInteraction)
     }
-  }, [interacting, cancelInteraction, abandonInteraction, clearFloatingDrag, draggedTabId, dragMode, workspace])
+  }, [interacting, cancelInteraction, draggedTabId])
 
   // Resolve group drops against only the source region's tree and surface.
   // Tab bars insert first; lower pane bodies offer proportional split targets.
-  function groupDropAt(drag: GroupDrag, groups: Layout, bounds: DOMRect): DropPreview | null {
+  function groupDropAt(drag: GroupDrag, groups: Layout, groupSurface: HTMLElement, bounds: DOMRect): DropPreview | null {
     if (drag.x < bounds.left || drag.x > bounds.right || drag.y < bounds.top || drag.y > bounds.bottom) return null
-    const target = document.elementFromPoint(drag.x, drag.y)?.closest<HTMLElement>('.pane')
-    if (target && target.closest<HTMLElement>('[data-region]')?.dataset.region !== drag.region) return null
-    if (drag.tab && target && inTabDropZone(target, drag.y)) {
-      return tabDropAt(groups, drag.pane.id, drag.tab.id, target, bounds, drag.x, drag.y)
+    if (drag.tab) {
+      const target = document.elementFromPoint(drag.x, drag.y)?.closest<HTMLElement>('.pane')
+      if (target && !groupSurface.contains(target)) return null
+      const header = target?.querySelector('.pane-titlebar')?.getBoundingClientRect()
+      if (target && header && drag.y <= header.bottom + tabDropMargin) {
+        return tabDropAt(groups, drag.pane.id, drag.tab.id, target, header, bounds, drag.x)
+      }
     }
     const area = { x: 0, y: 0, width: bounds.width, height: bounds.height }
     const x = drag.x - bounds.left
@@ -181,15 +179,17 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange, newP
 
   // Translate local group previews into outer coordinates without crossing ownership boundaries.
   function dropAt(drag: Drag): WorkspaceDrop | null {
-    const bounds = surface.current!.getBoundingClientRect()
     if (drag.kind === 'region') {
+      const bounds = surface.current!.getBoundingClientRect()
       const drop = regionSwapAt(layout, drag.region, { x: 0, y: 0, width: bounds.width, height: bounds.height }, drag.x - bounds.left, drag.y - bounds.top)
       return drop ? { ...drop, label: 'Swap regions' } : null
     }
     const region = layout.regions.find(region => region.type === drag.region)!
-    const groupBounds = groupSurfaces.current[drag.region]!.getBoundingClientRect()
-    const drop = groupDropAt(drag, region.layout!, groupBounds)
+    const groupSurface = groupSurfaces.current[drag.region]!
+    const groupBounds = groupSurface.getBoundingClientRect()
+    const drop = groupDropAt(drag, region.layout!, groupSurface, groupBounds)
     if (!drop) return null
+    const bounds = surface.current!.getBoundingClientRect()
     const offset = { x: groupBounds.left - bounds.left, y: groupBounds.top - bounds.top }
     const preview = drop.preview ? { ...drop.preview, x: drop.preview.x + offset.x, y: drop.preview.y + offset.y } : undefined
     const marker = drop.marker ? { ...drop.marker, x: drop.marker.x + offset.x, y: drop.marker.y + offset.y } : undefined
@@ -208,7 +208,6 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange, newP
     }
     const bounds = event.currentTarget.closest(selector)!.getBoundingClientRect()
     const pointer: PointerDrag = {
-      pointerId: event.pointerId,
       origin: { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height },
       startX: event.clientX,
       startY: event.clientY,
@@ -219,30 +218,17 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange, newP
   }
 
   // Decide from the release position; cancellation and invalid drops preserve both trees.
-  function finishDrag(event: PointerEvent<HTMLElement>) {
-    if (!drag || event.pointerId !== drag.pointerId) return
-    const final = { ...drag, x: event.clientX, y: event.clientY }
-    const tabId = drag.kind === 'group' ? drag.tab?.id : undefined
+  function finishDrag(drag: Drag, point: Point) {
+    const final = { ...drag, ...point }
     if (moved(final)) {
       const drop = dropAt(final)
-      let mode = dragMode ?? 'groups'
-      if (drop) {
-        if (drag.kind === 'region') mode = 'regions'
-        else mode = drop.marker ? 'tabs' : 'groups'
-      }
-
-      runScopedTransition(workspace.current, mode, () => {
-        // A layout change invalidates the drop geometry measured on release.
-        if (drop) commitMeasuredLayout(drop.layout)
-        clearFloatingDrag(tabId)
-      })
-      return
-    }
-    if (tabId && drag.kind === 'group') {
-      changePane(drag.region, drag.pane.id, pane => selectTab(pane, tabId))
-      document.getElementById(tabId)?.focus()
+      // Commit and clear the live drag together so no snapshot outlives the pointer.
+      if (drop) commitMeasuredLayout(drop.layout)
+    } else if (draggedTabId && drag.kind === 'group') {
+      changePane(drag.region, drag.pane.id, pane => selectTab(pane, draggedTabId))
     }
     setDrag(null)
+    if (draggedTabId) queueMicrotask(() => document.getElementById(draggedTabId)?.focus())
   }
 
   function commitMeasuredLayout(next: RegionLayout) {
@@ -263,13 +249,40 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange, newP
     const { available, size } = measureSplit(event.currentTarget, axis, target)
     activePointer.current = event.pointerId
     workspace.current!.setPointerCapture(event.pointerId)
-    setResize({ target, axis, pointerId: event.pointerId, start: axis === 'horizontal' ? event.clientX : event.clientY, size, available, ratio: size / available })
+    setResize({ target, axis, start: axis === 'horizontal' ? event.clientX : event.clientY, size, available, ratio: size / available })
   }
 
   // Preserve the grab offset; the corresponding layout owns minimum-size clamping.
-  function resizeAt(event: PointerEvent<HTMLElement>, session: Resize): Resize {
-    const position = session.axis === 'horizontal' ? event.clientX : event.clientY
-    return { ...session, ratio: (session.size + position - session.start) / session.available }
+  function resizeRatio(session: Resize, point: Point): number {
+    const position = session.axis === 'horizontal' ? point.x : point.y
+    return (session.size + position - session.start) / session.available
+  }
+
+  // Apply the latest pointer sample before the frame paints.
+  function movePointer(event: PointerEvent<HTMLElement>) {
+    if (event.pointerId !== activePointer.current) return
+    const point = { x: event.clientX, y: event.clientY }
+    if (pendingMove.current) {
+      pendingMove.current.point = point
+      return
+    }
+    const frame = requestAnimationFrame(() => {
+      const { point } = pendingMove.current!
+      pendingMove.current = null
+      if (drag) {
+        if (drag.x !== point.x || drag.y !== point.y) {
+          flushSync(() => setDrag({ ...drag, ...point }))
+        }
+      } else if (resize) {
+        const ratio = resizeRatio(resize, point)
+        if (ratio !== resize.ratio) flushSync(() => setResize({ ...resize, ratio }))
+      }
+    })
+    pendingMove.current = { frame, point }
+  }
+
+  function cancelPointer(event: PointerEvent<HTMLElement>) {
+    if (event.pointerId === activePointer.current) cancelInteraction()
   }
 
   // Arrow keys move ten pixels; Home and End go to the minimum-size limits.
@@ -384,7 +397,7 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange, newP
           className={`workspace-region${moving ? ' region-floating' : ''}`}
           aria-label={`${paneTypes[region.type].label} region`}
           data-region={region.type}
-          style={{ ...(moving ? { left: moving.x, top: moving.y, width: moving.width, height: moving.height } : undefined), '--vt': `region-${region.type}` } as CSSProperties}
+          style={{ ...moving, '--vt': `region-${region.type}` } as CSSProperties}
         >
           <button
             type="button"
@@ -432,27 +445,20 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange, newP
       ref={workspace}
       className={`workspace${drag ? ' is-dragging' : ''}${resize ? ` is-resizing-${resize.axis}` : ''}`}
       aria-label="Workspace"
-      onPointerMove={event => {
-        if (drag && activePointer.current === drag.pointerId && event.pointerId === drag.pointerId) {
-          setDrag({ ...drag, x: event.clientX, y: event.clientY })
-        }
-        if (resize && activePointer.current === resize.pointerId && event.pointerId === resize.pointerId) {
-          setResize(resizeAt(event, resize))
-        }
-      }}
+      onPointerMove={movePointer}
       onPointerUp={event => {
-        if (resize && activePointer.current === resize.pointerId && event.pointerId === resize.pointerId) {
-          activePointer.current = null
-          const final = resizeAt(event, resize)
-          commitMeasuredLayout(resizedLayout(final.target, final.ratio, final.available))
+        if (event.pointerId !== activePointer.current) return
+        stopTracking()
+        const point = { x: event.clientX, y: event.clientY }
+        if (resize) {
+          commitMeasuredLayout(resizedLayout(resize.target, resizeRatio(resize, point), resize.available))
           setResize(null)
-        } else if (drag && activePointer.current === drag.pointerId && event.pointerId === drag.pointerId) {
-          activePointer.current = null
-          finishDrag(event)
+        } else if (drag) {
+          finishDrag(drag, point)
         }
       }}
-      onPointerCancel={abandonInteraction}
-      onLostPointerCapture={abandonInteraction}
+      onPointerCancel={cancelPointer}
+      onLostPointerCapture={cancelPointer}
     >
       <div className="region-layout" ref={surface} style={{ gridTemplateColumns: tracks }}>
         {visibleLayout.regions.map((region, index) => (
@@ -481,7 +487,7 @@ export default function Workspace({ layout, onLayoutChange, onBoundsChange, newP
           <div
             className="pane-tab tab-drag-preview"
             aria-hidden="true"
-            style={{ left: floating.x, top: floating.y, width: floating.width, height: floating.height, '--vt': `tab-${drag.tab.id}` } as CSSProperties}
+            style={floating}
           >
             {drag.tab.title}
           </div>

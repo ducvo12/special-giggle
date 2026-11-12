@@ -59,6 +59,7 @@ test('previews show the committed pane position and undersized arrangements cann
   assert.equal(drop.preview.width, bounds.width)
   assert.equal(dockingAt(initialLayout, 'pane-1', { ...bounds, height: 280 }, 800, 275), null)
   assert.equal(dockingAt(initialLayout, 'pane-1', { ...bounds, width: 400 }, 1, 350), null)
+  assert.equal(dockingAt(createPane('only', 'Only'), 'only', bounds, 1, 350), null)
 })
 
 test('docking engages farther inside workspace and pane edges while keeping centers neutral', () => {

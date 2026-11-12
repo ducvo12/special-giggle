@@ -1,11 +1,11 @@
 import { useEffect, useRef, type CSSProperties, type KeyboardEvent, type PointerEvent, type PointerEventHandler } from 'react'
 import { paneTypes } from './pane-types'
-import type { PaneNode, Rect } from './layout'
+import type { PaneNode } from './layout'
 import type { Tab } from './tabs'
 
 interface PaneProps {
   pane: PaneNode
-  floating?: Rect
+  floating?: Pick<CSSProperties, 'left' | 'top' | 'width' | 'height' | 'translate'>
   hasRegionHandle?: boolean
   draggedTabId?: string
   onTabDragStart: (tab: Tab, event: PointerEvent<HTMLButtonElement>) => void
@@ -56,7 +56,7 @@ export default function Pane({ pane, floating, hasRegionHandle = false, draggedT
         aria-label={pane.title}
         data-pane-type={pane.paneType}
         data-pane-id={pane.id}
-        style={{ ...(floating ? { left: floating.x, top: floating.y, width: floating.width, height: floating.height } : undefined), '--vt': `pane-${pane.id}` } as CSSProperties}
+        style={{ ...floating, '--vt': `pane-${pane.id}` } as CSSProperties}
       >
         <div className="pane-titlebar" ref={titlebar}>
           <div className="pane-tabs" role="tablist" aria-label={`${pane.title} tabs`} style={{ '--vt': `strip-${pane.id}` } as CSSProperties}>

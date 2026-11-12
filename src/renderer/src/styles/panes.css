@@ -76,10 +76,6 @@
   border-radius: 0;
   background: var(--surface);
   box-shadow: none;
-  transition:
-    border-radius var(--duration-normal) var(--ease-soft),
-    border-color var(--duration-normal) var(--ease-soft),
-    box-shadow var(--duration-normal) var(--ease-soft);
 }
 
 .pane-titlebar {
@@ -134,6 +130,13 @@
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-pane);
+}
+
+.pane-layout.is-separating :where(.pane:not(.pane-floating)) {
+  transition:
+    border-radius var(--duration-normal) var(--ease-soft),
+    border-color var(--duration-normal) var(--ease-soft),
+    box-shadow var(--duration-normal) var(--ease-soft);
 }
 
 .workspace[data-transition] .pane,
@@ -549,15 +552,11 @@
 }
 
 .workspace[data-transition='groups'] .pane,
-.workspace[data-transition='groups'] .region-empty,
-.workspace[data-transition='tabs'] .pane,
-.workspace[data-transition='tabs'] .region-empty {
+.workspace[data-transition='groups'] .region-empty {
   view-transition-name: var(--vt);
   view-transition-class: vt-pane;
 }
 
-.workspace[data-transition='tabs'] .pane-tab:not(.is-dragging),
-.workspace[data-transition='tabs'] .tab-drag-preview,
 .pane-titlebar[data-transition='tabs'] .pane-tab:not(.is-dragging),
 .pane-titlebar[data-transition='tabs'] .tab-add,
 .pane-titlebar[data-transition='tabs'] .pane-close {
@@ -598,7 +597,6 @@
 .workspace::view-transition-group(root),
 .workspace::view-transition-group(.vt-region),
 .workspace::view-transition-group(.vt-pane),
-.workspace::view-transition-group(.vt-tab),
 .pane-titlebar::view-transition-group(root),
 .pane-titlebar::view-transition-group(.vt-tab-strip),
 .pane-titlebar::view-transition-group(.vt-tab) {
@@ -607,13 +605,11 @@
 }
 
 .workspace::view-transition-new(.vt-pane):only-child,
-.workspace::view-transition-new(.vt-tab):only-child,
 .pane-titlebar::view-transition-new(.vt-tab):only-child {
   animation: vt-enter var(--duration-normal) var(--ease-soft);
 }
 
 .workspace::view-transition-old(.vt-pane):only-child,
-.workspace::view-transition-old(.vt-tab):only-child,
 .pane-titlebar::view-transition-old(.vt-tab):only-child {
   animation: vt-exit var(--duration-fast) var(--ease-exit);
 }

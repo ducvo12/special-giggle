@@ -236,5 +236,7 @@ export function dockingPreview(layout: Layout, id: string, target: DockTarget, b
 // Simulate a whole-pane move using the same targeting and sizing rules as tab splits.
 export function dockingAt(layout: Layout, id: string, bounds: Rect, x: number, y: number) {
   const target = dockingTargetAt(layout, bounds, x, y, id)
-  return target ? dockingPreview(dockPane(layout, id, target), id, target, bounds) : null
+  if (!target) return null
+  const next = dockPane(layout, id, target)
+  return next === layout ? null : dockingPreview(next, id, target, bounds)
 }
