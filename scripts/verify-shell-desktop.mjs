@@ -169,10 +169,12 @@ try {
     await desktop.wait(() => desktop.evaluate('Boolean(document.querySelector(".pane-floating, .region-floating, .tab-drag-preview"))'), `${selector} follows pointer`)
   }
 
-  async function preview(label) {
-    await desktop.wait(() => desktop.evaluate(`document.querySelector('.pane-dock-preview')?.textContent.trim() === ${JSON.stringify(label)}`), label)
-    await settled('.pane-dock-preview')
-    return bounds('.pane-dock-preview')
+  async function preview(pane, edge) {
+    const selector = pane ? `${pane} .pane-dock-preview.is-${edge}` : '.region-layout > .pane-dock-preview'
+    await desktop.wait(() => desktop.evaluate(`Boolean(document.querySelector(${JSON.stringify(selector)}))`), `${edge ?? 'region swap'} outline`)
+    await settled(selector)
+    assert.equal(await desktop.evaluate(`document.querySelector(${JSON.stringify(selector)}).textContent.trim()`), '')
+    return bounds(selector)
   }
 
   async function beginResize(selector, dx, dy) {
@@ -228,6 +230,25 @@ try {
   await key('Escape')
   await release(end)
   sameRect(await bounds(explorer), original)
+  end = await beginResize(outerDivider, 80, 0)
+  await desktop.wait(async () => Math.abs((await bounds(explorer)).width - original.width - 80) < 1, 'live outer resize before window notification')
+  await desktop.evaluate("window.dispatchEvent(new Event('resize'))")
+  await release(end)
+  assert.ok(Math.abs((await bounds(explorer)).width - original.width - 80) < 1, 'unchanged workspace size preserves the divider drag')
+  for (const event of ['blur', 'lostpointercapture', 'pointercancel']) {
+    const before = (await bounds(explorer)).width
+    await desktop.evaluate(`document.querySelector('.workspace').addEventListener('pointerdown', ({ currentTarget, pointerId }) => {
+      window.__interruptResize = () => {
+        if (${JSON.stringify(event)} === 'blur') window.dispatchEvent(new Event('blur'));
+        else currentTarget.dispatchEvent(new PointerEvent(${JSON.stringify(event)}, { bubbles: true, pointerId }));
+      };
+    }, { once: true })`)
+    end = await beginResize(outerDivider, -10, 0)
+    await desktop.wait(async () => Math.abs((await bounds(explorer)).width - before + 10) < 1, 'live outer resize before interruption')
+    await desktop.evaluate('window.__interruptResize()')
+    await release({ x: end.x + 20, y: end.y })
+    assert.ok(Math.abs((await bounds(explorer)).width - before + 10) < 1, `${event} keeps the last visible width`)
+  }
   end = await beginResize(outerDivider, -450, 0)
   await release(end)
   assert.equal((await bounds(explorer)).width, 200)
@@ -245,13 +266,13 @@ try {
   let point = { x: area.x + area.width * 0.7, y: area.y + area.height / 2 }
   const beforeSplit = await snapshot()
   await beginDrag('#pane-1-tab-3', point)
-  await preview('Split Agent 3 right')
+  await preview(group1, 'right')
   await key('Escape')
   await release(point)
   await settled()
   assert.deepEqual(await snapshot(), beforeSplit)
   await beginDrag('#pane-1-tab-3', point)
-  const splitPreview = await preview('Split Agent 3 right')
+  await preview(group1, 'right')
   await release(point)
   await desktop.wait(() => desktop.evaluate('document.getElementById("pane-1-tab-3")?.closest(".pane").dataset.paneId === "pane-3"'), 'Agent tab split into Group 3')
   await settled()
@@ -268,6 +289,26 @@ try {
   // The new Agent group separates while dragging and can split vertically inside Explorer.
   await click('Add tab to Group 3')
   await desktop.wait(() => desktop.evaluate('document.getElementById("pane-3-tab-1")?.getAttribute("aria-selected") === "true"'), 'new Agent tab selected in Group 3')
+  // Near the minimum width for three columns, a split can shrink the neighboring pane.
+  // The outline still belongs entirely to the current target, including during separation.
+  const thirdGroup = '[data-pane-id=pane-3]'
+  end = await beginResize(outerDivider, 150, 0)
+  await release(end)
+  const narrowTarget = await bounds(thirdGroup)
+  const beforeNarrowSplit = await snapshot()
+  point = { x: narrowTarget.x + 20, y: narrowTarget.y + narrowTarget.height / 2 }
+  await beginDrag('#pane-3-tab-1', point)
+  await settled(`${explorer} .pane-layout`)
+  const leftOutline = await preview(thirdGroup, 'left')
+  const targetBody = await bounds(`${thirdGroup} .pane-body`)
+  sameRect(leftOutline, { ...targetBody, width: targetBody.width / 2 })
+  await key('Escape')
+  await release(point)
+  await settled()
+  assert.deepEqual(await snapshot(), beforeNarrowSplit)
+  end = await beginResize(outerDivider, -150, 0)
+  await release(end)
+
   const third = await bounds('[data-pane-id=pane-3]')
   point = { x: third.x + third.width / 2, y: third.y + third.height * 0.7 }
   await beginDrag('#pane-3-tab-1', point)
@@ -277,9 +318,8 @@ try {
   const separatedFirst = await bounds(group1)
   const separatedThird = await bounds('[data-pane-id=pane-3]')
   assert.ok(Math.abs(separatedThird.x - (separatedFirst.x + separatedFirst.width) - 12) < 1)
-  sameRect(separatedThird, splitPreview)
   assert.equal(await desktop.evaluate('getComputedStyle(document.querySelector("[data-pane-id=pane-3]")).borderRadius'), '12px')
-  await preview('Split Agent 1 bottom')
+  await preview('[data-pane-id=pane-3]', 'bottom')
   await release(point)
   await desktop.wait(() => desktop.evaluate('document.querySelectorAll("[data-region=explorer] .pane").length === 3'), 'nested Agent groups')
   await settled()
@@ -289,16 +329,38 @@ try {
   assert.equal(fourth.x, (await bounds('[data-pane-id=pane-3]')).x)
   assert.equal(await desktop.evaluate('document.querySelectorAll("[data-region]").length'), 2)
 
-  // Whole groups dock only within their region, stay flush at rest, and resize smoothly.
-  area = await bounds(`${explorer} .pane-layout`)
-  point = { x: area.x + area.width / 2, y: area.y + 10 }
-  await beginDrag('[data-pane-id=pane-4] .pane-drag-handle', point)
-  await preview('Dock top')
+  // A group drop uses the hovered pane, even near a region edge.
+  const fourthHandle = '[data-pane-id=pane-4] .pane-drag-handle'
+  const firstGroup = await bounds(group1)
+  const firstHeader = await bounds(`${group1} .pane-titlebar`)
+  const beforeGroupMove = await snapshot()
+  point = { x: firstGroup.x + firstGroup.width / 2, y: firstHeader.y + firstHeader.height + 5 }
+  await beginDrag(fourthHandle, point)
+  const groupPreview = await preview(group1, 'top')
+  // Move onto the tab bar. Dragging a group there is neutral.
+  const headerPoint = { x: point.x, y: firstHeader.y + firstHeader.height / 2 }
+  await move(headerPoint)
+  await desktop.wait(() => desktop.evaluate('!document.querySelector(".pane-dock-preview, .tab-drop-marker")'), 'group tab-bar drop is neutral')
+  await release(headerPoint)
+  await settled()
+  assert.deepEqual(await snapshot(), beforeGroupMove)
+  await beginDrag(fourthHandle, point)
+  sameRect(await preview(group1, 'top'), groupPreview)
+  await key('Escape')
+  await release(point)
+  await settled()
+  assert.deepEqual(await snapshot(), beforeGroupMove)
+  await beginDrag(fourthHandle, point)
+  await preview(group1, 'top')
   await release(point)
   await settled()
   const dockedFourth = await bounds('[data-pane-id=pane-4]')
-  assert.ok(Math.abs((await bounds(group1)).y - (dockedFourth.y + dockedFourth.height) - 1) < 1)
-  assert.ok(Math.abs(dockedFourth.width - (area.width - 2)) < 1)
+  const dockedFirst = await bounds(group1)
+  const dockedThird = await bounds('[data-pane-id=pane-3]')
+  assert.ok(Math.abs(dockedFirst.y - (dockedFourth.y + dockedFourth.height) - 1) < 1)
+  assert.equal(dockedFourth.width, dockedFirst.width)
+  assert.equal(dockedFourth.y, dockedThird.y)
+  assert.ok(dockedThird.height > dockedFourth.height)
   const innerDivider = `${explorer} .pane-split-vertical > .pane-divider`
   assert.equal(await desktop.evaluate(`getComputedStyle(document.querySelector(${JSON.stringify(innerDivider)}), '::after').opacity`), '0')
   const innerHandlePoint = await pointerPoint(innerDivider)
@@ -324,14 +386,14 @@ try {
   point = { x: second.x + second.width * 0.7, y: second.y + second.height * 0.6 }
   const beforeBodyDock = await snapshot()
   await beginDrag('#pane-5-tab-1', point)
-  await preview('Dock right')
+  await preview(group2, 'right')
   assert.equal(await desktop.evaluate('Boolean(document.querySelector(".tab-drop-marker"))'), false)
   await key('Escape')
   await release(point)
   await settled()
   assert.deepEqual(await snapshot(), beforeBodyDock)
   await beginDrag('#pane-5-tab-1', point)
-  const bodyDockPreview = await preview('Dock right')
+  await preview(group2, 'right')
   await release(point)
   await settled()
   const flushSecond = await bounds(group2)
@@ -344,14 +406,14 @@ try {
   await beginDrag('#pane-5-tab-1', point)
   await desktop.wait(() => desktop.evaluate(`document.querySelector('${content} .pane-layout').classList.contains('is-separating')`), 'Content separates during sole-tab drag')
   await settled(`${content} .pane-layout`)
-  sameRect(await bounds(`${content} .pane-slot-dragging`), bodyDockPreview)
+  assert.ok(Math.abs((await bounds(`${content} .pane-slot-dragging`)).x - (await bounds(group2)).x - (await bounds(group2)).width - 12) < 1)
   assert.equal(await desktop.evaluate(`document.querySelector('${explorer} .pane-layout').classList.contains('is-framed')`), true)
   await desktop.wait(() => desktop.evaluate('Boolean(document.querySelector(".tab-drop-marker"))'), 'Content insertion marker')
   assert.equal(await desktop.evaluate('Boolean(document.querySelector(".pane-dock-preview"))'), false)
   const group2Header = await bounds(`${group2} .pane-titlebar`)
   const group2Separated = await bounds(group2)
   await move({ x: group2Separated.x + group2Separated.width / 2, y: group2Header.y + group2Header.height + 36 })
-  await preview('Dock top')
+  await preview(group2, 'top')
   assert.equal(await desktop.evaluate('Boolean(document.querySelector(".tab-drop-marker"))'), false)
   point = { x: point.x, y: group2Header.y + group2Header.height + 20 }
   await move(point)
@@ -371,7 +433,7 @@ try {
   area = await bounds(`${content} .pane-layout`)
   point = { x: area.x + area.width / 2, y: area.y + area.height * 0.7 }
   await beginDrag('#pane-5-tab-1', point)
-  const contentPreview = await preview('Split Chat 1 bottom')
+  await preview(group2, 'bottom')
   await release(point)
   await settled()
   const flushTopContent = await bounds(group2)
@@ -392,7 +454,9 @@ try {
   assert.deepEqual(await snapshot(), beforeInvalid)
   await beginDrag('[data-pane-id=pane-6] .pane-drag-handle', point)
   await settled(`${content} .pane-layout`)
-  sameRect(await bounds(`${content} .pane-slot-dragging`), contentPreview)
+  const sourceSlot = await bounds(`${content} .pane-slot-dragging`)
+  const sourceNeighbor = await bounds(group2)
+  assert.ok(Math.abs(sourceSlot.y - (sourceNeighbor.y + sourceNeighbor.height) - 12) < 1)
   assert.equal(await desktop.evaluate('Boolean(document.querySelector(".pane-dock-preview"))'), false)
   await release(point)
   assert.deepEqual(await snapshot(), beforeInvalid)
@@ -439,7 +503,7 @@ try {
   const explorerSize = await bounds(explorer)
   point = { x: outer.x + outer.width - 10, y: outer.y + outer.height / 2 }
   await beginDrag(`${explorer} .region-drag-handle`, point)
-  await preview('Swap regions')
+  await preview()
   await settled('.region-floating')
   assert.equal(await desktop.evaluate(`document.querySelector('${explorer} .pane-layout').classList.contains('is-framed')`), true)
   assert.equal((await bounds('.region-floating')).width, explorerSize.width)
@@ -457,7 +521,7 @@ try {
     }, { once: true });
   })()`)
   await beginDrag(`${explorer} .region-drag-handle`, point)
-  await preview('Swap regions')
+  await preview()
   await checkDragCleanup('lostpointercapture', () => desktop.evaluate('window.__loseDragCapture()'))
   await release(point)
   assert.equal(await desktop.evaluate('document.querySelector("[data-region]").dataset.region'), 'explorer')
@@ -466,12 +530,12 @@ try {
   // Releasing away from the last preview must resolve the new position.
   const neutral = { x: outer.x + outer.width / 2, y: outer.y + 1 }
   await beginDrag(`${explorer} .region-drag-handle`, point)
-  await preview('Swap regions')
+  await preview()
   await release(neutral)
   assert.equal(await desktop.evaluate('document.querySelector("[data-region]").dataset.region'), 'explorer')
   assert.deepEqual(await snapshot(), beforeSwap)
   await beginDrag(`${explorer} .region-drag-handle`, point)
-  const swapPreview = await preview('Swap regions')
+  const swapPreview = await preview()
   const swapImage = await desktop.rpc('Page.captureScreenshot', { format: 'png' })
   await writeFile(join(tmpdir(), 'granite-region-swap-preview.png'), Buffer.from(swapImage.data, 'base64'))
   await release(point)
@@ -535,13 +599,17 @@ try {
   const beforeViewport = await bounds(explorer)
   const beforeContent = await bounds(content)
   const originalViewport = await desktop.evaluate('({width: innerWidth, height: innerHeight})')
+  const viewportDrag = await beginResize(outerDivider, 40, 0)
+  await desktop.wait(async () => Math.abs((await bounds(explorer)).width - beforeViewport.width - 40) < 1, 'live outer resize before viewport change')
   await desktop.rpc('Emulation.setDeviceMetricsOverride', { width: 900, height: 650, deviceScaleFactor: 1, mobile: false })
+  await desktop.wait(() => desktop.evaluate('!document.querySelector(".workspace.is-resizing-horizontal")'), 'actual viewport resize ends divider drag')
   await desktop.wait(async () => (await bounds(explorer)).width < beforeViewport.width - 20, 'viewport resize')
   const smallExplorer = await bounds(explorer)
   const smallContent = await bounds(content)
-  assert.ok(Math.abs(smallExplorer.width / (smallExplorer.width + smallContent.width) - beforeViewport.width / (beforeViewport.width + beforeContent.width)) < 0.002)
+  assert.ok(Math.abs(smallExplorer.width / (smallExplorer.width + smallContent.width) - (beforeViewport.width + 40) / (beforeViewport.width + beforeContent.width)) < 0.002)
   await desktop.rpc('Emulation.setDeviceMetricsOverride', { ...originalViewport, deviceScaleFactor: 1, mobile: false })
-  await desktop.wait(async () => Math.abs((await bounds(explorer)).width - beforeViewport.width) < 1, 'viewport proportions restored')
+  await desktop.wait(async () => Math.abs((await bounds(explorer)).width - beforeViewport.width - 40) < 1, 'resized proportions restored')
+  await release(viewportDrag)
   const invalidMinimum = await desktop.evaluate('window.granite.window.setMinimumSize(-1, 100)')
   assert.equal(invalidMinimum.ok, false)
   await desktop.wait(() => desktop.evaluate('!document.querySelector("[role=alert]")'), 'window minimum applied')

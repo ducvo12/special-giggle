@@ -1,10 +1,11 @@
 import { useEffect, useRef, type CSSProperties, type KeyboardEvent, type PointerEvent, type PointerEventHandler } from 'react'
 import { paneTypes } from './pane-types'
-import type { PaneNode } from './layout'
+import type { Edge, PaneNode } from './layout'
 import type { Tab } from './tabs'
 
 interface PaneProps {
   pane: PaneNode
+  dropEdge?: Edge
   floating?: Pick<CSSProperties, 'left' | 'top' | 'width' | 'height' | 'translate'>
   hasRegionHandle?: boolean
   draggedTabId?: string
@@ -18,7 +19,7 @@ interface PaneProps {
 
 // Keep the pane's layout slot stable while its surface floats. Tabs are controlled
 // by the layout so moving the pane cannot discard their state.
-export default function Pane({ pane, floating, hasRegionHandle = false, draggedTabId, onTabDragStart, onDragStart, onClose, onAddTab, onSelectTab, onCloseTab }: PaneProps) {
+export default function Pane({ pane, dropEdge, floating, hasRegionHandle = false, draggedTabId, onTabDragStart, onDragStart, onClose, onAddTab, onSelectTab, onCloseTab }: PaneProps) {
   const active = pane.tabs.find(tab => tab.id === pane.activeTabId)!
   const titlebar = useRef<HTMLDivElement>(null)
 
@@ -124,6 +125,8 @@ export default function Pane({ pane, floating, hasRegionHandle = false, draggedT
             {pane.title} / {paneTypes[pane.paneType].label} / {active.title}
           </p>
         </div>
+
+        {dropEdge && <div className={`pane-dock-preview is-${dropEdge}`} aria-hidden="true" />}
       </section>
     </div>
   )

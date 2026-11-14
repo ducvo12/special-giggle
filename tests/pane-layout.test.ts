@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { addPane, createPane, removePane, dockPane, dockingAt, tabDockingTargetAt, paneRects, resizeSplit, type Layout } from '../src/renderer/src/components/panes/layout.ts'
+import { addPane, createPane, removePane, dockPane, groupDockEdge, tabDockEdge, paneRects, resizeSplit, type Layout } from '../src/renderer/src/components/panes/layout.ts'
 
 import { initialLayout } from './fixtures/panes.ts'
 
@@ -9,6 +9,19 @@ const bounds = { x: 0, y: 0, width: 1000, height: 700 }
 function ids(layout: Layout): string[] {
   return [...paneRects(layout, bounds).keys()].sort()
 }
+
+test('moving the bottom-right pane beside the top-right pane creates three columns', () => {
+  const bottom = createPane('bottom', 'Bottom')
+  const stacked: Layout = {
+    kind: 'split', axis: 'horizontal', ratio: 0.5,
+    first: createPane('pane-1', 'Group 1'),
+    second: { kind: 'split', axis: 'vertical', ratio: 0.5, first: createPane('pane-2', 'Group 2'), second: bottom }
+  }
+  const moved = dockPane(stacked, bottom.id, { paneId: 'pane-2', edge: 'left' })
+  const columns = paneRects(moved, bounds)
+  assert.deepEqual([...columns.keys()], ['pane-1', bottom.id, 'pane-2'])
+  assert.ok([...columns.values()].every(rect => rect.height === bounds.height))
+})
 
 test('docking moves a pane in all four directions without losing or duplicating views', () => {
   for (const edge of ['left', 'right', 'top', 'bottom'] as const) {
@@ -24,90 +37,27 @@ test('docking moves a pane in all four directions without losing or duplicating 
   }
 })
 
-test('pane docking affects its target while workspace docking spans the whole edge', () => {
-  const third: Layout = createPane('pane-3', 'Pane 3')
-  const layout: Layout = { kind: 'split', axis: 'horizontal', ratio: 0.5, first: initialLayout, second: third }
-  const local = dockPane(layout, 'pane-1', { paneId: 'pane-2', edge: 'top' })
-  const global = dockPane(layout, 'pane-1', { paneId: null, edge: 'top' })
-  assert.deepEqual(ids(local), ['pane-1', 'pane-2', 'pane-3'])
-  assert.deepEqual(ids(global), ['pane-1', 'pane-2', 'pane-3'])
-  const localRects = paneRects(local, bounds)
-  assert.equal(localRects.get('pane-3')!.height, bounds.height)
-  assert.ok(localRects.get('pane-1')!.width < bounds.width / 2)
-  assert.equal(paneRects(global, bounds).get('pane-1')!.width, bounds.width)
-})
-
-test('self, missing-source, missing-target, and single-pane moves preserve the layout', () => {
+test('self, missing-source, and missing-target moves preserve the layout', () => {
   assert.equal(dockPane(initialLayout, 'pane-1', { paneId: 'pane-1', edge: 'top' }), initialLayout)
-  assert.equal(dockPane(initialLayout, 'missing', { paneId: null, edge: 'top' }), initialLayout)
+  assert.equal(dockPane(initialLayout, 'missing', { paneId: 'pane-2', edge: 'top' }), initialLayout)
   assert.equal(dockPane(initialLayout, 'pane-1', { paneId: 'missing', edge: 'top' }), initialLayout)
-  const single: Layout = createPane('only', 'Only')
-  assert.equal(dockPane(single, 'only', { paneId: null, edge: 'left' }), single)
 })
 
-test('hit testing prioritizes workspace edges and rejects centers, source panes, and outside drops', () => {
-  assert.deepEqual(dockingAt(initialLayout, 'pane-1', bounds, 800, 10)?.target, { paneId: null, edge: 'top' })
-  assert.deepEqual(dockingAt(initialLayout, 'pane-1', bounds, 800, 610)?.target, { paneId: 'pane-2', edge: 'bottom' })
-  assert.equal(dockingAt(initialLayout, 'pane-1', bounds, 800, 350), null)
-  assert.equal(dockingAt(initialLayout, 'pane-1', bounds, 100, 350), null)
-  assert.equal(dockingAt(initialLayout, 'pane-1', bounds, 1010, 350), null)
+test('group docking uses side-biased edges and leaves the center neutral', () => {
+  assert.equal(groupDockEdge(0.25, 0.5), 'left')
+  assert.equal(groupDockEdge(0.75, 0.5), 'right')
+  assert.equal(groupDockEdge(0.5, 0.05), 'top')
+  assert.equal(groupDockEdge(0.5, 0.95), 'bottom')
+  assert.equal(groupDockEdge(0.25, 0.05), 'left')
+  assert.equal(groupDockEdge(0.5, 0.5), null)
 })
 
-test('previews show the committed pane position and undersized arrangements cannot be docked', () => {
-  const drop = dockingAt(initialLayout, 'pane-1', bounds, 800, 610)!
-  assert.deepEqual(drop.preview, paneRects(drop.layout, bounds).get('pane-1'))
-  assert.equal(drop.preview.width, bounds.width)
-  assert.equal(dockingAt(initialLayout, 'pane-1', { ...bounds, height: 280 }, 800, 275), null)
-  assert.equal(dockingAt(initialLayout, 'pane-1', { ...bounds, width: 400 }, 1, 350), null)
-  assert.equal(dockingAt(createPane('only', 'Only'), 'only', bounds, 1, 350), null)
-})
-
-test('docking engages farther inside workspace and pane edges while keeping centers neutral', () => {
-  assert.deepEqual(dockingAt(initialLayout, 'pane-1', bounds, 60, 350)?.target, { paneId: null, edge: 'left' })
-  assert.deepEqual(dockingAt(initialLayout, 'pane-1', bounds, 800, 60)?.target, { paneId: null, edge: 'top' })
-  assert.deepEqual(dockingAt(initialLayout, 'pane-1', bounds, 800, 90)?.target, { paneId: 'pane-2', edge: 'top' })
-  assert.equal(dockingAt(initialLayout, 'pane-1', bounds, 800, 350), null)
-})
-
-test('tab docking covers the full group interior with four proportional targets and no neutral center', () => {
-  const group = createPane('group', 'Group')
-  const large = { x: 0, y: 0, width: 1600, height: 1000 }
-  for (const [x, y, edge] of [
-    [480, 500, 'left'], [1120, 500, 'right'],
-    [800, 300, 'top'], [800, 700, 'bottom'], [800, 500, 'left']
-  ] as const) {
-    assert.deepEqual(tabDockingTargetAt(group, large, x, y), { paneId: group.id, edge })
-  }
-})
-
-test('tab split targets stay proportional in tall and wide groups', () => {
-  const group = createPane('group', 'Group')
-  const tall = { x: 100, y: 50, width: 800, height: 1800 }
-  const wide = { x: 100, y: 50, width: 1800, height: 800 }
-  assert.deepEqual(tabDockingTargetAt(group, tall, 500, 680), { paneId: group.id, edge: 'top' })
-  assert.deepEqual(tabDockingTargetAt(group, tall, 500, 1220), { paneId: group.id, edge: 'bottom' })
-  assert.deepEqual(tabDockingTargetAt(group, wide, 730, 450), { paneId: group.id, edge: 'left' })
-  assert.deepEqual(tabDockingTargetAt(group, wide, 1270, 450), { paneId: group.id, edge: 'right' })
-})
-
-test('tab docking targets the hovered group, retains region-edge docking, and rejects gaps and outside points', () => {
-  const large = { x: 0, y: 0, width: 1600, height: 1000 }
-  for (const [id, rect] of paneRects(initialLayout, large)) {
-    for (const x of [0.2, 0.4, 0.6, 0.8]) {
-      for (const y of [0.2, 0.4, 0.6, 0.8]) {
-        assert.equal(tabDockingTargetAt(initialLayout, large, rect.x + rect.width * x, rect.y + rect.height * y)!.paneId, id)
-      }
-    }
-  }
-  assert.deepEqual(tabDockingTargetAt(initialLayout, large, 10, 500), { paneId: null, edge: 'left' })
-  assert.deepEqual(tabDockingTargetAt(initialLayout, large, 1590, 500), { paneId: null, edge: 'right' })
-  assert.deepEqual(tabDockingTargetAt(initialLayout, large, 800, 10), { paneId: null, edge: 'top' })
-  assert.deepEqual(tabDockingTargetAt(initialLayout, large, 800, 990), { paneId: null, edge: 'bottom' })
-  assert.equal(tabDockingTargetAt(initialLayout, large, 800, 500), null)
-  assert.equal(tabDockingTargetAt(initialLayout, large, -1, 500), null)
-  assert.equal(tabDockingTargetAt(initialLayout, large, 1601, 500), null)
-  assert.equal(tabDockingTargetAt(initialLayout, large, 500, -1), null)
-  assert.equal(tabDockingTargetAt(initialLayout, large, 500, 1001), null)
+test('tab docking chooses the nearest edge in proportion to the pane size', () => {
+  assert.equal(tabDockEdge(0.3, 0.5), 'left')
+  assert.equal(tabDockEdge(0.7, 0.5), 'right')
+  assert.equal(tabDockEdge(0.5, 0.3), 'top')
+  assert.equal(tabDockEdge(0.5, 0.7), 'bottom')
+  assert.equal(tabDockEdge(0.5, 0.5), 'left')
 })
 
 test('resizing clamps both sides to their minimum dimensions in either orientation', () => {
@@ -115,7 +65,7 @@ test('resizing clamps both sides to their minimum dimensions in either orientati
   assert.equal(paneRects(narrow, bounds).get('pane-1')!.width, 200)
   const wide = resizeSplit(initialLayout, [], 1, bounds.width - 12)
   assert.equal(paneRects(wide, bounds).get('pane-2')!.width, 200)
-  const vertical = dockPane(initialLayout, 'pane-1', { paneId: null, edge: 'top' })
+  const vertical = dockPane(initialLayout, 'pane-1', { paneId: 'pane-2', edge: 'top' })
   const short = resizeSplit(vertical, [], 0, bounds.height - 12)
   assert.equal(paneRects(short, bounds).get('pane-1')!.height, 140)
   const tall = resizeSplit(vertical, [], 1, bounds.height - 12)

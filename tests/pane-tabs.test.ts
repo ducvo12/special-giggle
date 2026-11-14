@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { addTab, closeTab, selectTab } from '../src/renderer/src/components/panes/tabs.ts'
-import { addPane, createPane, findPane, moveTab, dockPane, dockTab, dockingTargetAt, dockingPreview, paneRects, removePane, updatePane } from '../src/renderer/src/components/panes/layout.ts'
+import { addPane, createPane, findPane, moveTab, dockPane, dockTab, layoutFits, paneRects, removePane, updatePane } from '../src/renderer/src/components/panes/layout.ts'
 
 import { initialLayout } from './fixtures/panes.ts'
 
@@ -134,13 +134,13 @@ test('transfers preserve source numbering and cannot collide with destination-ge
   assert.equal(addTab(findPane(moved, source.id)!).activeTabId, 'source-tab-3')
 })
 
-test('both families can detach a grouped tab beside its source, another group, or the region edge', () => {
+test('both families can detach a grouped tab beside either its source or another group', () => {
   for (const family of ['explorer', 'content'] as const) {
     const source = addTab(addTab(createPane('source', 'Source', family)))
     const other = createPane('other', 'Other', family)
     const layout = { kind: 'split', axis: 'horizontal', ratio: 0.5, first: source, second: other } as const
     const bounds = { x: 0, y: 0, width: 1400, height: 900 }
-    for (const paneId of [source.id, other.id, null]) {
+    for (const paneId of [source.id, other.id]) {
       for (const edge of ['left', 'right', 'top', 'bottom'] as const) {
         const tab = source.tabs[1]
         const selected = updatePane(layout, source.id, pane => selectTab(pane, tab.id))!
@@ -157,7 +157,7 @@ test('both families can detach a grouped tab beside its source, another group, o
         assert.equal(findPane(moved, other.id), other)
         const rects = paneRects(moved, bounds)
         const placed = rects.get('new')!
-        const sibling = rects.get(paneId ?? source.id)!
+        const sibling = rects.get(paneId)!
         if (edge === 'left') assert.ok(placed.x < sibling.x)
         if (edge === 'right') assert.ok(placed.x > sibling.x)
         if (edge === 'top') assert.ok(placed.y < sibling.y)
@@ -188,15 +188,11 @@ test('detachment rejects sole tabs, stale inputs, and reused pane IDs', () => {
   assert.equal(dockTab(layout, 'pane-2', 'pane-2-tab-1', { id: 'pane-1', title: 'Reused' }, target), layout)
 })
 
-test('tab docking previews match final geometry and reject splits that cannot fit', () => {
+test('tab docking requires both panes and the drag gap to fit', () => {
   const source = addTab(createPane('source', 'Source'))
   const bounds = { x: 0, y: 0, width: 1000, height: 700 }
-  const target = dockingTargetAt(source, bounds, 500, 90)!
-  assert.deepEqual(target, { paneId: source.id, edge: 'top' })
+  const target = { paneId: source.id, edge: 'top' } as const
   const moved = dockTab(source, source.id, source.activeTabId, { id: 'new', title: 'New' }, target)
-  assert.deepEqual(dockingPreview(moved, 'new', target, bounds)!.preview, paneRects(moved, bounds).get('new'))
-  assert.equal(dockingPreview(moved, 'new', target, { ...bounds, height: 291 }), null)
-  assert.equal(dockingPreview(moved, 'new', target, { ...bounds, height: 292 })!.preview.height, 140)
-  assert.equal(dockingTargetAt(source, bounds, 500, 350), null)
-  assert.equal(dockingTargetAt(source, bounds, -1, 90), null)
+  assert.equal(layoutFits(moved, { ...bounds, height: 291 }), false)
+  assert.equal(layoutFits(moved, { ...bounds, height: 292 }), true)
 })

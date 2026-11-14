@@ -12,7 +12,7 @@ export type Layout =
   | PaneNode
   | { kind: 'split'; axis: 'horizontal' | 'vertical'; ratio: number; first: Layout; second: Layout }
 export interface Rect { x: number; y: number; width: number; height: number }
-export interface DockTarget { paneId: string | null; edge: Edge }
+export interface DockTarget { paneId: string; edge: Edge }
 
 // Reserve room for the expanded split during docking, even when the groups sit flush.
 export const splitDragGap = 12
@@ -70,9 +70,9 @@ export function moveTab(layout: Layout, sourceId: string, tabId: string, targetI
   }))!
 }
 
-// Insert beside one pane, or wrap the workspace when the target has no pane ID.
+// Insert beside the pane under the pointer.
 function insertPane(layout: Layout, pane: PaneNode, target: DockTarget): Layout {
-  if (target.paneId === null || (layout.kind === 'pane' && layout.id === target.paneId)) {
+  if (layout.kind === 'pane' && layout.id === target.paneId) {
     const before = target.edge === 'left' || target.edge === 'top'
     return {
       kind: 'split', ratio: 0.5,
@@ -89,7 +89,7 @@ function insertPane(layout: Layout, pane: PaneNode, target: DockTarget): Layout 
 export function dockPane(layout: Layout, id: string, target: DockTarget): Layout {
   const pane = findPane(layout, id)
   if (!pane || target.paneId === id) return layout
-  if (target.paneId && !findPane(layout, target.paneId)) return layout
+  if (!findPane(layout, target.paneId)) return layout
   const remaining = removePane(layout, id)
   return remaining ? insertPane(remaining, pane, target) : layout
 }
@@ -99,7 +99,7 @@ export function dockTab(layout: Layout, sourceId: string, tabId: string, identit
   const source = findPane(layout, sourceId)
   const tab = source?.tabs.find(tab => tab.id === tabId)
   if (!source || !tab || source.tabs.length < 2) return layout
-  if (findPane(layout, identity.id) || (target.paneId !== null && !findPane(layout, target.paneId))) return layout
+  if (findPane(layout, identity.id) || !findPane(layout, target.paneId)) return layout
   const pane: PaneNode = {
     kind: 'pane', ...identity, paneType: source.paneType,
     tabs: [tab], activeTabId: tab.id, nextTab: 1
@@ -186,57 +186,22 @@ export function paneRects(layout: Layout, bounds: Rect): Map<string, Rect> {
   return result
 }
 
-// Choose the nearest edge within the docking zone; centers and outside points are neutral.
-function edgeAt(rect: Rect, x: number, y: number, zone: number): Edge | null {
-  if (x < rect.x || y < rect.y || x > rect.x + rect.width || y > rect.y + rect.height) return null
-  const edges: [Edge, number][] = [
-    ['left', x - rect.x], ['right', rect.x + rect.width - x],
-    ['top', y - rect.y], ['bottom', rect.y + rect.height - y]
-  ]
-  edges.sort((a, b) => a[1] - b[1])
-  return edges[0][1] <= zone ? edges[0][0] : null
+// Whole-group drops use VS Code's default side-by-side bias and a neutral center.
+export function groupDockEdge(x: number, y: number): Edge | null {
+  if (x > 0.3 && x < 0.7 && y > 0.1 && y < 0.9) return null
+  if (x < 1 / 3) return 'left'
+  if (x > 2 / 3) return 'right'
+  return y < 0.5 ? 'top' : 'bottom'
 }
 
-// Prefer workspace edges. Exclude a moving pane, but allow a tab to split its own group.
-export function dockingTargetAt(layout: Layout, bounds: Rect, x: number, y: number, excludedPaneId?: string): DockTarget | null {
-  const workspaceEdge = edgeAt(bounds, x, y, Math.min(72, bounds.width / 4, bounds.height / 4))
-  if (workspaceEdge) return { paneId: null, edge: workspaceEdge }
-  for (const [paneId, rect] of paneRects(layout, bounds)) {
-    if (paneId === excludedPaneId) continue
-    const edge = edgeAt(rect, x, y, Math.min(96, rect.width / 3, rect.height / 3))
-    if (edge) return { paneId, edge }
-  }
-  return null
+// Outside the tab insertion band, a tab can split along any side of the pane.
+export function tabDockEdge(x: number, y: number): Edge {
+  const edges: [Edge, number][] = [['left', x], ['right', 1 - x], ['top', y], ['bottom', 1 - y]]
+  return edges.reduce((nearest, edge) => edge[1] < nearest[1] ? edge : nearest)[0]
 }
 
-// Tab bodies have no neutral center. Relative distances give all four sides
-// generous targets even in very wide or tall groups; outer edges still wrap the region.
-export function tabDockingTargetAt(layout: Layout, bounds: Rect, x: number, y: number): DockTarget | null {
-  const regionEdge = edgeAt(bounds, x, y, Math.min(72, bounds.width / 4, bounds.height / 4))
-  if (regionEdge) return { paneId: null, edge: regionEdge }
-  for (const [paneId, rect] of paneRects(layout, bounds)) {
-    if (x < rect.x || x > rect.x + rect.width || y < rect.y || y > rect.y + rect.height) continue
-    const edges: [Edge, number][] = [
-      ['left', (x - rect.x) / rect.width], ['right', (rect.x + rect.width - x) / rect.width],
-      ['top', (y - rect.y) / rect.height], ['bottom', (rect.y + rect.height - y) / rect.height]
-    ]
-    edges.sort((a, b) => a[1] - b[1])
-    return { paneId, edge: edges[0][0] }
-  }
-  return null
-}
-
-// Preview the final placement only when all panes fit, for both pane and tab docking.
-export function dockingPreview(layout: Layout, id: string, target: DockTarget, bounds: Rect) {
+// Reject docking when the resulting panes cannot all fit.
+export function layoutFits(layout: Layout, bounds: Pick<Rect, 'width' | 'height'>): boolean {
   const minimum = minimumSize(layout)
-  if (bounds.width < minimum.width || bounds.height < minimum.height) return null
-  return { layout, target, preview: paneRects(layout, bounds).get(id)! }
-}
-
-// Simulate a whole-pane move using the same targeting and sizing rules as tab splits.
-export function dockingAt(layout: Layout, id: string, bounds: Rect, x: number, y: number) {
-  const target = dockingTargetAt(layout, bounds, x, y, id)
-  if (!target) return null
-  const next = dockPane(layout, id, target)
-  return next === layout ? null : dockingPreview(next, id, target, bounds)
+  return bounds.width >= minimum.width && bounds.height >= minimum.height
 }

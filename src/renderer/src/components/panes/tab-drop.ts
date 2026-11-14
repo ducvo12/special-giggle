@@ -1,11 +1,10 @@
-import { moveTab, type Layout, type Rect } from './layout'
+import { moveTab, type DockTarget, type Layout, type Rect } from './layout'
 
 export const tabDropMargin = 30
 
 export interface DropPreview {
   layout: Layout
-  preview?: Rect
-  label?: string
+  target?: DockTarget
   marker?: Rect
 }
 
