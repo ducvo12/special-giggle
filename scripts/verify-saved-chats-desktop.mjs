@@ -43,6 +43,12 @@ const provider = createServer(async (request, response) => {
     streamEvent(response, { content: 'Reply in the new General chat' })
     return
   }
+  if (prompt === 'Start a Closed section chat') {
+    streamEvent(response, { content: 'Reply in the Closed section chat' })
+    streamEvent(response, {}, 'stop')
+    response.end('data: [DONE]\n\n')
+    return
+  }
   if (prompt === 'Ask me a question') {
     streamEvent(response, { tool_calls: [{
       index: 0, id: 'workspace-question', type: 'function',
@@ -744,6 +750,18 @@ try {
     assert.deepEqual(messages.map(message => message.content), ['Hold for steering', 'Steer the active reply'])
     assert.ok(messages.every(message => message.runId === beforeSteering.id))
     console.log('Workspace order, widths, splits, and saved tabs survived restart. Deleted tabs and malformed snapshots recovered.')
+
+    await click('New chat in Planning')
+    assert.match(await header(), /Archive \/ Planning.*New chat/)
+    await fill(composer, 'Start a Closed section chat', 'textarea')
+    await click('Send message')
+    await wait(() => transcriptContains('Reply in the Closed section chat'), 'Closed section chat receives a reply')
+    const closedChat = (await savedChats()).find(chat => chat.title === 'Start a Closed section chat')
+    const closedSection = organization.value.sections.find(section => section.name === 'Planning')
+    assert.equal(closedSection.mode, 'closed')
+    assert.equal(closedChat.sectionId, closedSection.id)
+    assert.equal(closedChat.projectId, null)
+    console.log('A chat created directly in a Closed section was saved there and received a reply.')
   } finally {
     await desktop.quit()
   }

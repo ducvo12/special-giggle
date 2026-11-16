@@ -303,6 +303,7 @@ try {
   await wait(() => evaluate(`document.querySelector('.agent-dropdown-trigger')?.dataset.agentId === ${JSON.stringify(seeded.agent.id)} && !document.querySelector('.agent-dropdown-trigger').disabled`), 'agent switched')
   await click('Settings')
   await wait(() => evaluate('Boolean(document.querySelector(".settings-main"))'), 'settings reachable')
+  await click('Back to workspace')
   await click('New chat')
   await selectLocation('Planning')
 
@@ -320,8 +321,6 @@ try {
     await writeFile(screenshot.replace(/\.png$/, '-editor.png'), Buffer.from(narrow.data, 'base64'))
     await click('Cancel')
   }
-  await selectLocation('Private')
-  assert.equal(await evaluate('document.querySelector(".composer textarea").disabled'), true)
   await click('New chat')
   assert.deepEqual(await breadcrumb(), ['General', 'New chat'])
   assert.equal((await chats()).length, 3)
