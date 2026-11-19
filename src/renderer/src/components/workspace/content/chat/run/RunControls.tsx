@@ -1,5 +1,5 @@
 import PromptChoices from './PromptChoices'
-import { isLiveRun, type RunSnapshot } from '../../../../../../../shared/run'
+import type { RunSnapshot } from '../../../../../../../shared/run'
 import type { AgentMessage } from '../../../../../../../shared/agent'
 
 export function runLabel(run: RunSnapshot) {
@@ -17,16 +17,16 @@ export default function RunControls({ run, messages, disabled, onContinue, onRun
   onRunPending: () => Promise<void>
   onCancelPending: () => Promise<void>
 }) {
-  const live = run && isLiveRun(run)
-  const pending = !live && messages.some(message => message.delivery === 'pending')
-  const interrupted = !live && [...messages].reverse().find(message => message.role === 'assistant')?.interrupted
-  if (!live && !pending && !interrupted) return null
-  return <div className={`run-status-bar${!live ? ' run-status-prompt' : ''}`} role="status" aria-live="polite">
+  // Rendered only while no run is live, so these prompts restart settled work.
+  const pending = messages.some(message => message.delivery === 'pending')
+  const interrupted = [...messages].reverse().find(message => message.role === 'assistant')?.interrupted
+  if (!pending && !interrupted) return null
+  return <div className="run-status-bar run-status-prompt" role="status" aria-live="polite">
     <span>{run ? runLabel(run) : pending ? 'Messages pending' : 'Reply interrupted'}{run?.error && <span role="alert"> · {run.error}</span>}{pending ? ' · messages awaiting an explicit restart' : ''}</span>
-    {!live && <div className="run-status-actions">
+    <div className="run-status-actions">
       <PromptChoices key={pending ? 'pending' : 'interrupted'} label={pending ? 'Pending messages' : 'Interrupted reply'} autoFocus={false} disabled={disabled}
         options={pending ? ['Run pending messages', 'Reject'] : ['Continue']}
         onChoose={index => { void (pending ? index === 0 ? onRunPending() : onCancelPending() : onContinue()) }} />
-    </div>}
+    </div>
   </div>
 }

@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { RepositoryReport, RepositoryCommandSnapshot } from '../src/shared/repository.ts'
-import { activePreviews, activitySummary } from '../src/renderer/src/components/workspace/content/chat/activity/activity-summary.ts'
+import { activitySummary } from '../src/renderer/src/components/workspace/content/chat/activity/activity-summary.ts'
 
 function report(runId: string, added: number, state: RepositoryReport['state'] = 'settled'): RepositoryReport {
   return { runId, projectId: 'project', name: 'Project', state, preExisting: 0,
@@ -34,12 +34,7 @@ test('active terminals stay visible even when newer commands complete', () => {
   assert.equal(summary.active[0].runId, 'older')
 })
 
-test('inactive terminal processes and apps are excluded', () => {
+test('inactive terminal processes are excluded', () => {
   const item = { ...report('run', 0), commands: [command('done', 'complete'), command('failed', 'failed'), command('stopped', 'stopped')] }
   assert.deepEqual(activitySummary([item]).active, [])
-  const previews = (['starting', 'ready', 'failed', 'stopped', 'interrupted'] as const).map(status => ({
-    id: status, agentId: 'agent', conversationId: 'chat', projectId: 'project', runId: 'run', command: 'npm run dev',
-    cwd: '/', port: 3000, url: 'http://localhost:3000', status, revision: '', capturedAt: 0, stale: false, output: ''
-  }))
-  assert.deepEqual(activePreviews(previews).map(item => item.id), ['starting', 'ready'])
 })

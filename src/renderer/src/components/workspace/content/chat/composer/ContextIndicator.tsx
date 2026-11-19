@@ -2,12 +2,11 @@ import { contextDisplay } from './context-display'
 import { useId, useRef, useState } from 'react'
 import type { ContextUsage } from '../../../../../../../shared/chat'
 
-export default function ContextIndicator({ usage, limit, maxOutput, busy, loading, hasResponse, status }: {
+export default function ContextIndicator({ usage, limit, maxOutput, loading, hasResponse, status }: {
   status?: import('../../../../../../../shared/context').ContextStatus
   usage?: ContextUsage
   limit?: number
   maxOutput?: number
-  busy: boolean
   loading: boolean
   hasResponse: boolean
 }) {
@@ -21,7 +20,7 @@ export default function ContextIndicator({ usage, limit, maxOutput, busy, loadin
     const width = Math.min(300, window.innerWidth - 60)
     setPosition({ left: Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8)), bottom: window.innerHeight - rect.top + 8 })
   }
-  const display = contextDisplay({ usage, limit, maxOutput, busy, loading, hasResponse })
+  const display = contextDisplay({ usage, limit, maxOutput, loading, hasResponse })
   const { percentage } = display
   return (
     <div onMouseEnter={placeTooltip} onFocus={placeTooltip} className={`context-indicator ${open ? 'open' : ''}`} onKeyDown={event => {

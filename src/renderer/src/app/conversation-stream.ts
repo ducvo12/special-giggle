@@ -1,35 +1,19 @@
 import type { AgentMessage } from '../../../shared/agent'
 import type { StreamDelta } from '../../../shared/chat'
 
-// The running reply owns its messages independently of the visible chat.
-export class ConversationStream {
-  requestId: string
-  owner: string
-  conversationId: string
-  messages: AgentMessage[]
+// Apply one streamed delta to the running reply it belongs to. Returns the same
+// array when no running reply matches, so stale requests cannot modify history.
+export function applyStreamDelta(messages: AgentMessage[], delta: StreamDelta): AgentMessage[] {
+  const reply = [...messages].reverse().find(message => message.role === 'assistant' && message.status === 'running' &&
+    (message.runId === delta.requestId || message.id === delta.requestId))
+  if (!reply) return messages
 
-  constructor(requestId: string, owner: string, conversationId: string, messages: AgentMessage[]) {
-    this.requestId = requestId
-    this.owner = owner
-    this.conversationId = conversationId
-    this.messages = messages
-  }
-
-  matches(owner: string, conversationId: string) {
-    return this.owner === owner && this.conversationId === conversationId
-  }
-
-  apply(delta: StreamDelta) {
-    if (delta.requestId !== this.requestId) return
-    const reply = [...this.messages].reverse().find(message => message.role === 'assistant' && message.status === 'running' &&
-      (message.runId === this.requestId || message.id === this.requestId))
-    this.messages = this.messages.map(message => {
-      if (message.id !== reply?.id || message.role !== 'assistant') return message
-      const tools = delta.tool
-        ? [...(message.tools ?? []).filter(tool => tool.id !== delta.tool!.id), delta.tool]
-        : message.tools
-      return { ...message, content: message.content + delta.text, tools,
-        ...(delta.contextUsage ? { contextUsage: delta.contextUsage } : {}) }
-    })
-  }
+  return messages.map(message => {
+    if (message !== reply || message.role !== 'assistant') return message
+    const tools = delta.tool
+      ? [...(message.tools ?? []).filter(tool => tool.id !== delta.tool!.id), delta.tool]
+      : message.tools
+    return { ...message, content: message.content + delta.text, tools,
+      ...(delta.contextUsage ? { contextUsage: delta.contextUsage } : {}) }
+  })
 }

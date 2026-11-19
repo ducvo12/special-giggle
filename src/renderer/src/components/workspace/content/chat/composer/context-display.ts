@@ -7,7 +7,6 @@ type ContextDisplayOptions = {
   maxOutput?: number
   loading: boolean
   hasResponse: boolean
-  busy: boolean
 }
 
 export function contextDisplay({ usage, limit, maxOutput, loading, hasResponse }: ContextDisplayOptions) {

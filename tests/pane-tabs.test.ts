@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { addTab, closeTab, selectTab } from '../src/renderer/src/components/workspace/layout/tabs.ts'
-import { addPane, createPane, findPane, moveTab, dockPane, dockTab, layoutFits, paneRects, removePane, updatePane } from '../src/renderer/src/components/workspace/layout/layout.ts'
+import { createPane, findPane, moveTab, dockPane, dockTab, layoutFits, paneRects, removePane, updatePane } from '../src/renderer/src/components/workspace/layout/layout.ts'
 
 import { initialLayout } from './fixtures/panes.ts'
+
 
 test('panes start with one selected tab, and adding selects a uniquely numbered tab', () => {
   const initial = createPane('test', 'Test')
@@ -53,26 +54,22 @@ test('pane families accept their own tab kinds and reject incompatible additions
   const explorer = createPane('nav', 'Explorer', 'explorer')
   assert.equal(explorer.tabs[0].type, 'agent')
   assert.equal(addTab(explorer).tabs[1].title, 'Agent 2')
-  for (const type of ['chat', 'image', 'file'] as const) {
+  for (const type of ['chat', 'file'] as const) {
     assert.equal(addTab(explorer, type), explorer)
   }
   const content = createPane('content', 'Content', 'content')
   assert.equal(content.tabs[0].type, 'chat')
   assert.equal(addTab(content, 'agent'), content)
-  const mixed = addTab(addTab(content, 'image'), 'file')
-  assert.deepEqual(mixed.tabs.map(tab => tab.type), ['chat', 'image', 'file'])
-  assert.equal(mixed.tabs[2].title, 'File 3')
-  assert.equal(mixed.activeTabId, mixed.tabs[2].id)
+  const mixed = addTab(content, 'file')
+  assert.deepEqual(mixed.tabs.map(tab => tab.type), ['chat', 'file'])
+  assert.equal(mixed.tabs[1].title, 'File 2')
+  assert.equal(mixed.activeTabId, mixed.tabs[1].id)
 })
 
-test('Explorer accepts multiple groups while each region rejects a different family', () => {
+test('Explorer groups dock without changing their family or tabs', () => {
   const first = createPane('first', 'First', 'explorer')
   const second = createPane('second', 'Second', 'explorer')
-  const bounds = { x: 0, y: 0, width: 1000, height: 700 }
-  const layout = addPane(first, second, bounds)!
-  assert.equal(paneRects(layout, bounds).size, 2)
-  assert.equal(addPane(layout, createPane('chat', 'Chat'), bounds), layout)
-  assert.equal(addPane(initialLayout, second, bounds), initialLayout)
+  const layout = { kind: 'split', axis: 'horizontal', ratio: 0.5, first, second } as const
   const moved = dockPane(layout, first.id, { paneId: second.id, edge: 'bottom' })
   assert.equal(findPane(moved, first.id)!.paneType, 'explorer')
   assert.equal(findPane(moved, second.id), second)
@@ -80,7 +77,7 @@ test('Explorer accepts multiple groups while each region rejects a different fam
 })
 
 test('tab transfer preserves identity, selects the destination, and settles source selection', () => {
-  const source = addTab(createPane('source', 'Source'), 'image')
+  const source = addTab(createPane('source', 'Source'), 'file')
   const target = createPane('target', 'Target')
   const layout = { kind: 'split', axis: 'horizontal', ratio: 0.6, first: source, second: target } as const
   const moved = moveTab(layout, source.id, source.activeTabId, target.id, 0)

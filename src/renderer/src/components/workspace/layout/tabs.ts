@@ -12,7 +12,6 @@ export type Tab = { id: string; title: string } & (
   | { type: 'agent'; agentId?: string }
   | { type: 'chat'; conversation?: ChatDestination }
   | { type: 'file'; file?: FileDestination }
-  | { type: 'image' }
 )
 
 export type NewTab =

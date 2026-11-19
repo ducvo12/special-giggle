@@ -1,5 +1,5 @@
 interface HeaderProps {
-  onOpenSettings?: () => void
+  onOpenSettings: () => void
 }
 
 export default function Header({ onOpenSettings }: HeaderProps) {

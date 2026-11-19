@@ -187,40 +187,6 @@ export function isPaneType(layout: Layout, type: PaneType): boolean {
   return isPaneType(layout.first, type) && isPaneType(layout.second, type);
 }
 
-// Split the largest pane that has room, preferring its longer dimension.
-// Return the unchanged tree when full; an empty workspace becomes one pane.
-export function addPane(
-  layout: Layout | null,
-  pane: Extract<Layout, { kind: "pane" }>,
-  bounds: Rect,
-): Layout | null {
-  if (layout && !isPaneType(layout, pane.paneType)) return layout;
-  if (!layout)
-    return bounds.width >= minimumPaneSize.width &&
-      bounds.height >= minimumPaneSize.height
-      ? pane
-      : null;
-  const candidates = [...paneRects(layout, bounds)].sort(
-    (a, b) => b[1].width * b[1].height - a[1].width * a[1].height,
-  );
-  for (const [id, rect] of candidates) {
-    const edges: Edge[] =
-      rect.width >= rect.height ? ["right", "bottom"] : ["bottom", "right"];
-    for (const edge of edges) {
-      const horizontal = edge === "right";
-      if (horizontal && rect.width < minimumPaneSize.width * 2 + splitDragGap)
-        continue;
-      if (
-        !horizontal &&
-        rect.height < minimumPaneSize.height * 2 + splitDragGap
-      )
-        continue;
-      return insertPane(layout, pane, { paneId: id, edge });
-    }
-  }
-  return layout;
-}
-
 export type SplitPath = ("first" | "second")[];
 type Split = Extract<Layout, { kind: "split" }>;
 
@@ -274,7 +240,7 @@ export function resizeSplit(
   };
 }
 
-// Use the expanded split geometry for docking and for checking room for new groups.
+// Model the rendered split geometry, including minimum-size clamping.
 export function paneRects(layout: Layout, bounds: Rect): Map<string, Rect> {
   const result = new Map<string, Rect>();
   // Divide each split's rectangle until every pane has its own bounds.

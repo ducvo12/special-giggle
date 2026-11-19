@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { contextDisplay, latestContextResponse } from '../src/renderer/src/components/workspace/content/chat/composer/context-display.ts'
 
-const base = { loading: false, hasResponse: false, busy: false }
+const base = { loading: false, hasResponse: false }
 const rows = ['used', 'limit', 'input', 'output', 'cached', 'reasoning', 'maxOutput'] as const
 
 test('new chat shows dots while loading and zero usage once the window is known', () => {
@@ -19,7 +19,7 @@ test('a completed response without usage clears usage fields but preserves the l
   for (const row of rows.filter(row => row !== 'limit')) assert.equal(missing[row], '—')
   assert.equal(missing.limit, '100,000')
   assert.equal(missing.percentage, undefined)
-  const pending = contextDisplay({ ...base, hasResponse: true, busy: true, limit: 100000 })
+  const pending = contextDisplay({ ...base, hasResponse: true, limit: 100000 })
   for (const row of rows.filter(row => row !== 'limit')) assert.equal(pending[row], '—')
   assert.equal(pending.limit, '100,000')
 })
@@ -51,9 +51,9 @@ test('streaming a follow-up preserves the previous completed usage until complet
 
 test('loading a new reply keeps numbers and an unused ready chat stays zero during its first reply', () => {
   const before = contextDisplay({ ...base, hasResponse: true, limit: 1000, usage: { inputTokens: 400, outputTokens: 100, totalTokens: 500 } })
-  const during = contextDisplay({ ...base, hasResponse: true, busy: true, loading: true, limit: 1000, usage: { inputTokens: 400, outputTokens: 100, totalTokens: 500 } })
+  const during = contextDisplay({ ...base, hasResponse: true, loading: true, limit: 1000, usage: { inputTokens: 400, outputTokens: 100, totalTokens: 500 } })
   assert.deepEqual(during, before)
-  const firstReply = contextDisplay({ ...base, busy: true, limit: 1000 })
+  const firstReply = contextDisplay({ ...base, limit: 1000 })
   assert.equal(firstReply.used, '0')
   assert.equal(firstReply.limit, '1,000')
 })

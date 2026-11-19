@@ -1,13 +1,13 @@
 export type PaneType = 'explorer' | 'content'
-export type TabType = 'agent' | 'chat' | 'image' | 'file'
+export type TabType = 'agent' | 'chat' | 'file'
 
 export const tabLabels: Record<TabType, string> = {
-  agent: 'Agent', chat: 'Chat', image: 'Image', file: 'File'
+  agent: 'Agent', chat: 'Chat', file: 'File'
 }
 
 export const paneTypes: Record<PaneType, { label: string; tabs: readonly [TabType, ...TabType[]] }> = {
   explorer: { label: 'Explorer', tabs: ['agent'] },
-  content: { label: 'Content', tabs: ['chat', 'image', 'file'] }
+  content: { label: 'Content', tabs: ['chat', 'file'] }
 }
 
 // Tab creation and transfers share one compatibility rule.

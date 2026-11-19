@@ -1,5 +1,4 @@
 import type { RepositoryReport } from '../../../../../../../shared/repository.ts'
-import type { PreviewSnapshot } from '../../../../../../../shared/setup.ts'
 import type { RunSnapshot } from '../../../../../../../shared/run.ts'
 
 export function activitySummary(reports: RepositoryReport[], run?: RunSnapshot) {
@@ -12,6 +11,3 @@ export function activitySummary(reports: RepositoryReport[], run?: RunSnapshot) 
   return { latest, visible, added, removed, active }
 }
 
-export function activePreviews(previews: PreviewSnapshot[]) {
-  return previews.filter(preview => preview.status === 'starting' || preview.status === 'ready')
-}

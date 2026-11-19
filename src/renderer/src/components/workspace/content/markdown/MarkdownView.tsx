@@ -10,32 +10,23 @@ export interface FileDraft {
   error?: string
 }
 
+// The draft lives outside the view so it survives tab switches and pane moves.
 interface MarkdownViewProps {
   agent: Agent
   path: string
-  busy?: boolean
-  onDirty?: (value: boolean) => void
-  onSaved?: () => void
-  edit?: { draft: FileDraft | undefined; setDraft: (draft: FileDraft | undefined) => void }
+  draft: FileDraft | undefined
+  setDraft: (draft: FileDraft | undefined) => void
 }
 
-export default function MarkdownView({ agent, path, busy, onDirty, onSaved, edit }: MarkdownViewProps) {
+export default function MarkdownView({ agent, path, draft, setDraft }: MarkdownViewProps) {
   const [original, setOriginal] = useState('')
-  const [localDraft, setLocalDraft] = useState<FileDraft>()
   const [loading, setLoading] = useState(true)
   const [readError, setReadError] = useState('')
   const [revision, setRevision] = useState(0)
-  const draft = edit ? edit.draft : localDraft
-  const setDraft = edit ? edit.setDraft : setLocalDraft
   const editing = Boolean(draft)
   const dirty = Boolean(draft && draft.text !== draft.original)
   const saving = Boolean(draft?.saving)
   const error = draft ? draft.error : readError
-
-  useEffect(() => {
-    onDirty?.(dirty || saving)
-    return () => onDirty?.(false)
-  }, [dirty, saving, onDirty])
 
   useEffect(() => {
     if (editing) return
@@ -58,7 +49,7 @@ export default function MarkdownView({ agent, path, busy, onDirty, onSaved, edit
   }, [agent.id, path, revision, editing])
 
   async function save() {
-    if (!draft || busy || saving || !dirty) return
+    if (!draft || saving || !dirty) return
     setDraft({ ...draft, saving: true, error: undefined })
     try {
       const result = await window.granite.workspace.save(agent.id, path, draft.text, draft.original)
@@ -68,7 +59,6 @@ export default function MarkdownView({ agent, path, busy, onDirty, onSaved, edit
       }
       setOriginal(result.value)
       setDraft(undefined)
-      onSaved?.()
     } catch {
       setDraft({ ...draft, saving: false, error: 'Could not save this file. Your draft is still here.' })
     }
@@ -86,14 +76,14 @@ export default function MarkdownView({ agent, path, busy, onDirty, onSaved, edit
             <>
               <button className="quiet-button" disabled={saving} onClick={() => setDraft(undefined)}>Cancel</button>
 
-              <button disabled={busy || saving || !dirty} onClick={() => void save()}>{saving ? 'Saving…' : 'Save'}</button>
+              <button disabled={saving || !dirty} onClick={() => void save()}>{saving ? 'Saving…' : 'Save'}</button>
             </>
           ) : (
             <>
               <button className="quiet-button" disabled={loading} onClick={() => setRevision(value => value + 1)}>Refresh</button>
 
               {isWorkspaceMarkdown(path) && (
-                <button className="quiet-button" disabled={busy || loading || Boolean(error)}
+                <button className="quiet-button" disabled={loading || Boolean(error)}
                   onClick={() => setDraft({ original, text: original })}>Edit</button>
               )}
             </>

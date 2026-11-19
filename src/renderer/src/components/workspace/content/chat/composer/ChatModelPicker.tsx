@@ -87,11 +87,9 @@ export default function ChatModelPicker({
           {open && !disabled && (
             <div id={popupId} role="dialog" aria-label="Model and reasoning" className="effort-popup">
               {supported && (
-                <>
-                  <div className="effort-heading">
-                    <strong>{effortLabel(currentEffort)}</strong>
-                  </div>
-                </>
+                <div className="effort-heading">
+                  <strong>{effortLabel(currentEffort)}</strong>
+                </div>
               )}
               {connection.provider === 'chatgpt' && (
                 <DropdownMenu
@@ -108,26 +106,23 @@ export default function ChatModelPicker({
               )}
               {connection.provider !== 'chatgpt' && <div className="effort-model-caption">{modelName}</div>}
               {supported && (
-                <>
-                  <div className="effort-slider-track">
-                    <div className="effort-slider-dots" aria-hidden="true">
-                      {levels.map(level => <span key={level.effort} />)}
-                    </div>
-                    <input
-                      ref={slider}
-                      type="range"
-                      aria-label="Reasoning effort"
-                      aria-valuetext={effortLabel(currentEffort)}
-                      min={0}
-                      max={Math.max(0, levels.length - 1)}
-                      step={1}
-                      value={Math.max(0, index)}
-                      disabled={levels.length < 2}
-                      onChange={event => selection.selectEffort(levels[Number(event.target.value)].effort)}
-                    />
+                <div className="effort-slider-track">
+                  <div className="effort-slider-dots" aria-hidden="true">
+                    {levels.map(level => <span key={level.effort} />)}
                   </div>
-
-                </>
+                  <input
+                    ref={slider}
+                    type="range"
+                    aria-label="Reasoning effort"
+                    aria-valuetext={effortLabel(currentEffort)}
+                    min={0}
+                    max={Math.max(0, levels.length - 1)}
+                    step={1}
+                    value={Math.max(0, index)}
+                    disabled={levels.length < 2}
+                    onChange={event => selection.selectEffort(levels[Number(event.target.value)].effort)}
+                  />
+                </div>
               )}
             </div>
           )}

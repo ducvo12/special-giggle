@@ -5,7 +5,7 @@ import type { Result, SavedConnection } from '../../../shared/chat'
 import type { ConversationLocation } from '../../../shared/organization'
 import type { ApprovalRequest } from '../../../shared/harness'
 import { isLiveRun, type RunIntent, type RunSnapshot } from '../../../shared/run'
-import { ConversationStream } from './conversation-stream'
+import { applyStreamDelta } from './conversation-stream'
 
 export interface ChatIdentity {
   agentId: string
@@ -88,9 +88,7 @@ export function useWorkspaceChats() {
         const existing = chat.messages ?? (chat.result?.ok ? chat.result.value.messages : [])
         let messages = delta.messages ?? chat.messages
         if (!delta.messages && (delta.text || delta.tool || delta.contextUsage)) {
-          const stream = new ConversationStream(delta.requestId, owner.agentId, owner.conversationId, existing)
-          stream.apply(delta)
-          messages = stream.messages
+          messages = applyStreamDelta(existing, delta)
         }
 
         let approval: ApprovalRequest | null = null

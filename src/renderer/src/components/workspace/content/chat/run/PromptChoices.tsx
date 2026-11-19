@@ -1,18 +1,14 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 
-export default function PromptChoices({ options, label, disabled = false, disabledIndices = [], autoFocus = true, onChoose, custom }: {
+export default function PromptChoices({ options, label, disabled = false, autoFocus = true, onChoose, custom }: {
   options: string[]; label: string; disabled?: boolean; autoFocus?: boolean
-  disabledIndices?: number[]
   onChoose: (index: number) => void
   custom?: { value: string; optional?: boolean; onChange: (value: string) => void; onSubmit: () => void }
 }) {
   const id = useId()
   const list = useRef<HTMLOListElement>(null)
   const input = useRef<HTMLInputElement>(null)
-  const [active, setActive] = useState(() => {
-    const first = options.findIndex((_, index) => !disabledIndices.includes(index))
-    return first < 0 ? options.length : first
-  })
+  const [active, setActive] = useState(0)
   const [keyboard, setKeyboard] = useState(true)
   const count = options.length + Number(Boolean(custom))
   useEffect(() => {
@@ -35,21 +31,19 @@ export default function PromptChoices({ options, label, disabled = false, disabl
     else if (!editing && event.key === 'End') next = count - 1
     if (next !== undefined) {
       event.preventDefault()
-      const direction = event.key === 'ArrowUp' || event.key === 'End' ? -1 : 1
-      for (let tries = 0; tries < count && disabledIndices.includes(next); tries++) next = (next + direction + count) % count
-      if (!disabledIndices.includes(next)) activate(next)
+      activate(next)
     }
     else if (event.key === 'Enter' && (event.target === list.current || editing)) {
       event.preventDefault()
       if (custom && active === options.length) custom.onSubmit()
-      else if (!disabledIndices.includes(active)) onChoose(active)
+      else onChoose(active)
     }
   }
   return <ol ref={list} className="prompt-choices" role="listbox" aria-label={label}
     aria-disabled={disabled} aria-activedescendant={`${id}-${active}`} tabIndex={disabled ? -1 : 0} onKeyDown={navigate}>
     {options.map((option, index) => <li key={`${index}:${option}`} id={`${id}-${index}`} role="option"
-      aria-selected={keyboard && active === index} aria-disabled={disabled || disabledIndices.includes(index)} className={keyboard && active === index ? 'is-highlighted' : ''}>
-      <button type="button" tabIndex={-1} disabled={disabled || disabledIndices.includes(index)} onMouseDown={event => event.preventDefault()} onClick={() => onChoose(index)}>
+      aria-selected={keyboard && active === index} aria-disabled={disabled} className={keyboard && active === index ? 'is-highlighted' : ''}>
+      <button type="button" tabIndex={-1} disabled={disabled} onMouseDown={event => event.preventDefault()} onClick={() => onChoose(index)}>
         <span className="prompt-choice-number">{index + 1}.</span><span>{option}</span>
       </button>
     </li>)}

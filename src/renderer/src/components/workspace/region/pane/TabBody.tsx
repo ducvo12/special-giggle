@@ -79,10 +79,8 @@ export default function TabBody({ tab }: { tab: Tab }) {
       <MarkdownView
         agent={agent}
         path={file.path}
-        edit={{
-          draft: fileDrafts.get(tab.id),
-          setDraft: (draft) => updateFileDraft(tab.id, draft),
-        }}
+        draft={fileDrafts.get(tab.id)}
+        setDraft={(draft) => updateFileDraft(tab.id, draft)}
       />
     );
     //
@@ -146,9 +144,5 @@ export default function TabBody({ tab }: { tab: Tab }) {
         savePosition={(position) => positions.current.set(tab.id, position)}
       />
     );
-    //
-  } else {
-    // The image tab type is reserved for a future standalone image view.
-    return null;
   }
 }

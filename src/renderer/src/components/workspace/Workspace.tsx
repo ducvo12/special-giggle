@@ -10,7 +10,6 @@ import {
   type KeyboardEvent,
   type PointerEvent,
   type ReactNode,
-  type RefObject,
 } from "react";
 import { flushSync } from "react-dom";
 import WorkspaceRegion, {
@@ -45,10 +44,7 @@ import {
 } from "./layout/regions";
 import { runScopedTransition } from "./layout/transition";
 
-export type LayoutUpdate = (
-  current: RegionLayout,
-  nextPane: Pick<PaneNode, "id" | "title">,
-) => RegionLayout;
+export type LayoutUpdate = (current: RegionLayout) => RegionLayout;
 
 interface WorkspaceProps {
   layout: RegionLayout;
@@ -57,7 +53,6 @@ interface WorkspaceProps {
   onLayoutChange: (layout: LayoutUpdate) => void;
   onBoundsChange: (bounds: Rect) => void;
   newPane: Pick<PaneNode, "id" | "title">;
-  workspaceRef: RefObject<HTMLElement | null>;
 }
 
 interface Point {
@@ -133,8 +128,8 @@ export default function Workspace({
   onLayoutChange,
   onBoundsChange,
   newPane,
-  workspaceRef: workspace,
 }: WorkspaceProps) {
+  const workspace = useRef<HTMLElement>(null);
   const [resize, setResize] = useState<Resize | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   const [separated, setSeparated] = useState(false);

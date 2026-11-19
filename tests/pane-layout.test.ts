@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { addPane, createPane, removePane, dockPane, groupDockEdge, tabDockEdge, paneRects, resizeSplit, type Layout } from '../src/renderer/src/components/workspace/layout/layout.ts'
+import { createPane, removePane, dockPane, groupDockEdge, tabDockEdge, paneRects, resizeSplit, type Layout } from '../src/renderer/src/components/workspace/layout/layout.ts'
 
 import { initialLayout } from './fixtures/panes.ts'
 
@@ -100,26 +100,6 @@ test('window resizing preserves preferred proportions and restores them after mi
   assert.equal(paneRects(layout, bounds).get('pane-1')!.width, 741)
 })
 
-
-test('adding panes creates nested layouts without changing existing pane identities', () => {
-  const third: Layout = createPane('pane-3', 'Pane 3')
-  const fourth: Layout = createPane('pane-4', 'Pane 4')
-  const three = addPane(initialLayout, third, bounds)!
-  const four = addPane(three, fourth, bounds)!
-  assert.deepEqual(ids(four), ['pane-1', 'pane-2', 'pane-3', 'pane-4'])
-  for (const rect of paneRects(four, bounds).values()) {
-    assert.ok(rect.width >= 200 && rect.height >= 140)
-  }
-  assert.deepEqual(ids(initialLayout), ['pane-1', 'pane-2'])
-})
-
-test('creation refuses layouts without room and can restore an empty workspace', () => {
-  const pane: Layout = createPane('new', 'New')
-  const small = { x: 0, y: 0, width: 200, height: 140 }
-  assert.equal(addPane(null, pane, small), pane)
-  assert.equal(addPane(null, pane, { ...small, width: 199 }), null)
-  assert.equal(addPane(pane, createPane('other', 'Other'), small), pane)
-})
 
 test('closing panes collapses their split, preserves other proportions, and permits an empty tree', () => {
   const nested: Layout = {

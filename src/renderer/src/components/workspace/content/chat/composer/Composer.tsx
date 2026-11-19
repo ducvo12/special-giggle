@@ -136,7 +136,6 @@ export default function Composer({
             hasResponse={Boolean(contextResponse)}
             limit={modelSelection.contextWindow}
             maxOutput={modelSelection.maxOutputTokens}
-            busy={busy}
           />
           {connections.length ? (
             <ChatModelPicker
@@ -157,7 +156,7 @@ export default function Composer({
             </button>
           )}
 
-          {busy ? (
+          {busy && (
             <button
               type="button"
               className="stop-button"
@@ -166,20 +165,19 @@ export default function Composer({
             >
               ■ {stopping ? 'Stopping…' : run?.startedAt === null ? 'Cancel queued' : 'Stop'}
             </button>
-          ) : null}
-          {(
-            <button
-              type="submit"
-              className="send-button"
-              aria-label={busy ? 'Send update' : 'Send message'}
-              title={busy ? 'Send a message to steer this run' : 'Send message'}
-              disabled={attachmentDisabled || (!draft.trim() && !attachments.length)}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M12 19V5m-6 6 6-6 6 6" />
-              </svg>
-            </button>
           )}
+
+          <button
+            type="submit"
+            className="send-button"
+            aria-label={busy ? 'Send update' : 'Send message'}
+            title={busy ? 'Send a message to steer this run' : 'Send message'}
+            disabled={attachmentDisabled || (!draft.trim() && !attachments.length)}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 19V5m-6 6 6-6 6 6" />
+            </svg>
+          </button>
         </div>
       </div>
     </form>

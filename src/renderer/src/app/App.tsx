@@ -107,7 +107,6 @@ export default function WorkspaceApp() {
     height: 0,
   });
   const [windowError, setWindowError] = useState("");
-  const workspace = useRef<HTMLElement>(null);
   const positions = useRef(new Map<string, ReadingPosition>());
   const [fileDrafts, setFileDrafts] = useState(new Map<string, FileDraft>());
   const focusedChat = useRef<string | undefined>(undefined);
@@ -315,7 +314,7 @@ export default function WorkspaceApp() {
 
   function changeLayout(update: LayoutUpdate) {
     setState((current) =>
-      withLayout(current, update(current.layout, nextGroup(current))),
+      withLayout(current, update(current.layout)),
     );
   }
 
@@ -535,7 +534,6 @@ export default function WorkspaceApp() {
           onLayoutChange={changeLayout}
           onBoundsChange={setBounds}
           newPane={nextGroup(state)}
-          workspaceRef={workspace}
         />
       </TabBodyContext>
 

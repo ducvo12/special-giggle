@@ -186,8 +186,6 @@ export default function ChatView({
 
         {/* The user input area as a whole */}
         <div className="composer-area">
-          {/* */}
-
           {!busy && (
             <RunControls
               run={run}
